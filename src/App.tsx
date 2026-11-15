@@ -685,7 +685,7 @@ export default function App() {
       chatAbortsRef.current.get(ch)?.abort();
       const controller = new AbortController();
       chatAbortsRef.current.set(ch, controller);
-      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+      const timeoutId = window.setTimeout(() => controller.abort(), 300_000);
 
       setChannelThinking(ch, true);
       if (ch === stateRef.current.activeChannel) {

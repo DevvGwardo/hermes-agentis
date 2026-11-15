@@ -4,7 +4,6 @@ import path from "node:path";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import {
   DEFAULT_UI_CONFIG,
   applyUiPatch,
@@ -18,21 +17,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 3000);
-
-function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured in the server environment.");
-  }
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
-}
 
 const HERMES_API_URL = (process.env.HERMES_API_URL || "http://127.0.0.1:8642").replace(/\/+$/, "");
 const HERMES_API_KEY = process.env.HERMES_API_KEY || "";
@@ -632,14 +616,12 @@ async function createServer() {
 
   app.get("/api/health", (_req, res) => {
     const hasDeepgramKey = Boolean(process.env.DEEPGRAM_API_KEY);
-    const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
     res.json({
       ok: true,
-      hasGeminiKey,
       hasDeepgramKey,
       hermesApiUrl: HERMES_API_URL,
       hermesProfile: HERMES_PROFILE,
-      ttsProvider: hasDeepgramKey ? "deepgram" : hasGeminiKey ? "gemini" : "browser",
+      ttsProvider: hasDeepgramKey ? "deepgram" : "browser",
     });
   });
 
@@ -746,257 +728,73 @@ async function createServer() {
         ? persona.trim()
         : "Isolated Hermes Agent session running independent conversation context.";
 
-    try {
-      // 1. Prefer live local/Tailscale Hermes Agent Gateway (/v1/chat/completions) when reachable
-      if (process.env.HERMES_API_URL || process.env.HERMES_API_KEY) {
-        try {
-          const gwMessages = [
-            {
-              role: "system",
-              content: `You are Hermes Agent inside Hermes Duet (isolated session ${resolvedSessionId}, lane #${channelId || "general"}). Persona: ${resolvedPersona}. Respond in 1-3 crisp spoken sentences.`,
-            },
-            ...(Array.isArray(history)
-              ? history.slice(-6).map((h) => ({
-                  role: h.role === "user" ? "user" : "assistant",
-                  content: h.text ?? "",
-                }))
-              : []),
-            { role: "user", content: message },
-          ];
-          const gwRes = await fetchHermesGateway(
-            "/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "X-Hermes-Session-Key": resolvedSessionId,
-              },
-              body: JSON.stringify({
-                model: process.env.API_SERVER_MODEL_NAME || "hermes-agent",
-                messages: gwMessages,
-                user: resolvedSessionId,
-              }),
-            },
-            12000
-          );
-          if (gwRes.ok) {
-            const data = (await gwRes.json()) as {
-              choices?: Array<{ message?: { content?: string } }>;
-            };
-            const content = data.choices?.[0]?.message?.content?.trim();
-            if (content) {
-              return {
-                reply: content,
-                mood: "happy",
-                suggestedCommand: "",
-                uiPatch: heuristicPatch ?? undefined,
-                sourceMode: "hermes-gateway",
-                sessionId: resolvedSessionId,
-              };
-            }
-          }
-        } catch {
-          // Fall through cleanly to standalone Hermes Duet Gemini bridge
-        }
-      }
-
-      if (!process.env.GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured.");
-      }
-
-      const ai = getGeminiClient();
-
-      const systemInstruction = [
-        "You are Hermes Agent (NousResearch/hermes-agent) speaking through an isolated Hermes Duet session (DevvGwardo/hermes-duet).",
-        "Each Braille shape on the canvas hosts its own separate hermes-agent session and isolated thread history.",
-        `Assigned session persona: ${resolvedPersona}`,
-        "Speak concisely (1-3 crisp sentences, <= 55 words) because every reply is spoken aloud via TTS with live facial lip-sync and Braille text decoding.",
-        "DYNAMIC UI CONTROL: You have complete live control over every element of this web UI via the `uiPatch` object!",
-        "Whenever the user asks to customize, restyle, theme, recolor, resize, move, hide, show, blur, slow/speed up, rename, switch views, or transform the interface (even creatively like 'retro submarine terminal', 'minimal zen focus', or 'pink neon cyberpunk'), return a cohesive `uiPatch` setting all matching properties:",
-        "- `presetId`: optional base (`emerald-terminal`, `cyber-violet`, `solaris-amber`, `glacier-cyan`, `sakura-rose`, `zen-mono`)",
-        "- Palette/glass: `accentPreset`, `accentHex`, `surfaceHex`, `panelAlpha` (0.32..0.95), `borderOpacity` (0.08..0.9), `glowIntensity` (0..2), `backgroundPresetId` (`aurora-drift` | `mesh-gradient` | `braille-rain` | `scanline-shimmer` | `nebula` | `constellation-drift` | `horizon-tide`), `backgroundOpacity` (0.15..0.85), `glassBlurPx` (0..28)",
-        "- Layout/typography: `sidebarVisible`, `sidebarPosition` (`left`|`right`), `sidebarWidthPx` (236..420), `sidebarQueueVisible`, `sidebarChannelsVisible`, `showTopNav`, `composerStyle` (`docked`|`floating`|`minimal`), `cornerRadius` (`sharp`|`rounded`|`pill`), `density` (`compact`|`comfortable`|`airy`), `fontPreset` (`jakarta`|`mono`|`display`|`system`), `fontScale` (0.85..1.25), `workspaceTitle`",
-        "- Character/stage/navigation: `portraitVisible`, `portraitScale` (0.6..1.45), `portraitTintHex` (`#RRGGBB` or `auto`), `horizonVisible`, `horizonOpacity` (0..1), `statusReadoutVisible`, `animationSpeed` (0.3..1.8), `reducedMotion`, `activeView` (`home`|`canvas`|`voice`|`queue`|`cli`), `showThinking`, `voiceMuted`, `openCustomizer`, `canvasAutoArrange`, `canvasMoodAll`, `resetAll`.",
-        "Only populate `uiPatch` when the user asks to modify or navigate UI/visual/layout/stage settings; omit `uiPatch` for ordinary Q&A.",
-        `Current UI state snapshot: ${JSON.stringify(currentUi)}`,
-        `Isolated session: ${resolvedSessionId} (lane #${channelId || "general"}).`,
-        `Pending mcp__duet gates: ${JSON.stringify(pendingApprovals)}.`,
-        `Active background runs: ${JSON.stringify(tasks)}.`,
-      ].join("\n");
-
-      const transcriptContext = Array.isArray(history)
-        ? history
-            .slice(-6)
-            .map((h) => `${h.role === "user" ? "User" : "Hermes"}: ${h.text ?? ""}`)
-            .join("\n")
-        : "";
-
-      const prompt = transcriptContext
-        ? `Recent thread:\n${transcriptContext}\n\nUser: ${message}`
-        : message;
-
-      const response = await Promise.race([
-        ai.models.generateContent({
-          model: "gemini-4-hydrogen",
-          contents: prompt,
-          config: {
-            systemInstruction,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                reply: {
-                  type: Type.STRING,
-                  description: "Concise spoken response from Hermes Agent (1-3 sentences).",
-                },
-                mood: {
-                  type: Type.STRING,
-                  description: "Facial expression mood: neutral, happy, focused, alert, or thinking.",
-                },
-                suggestedCommand: {
-                  type: Type.STRING,
-                  description: "Optional Hermes Duet command like /brief, /skills, /gateway, /ui, or /approve card-1.",
-                },
-                uiPatch: {
-                  type: Type.OBJECT,
-                  description: "Optional UI customization patch to dynamically update theme, layout, character, horizon, typography, or background.",
-                  properties: {
-                    presetId: { type: Type.STRING },
-                    accentPreset: { type: Type.STRING },
-                    accentHex: { type: Type.STRING },
-                    surfaceHex: { type: Type.STRING },
-                    panelAlpha: { type: Type.NUMBER },
-                    borderOpacity: { type: Type.NUMBER },
-                    glowIntensity: { type: Type.NUMBER },
-                    cornerRadius: { type: Type.STRING },
-                    density: { type: Type.STRING },
-                    fontPreset: { type: Type.STRING },
-                    fontScale: { type: Type.NUMBER },
-                    sidebarVisible: { type: Type.BOOLEAN },
-                    sidebarPosition: { type: Type.STRING },
-                    sidebarWidthPx: { type: Type.NUMBER },
-                    sidebarQueueVisible: { type: Type.BOOLEAN },
-                    sidebarChannelsVisible: { type: Type.BOOLEAN },
-                    showTopNav: { type: Type.BOOLEAN },
-                    composerStyle: { type: Type.STRING },
-                    workspaceTitle: { type: Type.STRING },
-                    portraitVisible: { type: Type.BOOLEAN },
-                    portraitScale: { type: Type.NUMBER },
-                    portraitTintHex: { type: Type.STRING },
-                    horizonVisible: { type: Type.BOOLEAN },
-                    horizonOpacity: { type: Type.NUMBER },
-                    statusReadoutVisible: { type: Type.BOOLEAN },
-                    animationSpeed: { type: Type.NUMBER },
-                    reducedMotion: { type: Type.BOOLEAN },
-                    backgroundPresetId: { type: Type.STRING },
-                    backgroundOpacity: { type: Type.NUMBER },
-                    glassBlurPx: { type: Type.NUMBER },
-                    activeView: { type: Type.STRING },
-                    showThinking: { type: Type.BOOLEAN },
-                    voiceMuted: { type: Type.BOOLEAN },
-                    openCustomizer: { type: Type.BOOLEAN },
-                    canvasAutoArrange: { type: Type.BOOLEAN },
-                    canvasMoodAll: { type: Type.STRING },
-                    resetAll: { type: Type.BOOLEAN },
-                  },
-                },
-              },
-              required: ["reply", "mood"],
-            },
-          },
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Hermes chat request timed out")), 6500)
-        ),
-      ]);
-
-      const raw = (response.text ?? "{}").trim();
-      let parsed: {
-        reply?: string;
-        mood?: string;
-        suggestedCommand?: string;
-        uiPatch?: UiCustomizationPatch;
-      };
+    // 100% Hermes: the gateway is the only reply source. No Gemini bridge and
+    // no canned offline persona — gateway failures surface as visible errors.
+    const gwTimeoutMs = Number(process.env.HERMES_CHAT_TIMEOUT_MS || 300_000);
+    let gatewayFailure = "HERMES_API_URL is not configured";
+    if (process.env.HERMES_API_URL || process.env.HERMES_API_KEY) {
       try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = { reply: raw || "Signal received.", mood: "neutral" };
+        const gwMessages = [
+          {
+            role: "system",
+            content: `You are Hermes Agent inside Hermes Duet (isolated session ${resolvedSessionId}, lane #${channelId || "general"}). Persona: ${resolvedPersona}. Respond in 1-3 crisp spoken sentences.`,
+          },
+          ...(Array.isArray(history)
+            ? history.slice(-6).map((h) => ({
+                role: h.role === "user" ? "user" : "assistant",
+                content: h.text ?? "",
+              }))
+            : []),
+          { role: "user", content: message },
+        ];
+        const gwRes = await fetchHermesGateway(
+          "/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "X-Hermes-Session-Key": resolvedSessionId,
+            },
+            body: JSON.stringify({
+              model: process.env.API_SERVER_MODEL_NAME || "hermes-agent",
+              messages: gwMessages,
+              user: resolvedSessionId,
+            }),
+          },
+          gwTimeoutMs
+        );
+        if (gwRes.ok) {
+          const data = (await gwRes.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content) {
+            return {
+              reply: content,
+              mood: "happy",
+              suggestedCommand: "",
+              uiPatch: heuristicPatch ? sanitizeUiPatch(heuristicPatch) : undefined,
+              sourceMode: "hermes-gateway",
+              sessionId: resolvedSessionId,
+            };
+          }
+          gatewayFailure = "gateway response contained no content";
+        } else {
+          gatewayFailure = `gateway HTTP ${gwRes.status}`;
+        }
+      } catch (err) {
+        gatewayFailure = err instanceof Error ? err.message : String(err);
       }
-
-      const allowedMoods = new Set(["neutral", "happy", "focused", "alert", "thinking", "speaking"]);
-      const mood = allowedMoods.has(String(parsed.mood)) ? String(parsed.mood) : "speaking";
-
-      const rawGeminiPatch = sanitizeUiPatch(parsed.uiPatch);
-      const mergedPatchRaw: UiCustomizationPatch = {
-        ...(heuristicPatch ?? {}),
-        ...rawGeminiPatch,
-      };
-      const cleanUiPatch =
-        Object.keys(mergedPatchRaw).length > 0 ? sanitizeUiPatch(mergedPatchRaw) : undefined;
-
-      return {
-        reply: parsed.reply || "Signal received and logged to your Hermes lane.",
-        mood,
-        suggestedCommand: parsed.suggestedCommand || "",
-        uiPatch: cleanUiPatch && Object.keys(cleanUiPatch).length > 0 ? cleanUiPatch : undefined,
-        sourceMode: "gemini-bridge",
-        sessionId: resolvedSessionId,
-      };
-    } catch {
-      if (heuristicPatch) {
-        const applied = applyUiPatch(currentUi, heuristicPatch);
-        return {
-          reply: `Done — ${applied.summary.toLowerCase()}. Tell me if you want to tweak anything else or reset.`,
-          mood: applied.sanitized.mood || "happy",
-          suggestedCommand: "",
-          uiPatch: applied.sanitized,
-          sourceMode: "local-duet-ui",
-          sessionId: resolvedSessionId,
-          fallback: true,
-        };
-      }
-
-      const lower = String(message).toLowerCase();
-      const pendingList = Array.isArray(pendingApprovals) ? pendingApprovals : [];
-      const taskList = Array.isArray(tasks) ? tasks : [];
-      let reply = `Session ${resolvedSessionId} active in #${channelId}. Send a prompt or run /brief, /skills, or /ui.`;
-      let mood = "happy";
-      let suggestedCommand = "";
-
-      if (lower.includes("brief")) {
-        reply = `[${resolvedSessionId}] Post_brief queue ready: ${pendingList.length} mcp__duet gate${pendingList.length === 1 ? "" : "s"} waiting${pendingList[0]?.title ? `—top item is ${pendingList[0].title}` : ""}.`;
-        mood = "focused";
-        suggestedCommand = "/brief";
-      } else if (lower.includes("skill")) {
-        reply = `[${resolvedSessionId}] Four skills loaded from ~/.hermes/skills/: duet-bridge, morning-brief, playwright-parity, and mail-triage.`;
-        mood = "focused";
-        suggestedCommand = "/skills";
-      } else if (lower.includes("gateway") || lower.includes("mcp") || lower.includes("doctor")) {
-        reply = `[${resolvedSessionId}] Gateway configured on ${HERMES_API_URL} with mcp_servers.duet bridge active.`;
-        mood = "focused";
-        suggestedCommand = "/gateway";
-      } else if (lower.includes("task") || lower.includes("status")) {
-        const running = taskList.filter((t) => t.status === "running").length;
-        reply = `[${resolvedSessionId}] Tracking ${taskList.length} Hermes runs, with ${running} executing cleanly.`;
-        mood = "focused";
-        suggestedCommand = "/tasks";
-      } else if (lower.includes("approve")) {
-        reply = pendingList[0]?.title
-          ? `[${resolvedSessionId}] ${pendingList[0].title} is queued behind mcp__duet. Run /approve ${pendingList[0].id} or tap Approve.`
-          : `[${resolvedSessionId}] All mcp__duet approval gates in this session are clear.`;
-        mood = "happy";
-        suggestedCommand = pendingList[0]?.id ? `/approve ${pendingList[0].id}` : "";
-      }
-
-      return {
-        reply,
-        mood,
-        suggestedCommand,
-        sourceMode: "local-duet",
-        sessionId: resolvedSessionId,
-        fallback: true,
-      };
     }
+
+    return {
+      reply: `Hermes agent unavailable (${gatewayFailure}). hermes-agentis replies 100% via the Hermes gateway at ${HERMES_API_URL} — verify it is running, then retry. No fallback model answered this.`,
+      mood: "alert",
+      suggestedCommand: "",
+      uiPatch: undefined,
+      sourceMode: "hermes-gateway-error",
+      sessionId: resolvedSessionId,
+      error: gatewayFailure,
+    };
   }
 
   app.post("/api/hermes/chat", async (req, res) => {
@@ -1237,71 +1035,11 @@ async function createServer() {
             }
           }
         } catch {
-          // Fall through to Gemini / browser fallback cleanly
+          // Fall through to browser fallback cleanly
         }
       }
 
-      // 2. Secondary TTS: Gemini TTS (when GEMINI_API_KEY has available quota)
-      if (process.env.GEMINI_API_KEY) {
-        const ai = getGeminiClient();
-        const styleMap: Record<string, string> = {
-          happy: "Warm, bright, energetic cyber-assistant voice, crisp diction",
-          alert: "Urgent, attentive, crisp tactical briefing voice",
-          focused: "Calm, analytical, concise mission-control voice",
-          thinking: "Thoughtful, measured, clear voice",
-          neutral: "Clear, futuristic, friendly AI companion voice",
-        };
-        const style = styleMap[String(mood)] || styleMap.neutral;
-
-        const synthesize = async () => {
-          const response = await ai.models.generateContent({
-            model: "gemini-3.8-flash-lite-tts",
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: cleanText.slice(0, 600),
-                    speechMetadata: { style },
-                  },
-                ],
-              },
-            ],
-            config: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: "Kore" },
-                },
-              },
-            },
-          });
-          return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        };
-
-        let base64Audio: string | undefined;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            base64Audio = await synthesize();
-            if (base64Audio) break;
-          } catch {
-            if (attempt === 0) {
-              await new Promise((r) => setTimeout(r, 200));
-            }
-          }
-        }
-
-        if (base64Audio) {
-          res.json({
-            audioBase64: base64Audio,
-            mimeType: "audio/wav",
-            provider: "gemini",
-          });
-          return;
-        }
-      }
-
-      // 3. Clean graceful fallback so browser Web Speech & real-time viseme envelope animate with zero HTTP 500 errors
+      // 2. Clean graceful fallback so browser Web Speech & real-time viseme envelope animate with zero HTTP 500 errors
       res.status(200).json({
         audioBase64: null,
         fallback: "speechSynthesis",
