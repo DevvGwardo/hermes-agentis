@@ -1,0 +1,15 @@
+[package]
+name = "voxcell-uphill"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+voxcell-core = { path = "../voxcell-core" }
+voxcell-ui = { path = "../voxcell-ui" }
+voxcell-hermes = { path = "../voxcell-hermes" }
+rune.workspace = true
+rune-kit.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+axum.workspace = true

@@ -8,6 +8,7 @@ members = [
     "crates/voxcell-audio",
     "crates/voxcell-ui",
     "crates/voxcell-app",
+    "crates/voxcell-uphill",
 ]
 
 [workspace.package]
