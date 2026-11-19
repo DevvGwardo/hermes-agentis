@@ -251,6 +251,9 @@ pub fn render_sidebar(state: &AppState, theme: &VoxcellTheme, _cx: &mut Cx<AppSt
 
     let avatar_surface = el()
         .key("sidebar-avatar-hit")
+        // Uphill a11y: the pressable portrait must carry an accessible name
+        // (rune El::label -> AccessKit name, same API as settings.rs controls).
+        .label("Cycle companion mood")
         .w(72.0)
         .h(66.0)
         .radius(8.0)
@@ -349,9 +352,13 @@ pub fn render_sidebar(state: &AppState, theme: &VoxcellTheme, _cx: &mut Cx<AppSt
                         .border(0.5, tone_color.alpha(0.45))
                         .child(el().w(5.0).h(5.0).radius(2.5).fill(tone_color))
                         .child(
+                            // Uphill contrast: tone_color text on the tinted chip
+                            // measured ~2.7 (<3.0). The label now uses the bright
+                            // slate token accent.soft (#CBD5E1); the dot + chip
+                            // tint keep the semantic work tone.
                             text(char_pres.status_label.clone())
                                 .font(TextStyle::new(10.0, 600.0).lh(12.0).mono())
-                                .color(tone_color),
+                                .color(theme.accent_soft),
                         ),
                 ),
         )
@@ -1194,5 +1201,174 @@ mod tests {
         rt.pointer_up(ax, ay);
         rt.frame(0.016);
         assert_ne!(rt.state.stage_mood, before);
+    }
+
+    // ── P5 uphill-audit fixes: avatar accessible name + status contrast ────
+
+    /// Walk the AccessKit JSON exactly like voxcell-uphill's `audit_a11y`:
+    /// collect (role, name, key) for every node that carries a role.
+    fn a11y_nodes(tree: &serde_json::Value, out: &mut Vec<(String, String, String)>) {
+        match tree {
+            serde_json::Value::Object(map) => {
+                if let Some(role) = map.get("role").and_then(|r| r.as_str()) {
+                    out.push((
+                        role.to_string(),
+                        map.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                        map.get("key").and_then(|k| k.as_str()).unwrap_or("").to_string(),
+                    ));
+                }
+                for (k, child) in map {
+                    if k != "role" && k != "name" && k != "key" {
+                        a11y_nodes(child, out);
+                    }
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for child in items {
+                    a11y_nodes(child, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn sidebar_avatar_button_is_named_in_accesskit_tree() {
+        let mut rt = boot("idle");
+        rt.settle_all();
+        rt.frame(0.016);
+
+        // Element inspection: the hit-area button carries an explicit label.
+        let avatar = rt
+            .elements()
+            .into_iter()
+            .find(|e| e.key.as_deref() == Some("sidebar-avatar-hit"))
+            .expect("sidebar avatar surface");
+        assert_eq!(avatar.role, "button");
+        assert_eq!(avatar.label.as_deref(), Some("Cycle companion mood"));
+
+        // Audit method: the name must surface in accessibility_json — the
+        // uphill harness flags interactive nodes whose trimmed name is empty.
+        let mut nodes = Vec::new();
+        a11y_nodes(&rt.accessibility_json(), &mut nodes);
+        let node = nodes
+            .iter()
+            .find(|(_, _, k)| k == "sidebar-avatar-hit")
+            .expect("avatar button present in AccessKit tree");
+        assert_eq!(node.0, "button");
+        assert_eq!(node.1.trim(), "Cycle companion mood");
+
+        // Naming must not break the press behavior (stage mood cycle).
+        let before = rt.state.stage_mood;
+        let (ax, ay) = rt.find("sidebar-avatar-hit").unwrap();
+        rt.pointer_down(ax, ay);
+        rt.pointer_up(ax, ay);
+        rt.frame(0.016);
+        assert_ne!(rt.state.stage_mood, before);
+    }
+
+    /// WCAG ratio of a text element against its painter-order composited
+    /// background — the same model as voxcell-uphill `audit_contrast`:
+    /// theme colors are gamma-encoded sRGB consumed verbatim, ancestor
+    /// opacities fold into the text alpha, and every fill drawn BEFORE the
+    /// text whose visible box covers its center composites over the clear
+    /// color (captures sibling backdrops an ancestor walk would miss).
+    fn status_contrast(rt: &Runtime<AppState>, idx: usize) -> f64 {
+        let elements = rt.elements();
+        let e = &elements[idx];
+        let tc = e.text_color.expect("status label has a text color");
+        let mut eff_opacity = e.opacity;
+        let mut cur = e.parent;
+        while let Some(p) = cur {
+            eff_opacity *= elements[p].opacity;
+            cur = elements[p].parent;
+        }
+        let clear = rt.clear_color();
+        let cx = e.rect[0] + e.rect[2] * 0.5;
+        let cy = e.rect[1] + e.rect[3] * 0.5;
+        let mut bg = [clear[0], clear[1], clear[2], 1.0];
+        for b in &elements[..idx] {
+            if b.fill.a <= 0.001 || b.exiting || b.opacity < 0.05 || b.virtual_extent {
+                continue;
+            }
+            let v = b.visible;
+            if v[2] <= 0.0 || v[3] <= 0.0 {
+                continue;
+            }
+            if cx >= v[0] && cx <= v[0] + v[2] && cy >= v[1] && cy <= v[1] + v[3] {
+                let a = (b.fill.a * b.opacity).clamp(0.0, 1.0);
+                bg = [
+                    b.fill.r * a + bg[0] * (1.0 - a),
+                    b.fill.g * a + bg[1] * (1.0 - a),
+                    b.fill.b * a + bg[2] * (1.0 - a),
+                    1.0,
+                ];
+            }
+        }
+        let a = (tc.a * eff_opacity).clamp(0.0, 1.0);
+        let fg = [
+            tc.r * a + bg[0] * (1.0 - a),
+            tc.g * a + bg[1] * (1.0 - a),
+            tc.b * a + bg[2] * (1.0 - a),
+        ];
+        let lum = |c: [f32; 3]| {
+            0.2126 * c[0].clamp(0.0, 1.0) as f64
+                + 0.7152 * c[1].clamp(0.0, 1.0) as f64
+                + 0.0722 * c[2].clamp(0.0, 1.0) as f64
+        };
+        let (l1, l2) = (lum(fg), lum([bg[0], bg[1], bg[2]]));
+        let (hi, lo) = if l1 >= l2 { (l1, l2) } else { (l2, l1) };
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    /// Assert the companion status label uses the bright slate token
+    /// (accent.soft #CBD5E1, not the semantic tone color) and clears WCAG 3.0
+    /// against its composited chip background. Settle first: mid-entrance
+    /// fades read as false low contrast (uphill harness lesson).
+    fn assert_status_label_contrast(rt: &mut Runtime<AppState>, label: &str) {
+        rt.invalidate();
+        rt.frame(0.016);
+        rt.settle_all();
+        rt.frame(0.016);
+        let theme = VoxcellTheme::from_config(&rt.state.ui_config);
+        let elements = rt.elements();
+        let idx = elements
+            .iter()
+            .position(|e| e.text.as_deref() == Some(label) && !e.exiting)
+            .unwrap_or_else(|| panic!("status label {label:?} not rendered"));
+        let tc = elements[idx].text_color.expect("status label text color");
+        let want = theme.accent_soft;
+        for (got, exp) in [(tc.r, want.r), (tc.g, want.g), (tc.b, want.b), (tc.a, want.a)] {
+            assert!(
+                (got - exp).abs() < 1e-3,
+                "status label {label:?} must use the accent.soft token: got {got}, want {exp}"
+            );
+        }
+        let ratio = status_contrast(rt, idx);
+        assert!(ratio >= 3.0, "status label {label:?} contrast {ratio:.2} < 3.0");
+    }
+
+    #[test]
+    fn sidebar_status_labels_use_bright_slate_token_above_wcag_3() {
+        // Slate tone (idle gateway): "Online".
+        let mut rt = boot("idle");
+        assert_status_label_contrast(&mut rt, "Online");
+
+        // Amber tone (running task): "Working".
+        let mut rt = boot("idle");
+        rt.state.tasks.push(mk_task("t-a11y", "home", "Contrast probe task"));
+        assert_status_label_contrast(&mut rt, "Working");
+
+        // Rose tone (pending approval): "Approval needed".
+        let mut rt = boot("attention");
+        assert_status_label_contrast(&mut rt, "Approval needed");
+
+        // Emerald tone (voice live): "Speaking" and "Listening".
+        let mut rt = boot("idle");
+        rt.state.audio.is_speaking = true;
+        assert_status_label_contrast(&mut rt, "Speaking");
+        let mut rt = boot("idle");
+        rt.state.audio.is_listening = true;
+        assert_status_label_contrast(&mut rt, "Listening");
     }
 }
