@@ -3,7 +3,8 @@ use crate::protocol::{
     ChatCompletionsStreamParser, PreferredTransport, ProfileGatewayConfig, RunsEventStreamParser,
     StreamSignal, StreamTerminalResult, build_gateway_url, choose_gateway_transport,
     create_idempotency_key, map_gateway_jobs, map_gateway_sessions, map_gateway_skills,
-    map_gateway_toolsets, parse_capabilities_payload, parse_model_options_payload,
+    HermesCapabilities, map_gateway_toolsets, parse_capabilities_full, parse_capabilities_payload,
+    parse_model_options_payload,
     resolve_profile_gateway_config, sanitize_session_key_header, GatewaySessionRecord,
 };
 use futures_util::StreamExt;
@@ -146,6 +147,7 @@ impl HermesClient {
         let latency_ms = Some(t0.elapsed().as_millis() as u64);
         let mut caps = GatewayCapabilities::default();
         let mut cap_model = None;
+        let mut full_caps: Option<HermesCapabilities> = None;
 
         if online {
             let cap_url = build_gateway_url(&self.config, "/v1/capabilities", false);
@@ -155,6 +157,7 @@ impl HermesClient {
                         if let Some((parsed, model)) = parse_capabilities_payload(&json) {
                             caps = parsed;
                             cap_model = model;
+                            full_caps = parse_capabilities_full(&json);
                         }
                     }
                 }
@@ -176,7 +179,7 @@ impl HermesClient {
             (Vec::new(), cap_model.clone())
         };
 
-        let transport = choose_gateway_transport(self.preferred_transport, Some(&caps));
+        let transport = choose_gateway_transport(self.preferred_transport, full_caps.as_ref());
         let model = active_model
             .or(cap_model)
             .unwrap_or_else(|| "hermes-agent".to_string());

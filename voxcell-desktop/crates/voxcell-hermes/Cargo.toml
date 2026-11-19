@@ -13,3 +13,5 @@ reqwest.workspace = true
 futures-util.workspace = true
 uuid.workspace = true
 dirs.workspace = true
+chrono.workspace = true
+rand.workspace = true
