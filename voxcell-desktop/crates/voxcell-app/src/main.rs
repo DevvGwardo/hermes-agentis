@@ -5,7 +5,10 @@ use voxcell_core::ActiveView;
 use voxcell_ui::{AppState, VoxcellTheme, render_main_window, render_phone_widget};
 
 fn init_state() -> AppState {
-    AppState::new()
+    let mut s = AppState::new();
+    // P3-03 handoff: GPU compositor is attached in main() below.
+    s.home_gpu_halftone = true;
+    s
 }
 
 fn render_root(state: &AppState, cx: &mut Cx<AppState>) -> El {
@@ -200,6 +203,7 @@ fn main() {
     // the bridge classifies failures into a StatusNote and the focused-window
     // Cmd/Ctrl+Shift+Space fallback in `on_key` keeps working regardless.
     rune::App::new(spec)
+        .compositor(voxcell_ui::views::home::HomeHalftoneCompositor::new())
         .global_shortcut(bridge::ptt_accelerator(), bridge::ptt_shortcut_handler)
         .run();
 }

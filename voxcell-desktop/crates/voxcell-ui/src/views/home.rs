@@ -603,7 +603,7 @@ const HOME_HALFTONE_WGSL: &str = r#"
 struct Uniforms {
     rect: vec4f,        // slot rect in device px (x, y, w, h)
     origin_size: vec4f, // pass origin xy + target size zw (device px)
-    meta: vec4f,        // surface_w, surface_h, time, bloom
+    meta_v: vec4f,      // surface_w, surface_h, time, bloom (`meta` is WGSL-reserved)
     tiers: array<vec4f, 5>, // tonal palette: srgb xyz + core alpha
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
@@ -623,7 +623,7 @@ fn vs(@builtin(vertex_index) vi: u32,
       @location(2) tier: u32,
       @location(3) alpha: f32) -> VsOut {
     let corner = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2.0 - 1.0;
-    let scale = u.rect.zw / u.meta.xy;
+    let scale = u.rect.zw / u.meta_v.xy;
     let center_px = u.rect.xy + pos_xy * scale;
     let r_px = max(radius * scale.y, 0.5);
     let extent = r_px * 2.2; // corona headroom
@@ -657,7 +657,7 @@ fn fs(in: VsOut) -> @location(0) vec4f {
     let core = 1.0 - smoothstep(in.radius_px - aa, in.radius_px + aa, d);
     // Soft quadratic corona around tiers 3-4 (spec §7.1), scaled by bloom.
     let falloff = clamp(1.0 - max(d - in.radius_px, 0.0) / (in.radius_px * 1.2), 0.0, 1.0);
-    let corona = falloff * falloff * 0.30 * u.meta.w * select(0.0, 1.0, in.tier >= 3u);
+    let corona = falloff * falloff * 0.30 * u.meta_v.w * select(0.0, 1.0, in.tier >= 3u);
     let a = clamp((core + corona) * in.alpha, 0.0, 1.0);
     let c = tier_color(in.tier);
     return vec4f(c * a, a); // premultiplied linear (Rune blend convention)
@@ -848,7 +848,7 @@ pub mod gpu {
                 self.device_key = Some(key);
             }
 
-            let active = home_gpu_halftone_active(f.rt.state);
+            let active = home_gpu_halftone_active(&f.rt.state);
             let clear = f.rt.clear_color();
             f.ui.prepare(f.device, f.queue, &mut f.rt.text.atlas, &f.rt.instances, f.size);
 
@@ -859,13 +859,13 @@ pub mod gpu {
             }
 
             // Per-frame CPU → GPU instance upload (spec §7.1 step 2).
-            let dots = emit_stage_dot_instances(f.rt.state);
+            let dots = emit_stage_dot_instances(&f.rt.state);
             self.ensure_instances(f.device, dots.len());
             let instance_buf = self.instance_buf.as_ref().expect("instance buffer").clone();
             f.queue.write_buffer(&instance_buf, 0, dot_instances_as_bytes(&dots));
 
             // Uniform block: rect/origin filled per slot; palette + meta now.
-            let expr = stage_expression(f.rt.state);
+            let expr = stage_expression(&f.rt.state);
             let palette = resolve_portrait_tone_palette(
                 expr.mood,
                 expr.is_speaking,
@@ -938,6 +938,8 @@ pub use gpu::HomeHalftoneCompositor;
 mod tests {
     use super::*;
     use rune::{Env, Key, KeyEvent, Mods, Runtime};
+    #[cfg(feature = "gpu-halftone")]
+    use rune::compose::Compositor;
     use voxcell_halftone::dot_instances_as_bytes;
 
     fn home_view(s: &AppState, cx: &mut Cx<AppState>) -> El {

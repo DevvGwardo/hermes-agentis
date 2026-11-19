@@ -14,7 +14,7 @@ voxcell-hermes = { path = "../voxcell-hermes" }
 voxcell-halftone = { path = "../voxcell-halftone" }
 voxcell-store = { path = "../voxcell-store" }
 voxcell-audio = { path = "../voxcell-audio" }
-voxcell-ui = { path = "../voxcell-ui" }
+voxcell-ui = { path = "../voxcell-ui", features = ["gpu-halftone"] }
 rune.workspace = true
 rune-notify.workspace = true
 serde_json.workspace = true

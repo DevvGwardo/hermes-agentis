@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# P3-03 handoff: lights up the home.rs wgpu compositor (SDF dot + corona pass).
+gpu-halftone = []
+
 [dependencies]
 voxcell-core = { path = "../voxcell-core" }
 voxcell-halftone = { path = "../voxcell-halftone" }
@@ -14,3 +18,7 @@ rune-kit.workspace = true
 rune-fx.workspace = true
 rune-motion.workspace = true
 serde_json.workspace = true
+# Mirrors voxcell-app's spike dep (~30.0.1, no default features); backends
+# unify in from rune's per-target deps. Only used under `gpu-halftone`.
+wgpu = { version = "~30.0.1", default-features = false, features = ["std", "parking_lot", "wgsl"] }
+bytemuck.workspace = true
