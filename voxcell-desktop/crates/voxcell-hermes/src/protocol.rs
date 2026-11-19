@@ -3070,7 +3070,10 @@ mod tests {
             let f = jitter_factor();
             assert!((0.5..1.0).contains(&f));
             let d = retry_delay_ms(2, &policy, None, Some(f));
-            assert!((700..1400).contains(&d), "jittered delay out of bounds: {d}");
+            // Inclusive upper bound: retry_delay_ms rounds exp*f to whole ms (see its
+            // `.round()` at protocol.rs:2069), and f in [0.5, 1.0) rounds UP to exactly
+            // exp (1400) whenever f >= 1399.5/1400 — a legitimate ~0.04% draw, not a bug.
+            assert!((700..=1400).contains(&d), "jittered delay out of bounds: {d}");
         }
         assert_eq!(retry_delay_ms(0, &policy, Some(1200), Some(0.5)), 1200);
         // jitter flag off => factor ignored (TS parity).
