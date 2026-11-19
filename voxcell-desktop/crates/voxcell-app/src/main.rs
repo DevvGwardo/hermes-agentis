@@ -45,50 +45,76 @@ fn poll_app(state: &mut AppState, t_seconds: f64, tx: &mut Tx) -> bool {
     true
 }
 
-fn on_key(state: &mut AppState, ev: &KeyEvent, _tx: &mut Tx) -> bool {
-    if ev.mods.cmd {
-        match &ev.key {
-            Key::Text(t) if t == "1" => {
-                state.active_view = ActiveView::Home;
-                return true;
+/// The chord character of a key event, if any: single-char `Key::Text` or the
+/// native `Key::Command` form (⌘B arrives as `Command('b')` on macOS).
+fn shortcut_char(ev: &KeyEvent) -> Option<char> {
+    match &ev.key {
+        Key::Text(t) => {
+            let mut chars = t.chars();
+            let c = chars.next()?;
+            if chars.next().is_none() {
+                Some(c.to_ascii_lowercase())
+            } else {
+                None
             }
-            Key::Text(t) if t == "2" => {
-                state.active_view = ActiveView::Canvas;
-                return true;
+        }
+        Key::Command(c) => Some(c.to_ascii_lowercase()),
+        _ => None,
+    }
+}
+
+/// P3-01 keyboard shortcuts: Ctrl/Cmd+1..5 switch views, B toggles the
+/// sidebar, ',' toggles settings, P toggles the phone widget, Shift+Space
+/// toggles hands-free VAD. Pure over state so headless tests can drive it
+/// without a `Tx`. Returns true when the event was consumed.
+fn handle_shortcut(state: &mut AppState, ev: &KeyEvent) -> bool {
+    // `cmd` is the platform primary (⌘ on macOS, Ctrl elsewhere, reported
+    // alongside `ctrl`); accept explicit Ctrl too for cross-platform parity.
+    if ev.mods.cmd || ev.mods.ctrl {
+        if let Some(c) = shortcut_char(ev) {
+            match c {
+                '1' => {
+                    state.active_view = ActiveView::Home;
+                    return true;
+                }
+                '2' => {
+                    state.active_view = ActiveView::Canvas;
+                    return true;
+                }
+                '3' => {
+                    state.active_view = ActiveView::Thread;
+                    return true;
+                }
+                '4' => {
+                    state.active_view = ActiveView::Queue;
+                    return true;
+                }
+                '5' => {
+                    state.active_view = ActiveView::Cli;
+                    return true;
+                }
+                'b' => {
+                    state.ui_config.sidebar_collapsed = !state.ui_config.sidebar_collapsed;
+                    return true;
+                }
+                'p' => {
+                    let next = !state.phone_widget_open;
+                    state.phone_widget_open = next;
+                    state.pending_commands.push(voxcell_ui::UiCommand::TogglePhoneWindow(next));
+                    return true;
+                }
+                ',' => {
+                    state.settings_open = !state.settings_open;
+                    return true;
+                }
+                ' ' if ev.mods.shift => {
+                    let next = !state.voice.hands_free_vad;
+                    state.voice.hands_free_vad = next;
+                    state.pending_commands.push(voxcell_ui::UiCommand::ToggleMic(next));
+                    return true;
+                }
+                _ => {}
             }
-            Key::Text(t) if t == "3" => {
-                state.active_view = ActiveView::Thread;
-                return true;
-            }
-            Key::Text(t) if t == "4" => {
-                state.active_view = ActiveView::Queue;
-                return true;
-            }
-            Key::Text(t) if t == "5" => {
-                state.active_view = ActiveView::Cli;
-                return true;
-            }
-            Key::Text(t) if t == "b" || t == "B" => {
-                state.ui_config.sidebar_collapsed = !state.ui_config.sidebar_collapsed;
-                return true;
-            }
-            Key::Text(t) if t == "p" || t == "P" => {
-                let next = !state.phone_widget_open;
-                state.phone_widget_open = next;
-                state.pending_commands.push(voxcell_ui::UiCommand::TogglePhoneWindow(next));
-                return true;
-            }
-            Key::Text(t) if t == " " && ev.mods.shift => {
-                let next = !state.voice.hands_free_vad;
-                state.voice.hands_free_vad = next;
-                state.pending_commands.push(voxcell_ui::UiCommand::ToggleMic(next));
-                return true;
-            }
-            Key::Text(t) if t == "," => {
-                state.settings_open = !state.settings_open;
-                return true;
-            }
-            _ => {}
         }
     }
     if ev.key == Key::Escape {
@@ -102,6 +128,10 @@ fn on_key(state: &mut AppState, ev: &KeyEvent, _tx: &mut Tx) -> bool {
         }
     }
     false
+}
+
+fn on_key(state: &mut AppState, ev: &KeyEvent, _tx: &mut Tx) -> bool {
+    handle_shortcut(state, ev)
 }
 
 fn scene_idle(s: &mut AppState) {
@@ -165,7 +195,13 @@ fn main() {
         ..AppSpec::new("Hermes Duet // Voxcell", win_size, init_state, render_root)
     };
 
-    rune::run(spec);
+    // P4-03 (phone-tray handoff): register the global PTT hotkey at startup.
+    // rune reports/retains registration errors (headless registers virtually);
+    // the bridge classifies failures into a StatusNote and the focused-window
+    // Cmd/Ctrl+Shift+Space fallback in `on_key` keeps working regardless.
+    rune::App::new(spec)
+        .global_shortcut(bridge::ptt_accelerator(), bridge::ptt_shortcut_handler)
+        .run();
 }
 
 #[cfg(test)]
@@ -281,5 +317,91 @@ mod tests {
         rt.state.apply_scene_preset("speaking");
         rt.frame(0.032);
         assert_eq!(rt.state.stage_mood, ExpressionMood::Speaking);
+    }
+
+    // ---- P3-01 keyboard shortcuts (headless, pure handler) ----
+
+    fn chord(key: Key, cmd: bool, ctrl: bool, shift: bool) -> KeyEvent {
+        KeyEvent {
+            key,
+            mods: rune::Mods { cmd, ctrl, shift, ..rune::Mods::default() },
+        }
+    }
+
+    #[test]
+    fn ctrl_cmd_digits_switch_all_five_views() {
+        let cases = [
+            ("1", ActiveView::Home),
+            ("2", ActiveView::Canvas),
+            ("3", ActiveView::Thread),
+            ("4", ActiveView::Queue),
+            ("5", ActiveView::Cli),
+        ];
+        for (digit, view) in cases {
+            // Cmd (platform primary) form.
+            let mut s = AppState::new();
+            let ev = chord(Key::Text(digit.to_string()), true, false, false);
+            assert!(handle_shortcut(&mut s, &ev), "cmd+{digit} consumed");
+            assert_eq!(s.active_view, view);
+            // Explicit Ctrl form (Windows/Linux report cmd+ctrl together).
+            let mut s = AppState::new();
+            let ev = chord(Key::Text(digit.to_string()), true, true, false);
+            assert!(handle_shortcut(&mut s, &ev));
+            assert_eq!(s.active_view, view);
+            // Ctrl alone must also work.
+            let mut s = AppState::new();
+            let ev = chord(Key::Text(digit.to_string()), false, true, false);
+            assert!(handle_shortcut(&mut s, &ev));
+            assert_eq!(s.active_view, view);
+        }
+    }
+
+    #[test]
+    fn b_shortcut_toggles_sidebar_including_command_key_form() {
+        let mut s = AppState::new();
+        assert!(!s.ui_config.sidebar_collapsed);
+        assert!(handle_shortcut(&mut s, &chord(Key::Text("b".into()), true, false, false)));
+        assert!(s.ui_config.sidebar_collapsed);
+        // Uppercase B (shift held) still toggles.
+        assert!(handle_shortcut(&mut s, &chord(Key::Text("B".into()), true, false, true)));
+        assert!(!s.ui_config.sidebar_collapsed);
+        // Native macOS Command('b') form.
+        assert!(handle_shortcut(&mut s, &chord(Key::Command('b'), true, false, false)));
+        assert!(s.ui_config.sidebar_collapsed);
+    }
+
+    #[test]
+    fn comma_shortcut_toggles_settings_and_escape_closes() {
+        let mut s = AppState::new();
+        assert!(!s.settings_open);
+        assert!(handle_shortcut(&mut s, &chord(Key::Text(",".into()), true, false, false)));
+        assert!(s.settings_open);
+        assert!(handle_shortcut(&mut s, &chord(Key::Text(",".into()), true, false, false)));
+        assert!(!s.settings_open);
+        // Escape closes an open settings dialog (and is consumed).
+        s.settings_open = true;
+        assert!(handle_shortcut(&mut s, &chord(Key::Escape, false, false, false)));
+        assert!(!s.settings_open);
+        // Escape with nothing open passes through.
+        assert!(!handle_shortcut(&mut s, &chord(Key::Escape, false, false, false)));
+    }
+
+    #[test]
+    fn unmodified_keys_pass_through_and_phone_vad_chords_keep_working() {
+        let mut s = AppState::new();
+        // No modifier: digits/b/comma are plain typing, not shortcuts.
+        for t in ["1", "5", "b", ","] {
+            assert!(!handle_shortcut(&mut s, &chord(Key::Text(t.into()), false, false, false)));
+        }
+        assert_eq!(s.active_view, ActiveView::Home);
+        assert!(!s.ui_config.sidebar_collapsed);
+        // Cmd+P phone widget toggle queues the window command.
+        assert!(handle_shortcut(&mut s, &chord(Key::Text("p".into()), true, false, false)));
+        assert!(s.phone_widget_open);
+        assert!(s.pending_commands.iter().any(|c| matches!(c, voxcell_ui::UiCommand::TogglePhoneWindow(true))));
+        // Cmd+Shift+Space hands-free VAD toggle queues the mic command.
+        assert!(handle_shortcut(&mut s, &chord(Key::Text(" ".into()), true, false, true)));
+        assert!(s.voice.hands_free_vad);
+        assert!(s.pending_commands.iter().any(|c| matches!(c, voxcell_ui::UiCommand::ToggleMic(true))));
     }
 }

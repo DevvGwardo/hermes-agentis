@@ -214,6 +214,18 @@ pub struct AppState {
     pub thread_minimap_active: Option<String>,
     /// P3-04 thread: cached grouped timeline shared by virtual row builders.
     pub thread_timeline_cache: std::cell::RefCell<crate::views::thread::ThreadTimelineCache>,
+
+    /// P3-05 queue: active Operations tab ("runtime" | "approvals" | "jobs").
+    /// None = auto: approvals when a gate is pending, else runtime (web parity).
+    pub queue_tab: Option<String>,
+    /// P3-05 queue: toolset row expanded to reveal its tool list (web expandedToolset).
+    pub queue_expanded_toolset: Option<String>,
+    /// P3-05 queue: per-card clarify answer drafts (approval id -> edit).
+    pub queue_clarify_edits: HashMap<String, TextEdit>,
+    /// P3-05 queue: run_id targeted by the steer composer (None = closed).
+    pub queue_steer_run: Option<String>,
+    /// P3-05 queue: steer composer draft text.
+    pub queue_steer_edit: TextEdit,
 }
 
 impl Default for AppState {
@@ -405,6 +417,11 @@ impl AppState {
             thread_timeline_cache: std::cell::RefCell::new(
                 crate::views::thread::ThreadTimelineCache::default(),
             ),
+            queue_tab: None,
+            queue_expanded_toolset: None,
+            queue_clarify_edits: HashMap::new(),
+            queue_steer_run: None,
+            queue_steer_edit: TextEdit::default(),
         };
         state.step_animations(0.016);
         state
@@ -2134,5 +2151,136 @@ impl AppState {
         p.reduced_motion = patch.reduced_motion;
         apply_ui_customization_patch(&mut self.ui_config, &p);
         self.pending_commands.push(UiCommand::PersistUiConfig);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P3-05 Queue workstream additions (append-only, workstream 5 'queue').
+// Consumes voxcell_hermes::profiles redacted summaries (never raw keys) and
+// dispatches through the existing UiCommand set — no new variants, because
+// app/bridge.rs matches UiCommand exhaustively (foreign file, phone-tray owns).
+// ---------------------------------------------------------------------------
+impl AppState {
+    /// Effective Operations tab: explicit choice wins, else auto-switch to
+    /// approvals while any gate is pending (web HermesOperationsPanel).
+    pub fn queue_active_tab(&self) -> &str {
+        match self.queue_tab.as_deref() {
+            Some(t @ ("runtime" | "approvals" | "jobs")) => t,
+            _ => {
+                if self.approvals.iter().any(|a| !a.resolved) {
+                    "approvals"
+                } else {
+                    "runtime"
+                }
+            }
+        }
+    }
+
+    /// Redacted profile health cards (TS `HermesProfileSummary` shape). Only
+    /// `has_api_key: bool` ever surfaces — raw bearer tokens never reach the UI.
+    pub fn queue_profile_summaries(&self) -> Vec<voxcell_hermes::profiles::HermesProfileSummary> {
+        use voxcell_hermes::profiles::{HermesProfileMode, HermesProfileSource, HermesProfileSummary};
+        self.gateway_profiles
+            .iter()
+            .map(|p| {
+                let standalone = p.source == "standalone";
+                let route_prefix = if standalone || p.name == "default" {
+                    String::new()
+                } else {
+                    format!("/p/{}", p.name)
+                };
+                let is_default = p.active || p.name == self.gateway.active_profile;
+                HermesProfileSummary {
+                    id: p.name.clone(),
+                    label: p.name.clone(),
+                    mode: if standalone {
+                        HermesProfileMode::Standalone
+                    } else {
+                        HermesProfileMode::Multiplexed
+                    },
+                    base_url: p.base_url.clone(),
+                    route_prefix,
+                    source: match p.source.as_str() {
+                        "custom" => HermesProfileSource::Custom,
+                        "env" => HermesProfileSource::Env,
+                        _ => HermesProfileSource::Discovered,
+                    },
+                    // Desktop only knows the primary key's presence; per-profile
+                    // keys stay server-side (redacted summary contract).
+                    has_api_key: is_default && self.has_hermes_key,
+                    is_default,
+                    description: None,
+                    connected: Some(p.online),
+                    active_model: p.model.clone(),
+                    health_status: if p.online { Some("ok".to_string()) } else { None },
+                    error: if p.online { None } else { self.gateway.last_error.clone() },
+                }
+            })
+            .collect()
+    }
+
+    /// Parallel lane count for a profile from the sidebar session badges.
+    pub fn queue_profile_lanes(&self, profile: &str) -> usize {
+        self.session_profiles
+            .values()
+            .filter(|p| p.as_str() == profile)
+            .count()
+    }
+
+    /// Queue switcher: make `name` the default profile and dispatch the switch.
+    pub fn queue_switch_profile(&mut self, name: &str) {
+        if name.is_empty() {
+            return;
+        }
+        self.gateway.active_profile = name.to_string();
+        for p in &mut self.gateway_profiles {
+            p.active = p.name == name;
+        }
+        self.pending_commands.push(UiCommand::SwitchProfile {
+            profile: name.to_string(),
+        });
+    }
+
+    /// Stop the run owned by `channel_id` (existing StopRun command) and drop
+    /// the local thinking flag; the bridge clears active_run_ids on completion.
+    pub fn queue_stop_run(&mut self, channel_id: &str) {
+        if let Some(run_id) = self.active_run_ids.get(channel_id).cloned() {
+            self.pending_commands.push(UiCommand::StopRun {
+                run_id,
+                channel_id: channel_id.to_string(),
+            });
+        }
+        self.thinking_by_channel.insert(channel_id.to_string(), false);
+    }
+
+    /// Send the steer composer draft to the targeted run (existing SteerRun).
+    /// Empty drafts are ignored; a sent draft clears the composer.
+    pub fn queue_send_steer(&mut self) {
+        let Some(run_id) = self.queue_steer_run.clone() else {
+            return;
+        };
+        let text = self.queue_steer_edit.text.trim().to_string();
+        if text.is_empty() {
+            return;
+        }
+        self.pending_commands.push(UiCommand::SteerRun { run_id, text });
+        self.queue_steer_edit.clear();
+        self.queue_steer_run = None;
+    }
+
+    /// Reply to a clarify gate with the card's draft answer. Routes through
+    /// `resolve_approval` so the command carries request_id + generation and
+    /// `is_clarify = true`. Empty answers are ignored (web disables Reply).
+    pub fn queue_reply_clarify(&mut self, approval_id: &str) {
+        let answer = self
+            .queue_clarify_edits
+            .get(approval_id)
+            .map(|e| e.text.trim().to_string())
+            .unwrap_or_default();
+        if answer.is_empty() {
+            return;
+        }
+        self.resolve_approval(approval_id, &answer);
+        self.queue_clarify_edits.remove(approval_id);
     }
 }
