@@ -19,3 +19,9 @@ rune.workspace = true
 rune-notify.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+# P0-02 GPU halftone spike (examples/gpu_halftone_spike.rs) draws its own instanced
+# wgpu pass through rune's Compositor hook. Version/features mirror rune's own wgpu
+# dep (~30.0.1, no default features); backend features (dx12/metal/vulkan) unify in
+# from rune's per-target deps. bytemuck casts the DotInstance vertex buffer.
+wgpu = { version = "~30.0.1", default-features = false, features = ["std", "parking_lot", "wgsl"] }
+bytemuck.workspace = true
