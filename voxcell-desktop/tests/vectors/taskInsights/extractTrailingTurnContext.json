@@ -1,0 +1,189 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "hasActiveActivity": false,
+        "latestActivityBatch": [
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089590000,
+            "id": "a9",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo test",
+            "timestamp": "11:57:07"
+          }
+        ],
+        "latestPrompt": "Refactor the halftone emitter please",
+        "latestPromptAtMs": 1795089480000,
+        "trailingActivities": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089590000,
+            "id": "a9",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo test",
+            "timestamp": "11:57:07"
+          }
+        ]
+      },
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089590000,
+            "id": "a9",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo test",
+            "timestamp": "11:57:07"
+          }
+        ]
+      },
+      "name": "late-tool-after-reply"
+    },
+    {
+      "expected": {
+        "hasActiveActivity": false,
+        "latestActivityBatch": [],
+        "latestPrompt": "",
+        "trailingActivities": []
+      },
+      "input": {
+        "entries": []
+      },
+      "name": "empty"
+    },
+    {
+      "expected": {
+        "hasActiveActivity": true,
+        "latestActivityBatch": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ],
+        "latestPrompt": "",
+        "trailingActivities": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ]
+      },
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089550000,
+            "id": "c1",
+            "role": "command",
+            "source": "ui",
+            "text": "/gateway",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ]
+      },
+      "name": "slash-command-not-prompt"
+    }
+  ],
+  "description": "Trailing-turn detection after settled replies; latest prompt tracking; activity batches.",
+  "function": "extractTrailingTurnContext",
+  "module": "taskInsights"
+}

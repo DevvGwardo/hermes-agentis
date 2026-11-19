@@ -1,0 +1,77 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "raw": "local-abc123def"
+      },
+      "name": "local-abc123def"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "#hermes-run-0123456789ab"
+      },
+      "name": "#hermes-run-0123456789ab"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "cron-morning-brief"
+      },
+      "name": "cron-morning-brief"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "name": "123e4567-e89b-42d3-a456-426614174000"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "aaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "hermes-general"
+      },
+      "name": "hermes-general"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "local-short"
+      },
+      "name": "local-short"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": ""
+      },
+      "name": "(empty)"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": null
+      },
+      "name": "(null)"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "#hermes-local-abcdef"
+      },
+      "name": "#hermes-local-abcdef"
+    }
+  ],
+  "description": "Opaque gateway session id detection (local/run/cron/uuid/raw-hex).",
+  "function": "isOpaqueSessionIdentifier",
+  "module": "hermesProtocol"
+}

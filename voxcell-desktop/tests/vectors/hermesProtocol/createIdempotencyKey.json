@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "expected": "voxcell-00000001-0000-4000-8000-000000000000",
+      "input": {},
+      "name": "default-prefix"
+    },
+    {
+      "expected": "turn-42-00000002-0000-4000-8000-000000000000",
+      "input": {
+        "prefix": "turn-42"
+      },
+      "name": "custom-prefix"
+    },
+    {
+      "expected": "bad-prefix--00000003-0000-4000-8000-000000000000",
+      "input": {
+        "prefix": "bad\u0001prefix"
+      },
+      "name": "invisible-chars-sanitized"
+    },
+    {
+      "expected": "pppppppppppppppppppppppppppppppp-00000004-0000-4000-8000-000000000000",
+      "input": {
+        "prefix": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      },
+      "name": "long-prefix-capped"
+    }
+  ],
+  "description": "Idempotency-Key prefix sanitization + length cap. UUID suffix is shim-seeded (see manifest determinism notes).",
+  "function": "createIdempotencyKey",
+  "module": "hermesProtocol"
+}

@@ -1,0 +1,77 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "channelId": "general",
+          "enabled": true,
+          "id": "job-1",
+          "lastRunAt": "2026-11-19T08:00:00Z",
+          "lastStatus": "ok",
+          "mode": "agent",
+          "name": "Morning brief",
+          "nextRunAt": "2026-11-20T08:00:00Z",
+          "paused": false,
+          "schedule": "0 8 * * *",
+          "status": "active",
+          "summary": "Summarize overnight news"
+        },
+        {
+          "channelId": "ops",
+          "enabled": false,
+          "id": "job-2",
+          "mode": "no-agent",
+          "paused": true,
+          "schedule": "every 5m",
+          "status": "paused",
+          "summary": "backup.sh"
+        },
+        {
+          "channelId": "general",
+          "enabled": false,
+          "id": "job-3",
+          "mode": "agent",
+          "name": "job-3",
+          "paused": true,
+          "schedule": "* * * * *",
+          "status": "paused",
+          "summary": "job-3"
+        }
+      ],
+      "input": {
+        "raw": {
+          "jobs": [
+            {
+              "channel_id": "general",
+              "cron": "0 8 * * *",
+              "id": "job-1",
+              "last_run_at": "2026-11-19T08:00:00Z",
+              "last_status": "ok",
+              "name": "Morning brief",
+              "next_run_at": "2026-11-20T08:00:00Z",
+              "prompt": "Summarize overnight news"
+            },
+            {
+              "command": "backup.sh",
+              "delivery_target": "ops",
+              "job_id": "job-2",
+              "schedule_display": "every 5m",
+              "status": "paused"
+            },
+            {
+              "enabled": false,
+              "name": "job-3"
+            },
+            {
+              "prompt": "no id skipped"
+            }
+          ]
+        }
+      },
+      "name": "mixed-jobs"
+    }
+  ],
+  "description": "Cron job normalization: id/schedule/channel fallbacks, paused derivation, agent vs no-agent.",
+  "function": "mapGatewayJobs",
+  "module": "hermesProtocol"
+}

@@ -1,0 +1,83 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "category": "docs",
+          "enabled": false,
+          "name": "pdf",
+          "source": "category:docs",
+          "summary": "Read and merge PDFs"
+        },
+        {
+          "enabled": true,
+          "name": "maps",
+          "source": "/skills/maps",
+          "summary": "Geocode and route"
+        },
+        {
+          "enabled": true,
+          "name": "bare",
+          "source": "gateway:/v1/skills",
+          "summary": ""
+        }
+      ],
+      "input": {
+        "raw": {
+          "skills": [
+            {
+              "category": "docs",
+              "description": "Read and merge PDFs",
+              "enabled": false,
+              "name": " pdf "
+            },
+            {
+              "name": "maps",
+              "path": "/skills/maps",
+              "summary": "Geocode and route"
+            },
+            {
+              "name": "bare"
+            },
+            {
+              "description": "nameless skipped"
+            },
+            "not-an-object"
+          ]
+        }
+      },
+      "name": "mixed-envelope"
+    },
+    {
+      "expected": [
+        {
+          "enabled": true,
+          "name": "x",
+          "source": "custom",
+          "summary": ""
+        }
+      ],
+      "input": {
+        "raw": {
+          "data": [
+            {
+              "name": "x",
+              "source": "custom"
+            }
+          ]
+        }
+      },
+      "name": "data-array"
+    },
+    {
+      "expected": [],
+      "input": {
+        "raw": "nope"
+      },
+      "name": "garbage"
+    }
+  ],
+  "description": "Skill list normalization (array / {skills} / {data} envelopes).",
+  "function": "mapGatewaySkills",
+  "module": "hermesProtocol"
+}

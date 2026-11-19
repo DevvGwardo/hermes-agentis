@@ -1,0 +1,243 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "final": {
+          "progress": "4/5",
+          "steps": [
+            {
+              "active": false,
+              "done": true,
+              "text": "Working in hermes-general"
+            },
+            {
+              "active": false,
+              "done": true,
+              "text": "terminal"
+            },
+            {
+              "active": false,
+              "done": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "active": false,
+              "done": true,
+              "text": "web_search: rune instancing"
+            },
+            {
+              "active": false,
+              "done": false,
+              "text": "web_search: timeout"
+            }
+          ]
+        },
+        "trace": [
+          {
+            "event": {
+              "status": "running",
+              "summary": "",
+              "toolName": "terminal"
+            },
+            "progress": "1/2",
+            "steps": [
+              {
+                "active": false,
+                "done": true,
+                "text": "Working in hermes-general"
+              },
+              {
+                "active": true,
+                "done": false,
+                "text": "terminal"
+              }
+            ]
+          },
+          {
+            "event": {
+              "status": "running",
+              "summary": "terminal: cargo check",
+              "toolName": "terminal"
+            },
+            "progress": "2/3",
+            "steps": [
+              {
+                "active": false,
+                "done": true,
+                "text": "Working in hermes-general"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal"
+              },
+              {
+                "active": true,
+                "done": false,
+                "text": "terminal: cargo check"
+              }
+            ]
+          },
+          {
+            "event": {
+              "status": "running",
+              "summary": "web_search: rune instancing",
+              "toolName": "web_search"
+            },
+            "progress": "3/4",
+            "steps": [
+              {
+                "active": false,
+                "done": true,
+                "text": "Working in hermes-general"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal: cargo check"
+              },
+              {
+                "active": true,
+                "done": false,
+                "text": "web_search: rune instancing"
+              }
+            ]
+          },
+          {
+            "event": {
+              "status": "done",
+              "summary": "terminal: cargo check ok",
+              "toolName": "terminal"
+            },
+            "progress": "4/4",
+            "steps": [
+              {
+                "active": false,
+                "done": true,
+                "text": "Working in hermes-general"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal: cargo check"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "web_search: rune instancing"
+              }
+            ]
+          },
+          {
+            "event": {
+              "status": "failed",
+              "summary": "web_search: timeout",
+              "toolName": "web_search"
+            },
+            "progress": "4/5",
+            "steps": [
+              {
+                "active": false,
+                "done": true,
+                "text": "Working in hermes-general"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "terminal: cargo check"
+              },
+              {
+                "active": false,
+                "done": true,
+                "text": "web_search: rune instancing"
+              },
+              {
+                "active": false,
+                "done": false,
+                "text": "web_search: timeout"
+              }
+            ]
+          }
+        ]
+      },
+      "input": {
+        "events": [
+          {
+            "status": "running",
+            "summary": "",
+            "toolName": "terminal"
+          },
+          {
+            "status": "running",
+            "summary": "terminal: cargo check",
+            "toolName": "terminal"
+          },
+          {
+            "status": "running",
+            "summary": "web_search: rune instancing",
+            "toolName": "web_search"
+          },
+          {
+            "status": "done",
+            "summary": "terminal: cargo check ok",
+            "toolName": "terminal"
+          },
+          {
+            "status": "failed",
+            "summary": "web_search: timeout",
+            "toolName": "web_search"
+          }
+        ],
+        "prevSteps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Working in hermes-general"
+          }
+        ]
+      },
+      "name": "event-sequence"
+    },
+    {
+      "expected": {
+        "progress": "1/1",
+        "steps": [
+          {
+            "active": false,
+            "done": true,
+            "text": "terminal: ls"
+          }
+        ]
+      },
+      "input": {
+        "events": [
+          {
+            "status": "done",
+            "summary": "terminal: ls",
+            "toolName": "terminal"
+          }
+        ],
+        "prevSteps": []
+      },
+      "name": "done-without-open-step"
+    }
+  ],
+  "description": "Tool-progress event fold: placeholder upgrade in-place, prior-step settling, terminal close, failure keeps step open.",
+  "function": "applyToolProgressToSteps",
+  "module": "taskInsights"
+}

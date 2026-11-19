@@ -1,0 +1,322 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        },
+        {
+          "background": false,
+          "channelId": "design",
+          "createdAtMs": 1795089560000,
+          "id": "live-turn-design",
+          "kind": "In chat",
+          "lastStep": "Running terminal",
+          "progress": 0,
+          "progressLabel": "0/1",
+          "rawStatus": "running",
+          "sessionId": "hermes-design",
+          "status": "running",
+          "steps": [
+            {
+              "active": true,
+              "done": false,
+              "text": "Running terminal"
+            }
+          ],
+          "title": "Draft the phone widget layout",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089580000
+        },
+        {
+          "agentDoneAtMs": 1795089120000,
+          "background": false,
+          "channelId": "ops",
+          "confirmedAtMs": 1795089120000,
+          "createdAtMs": 1795089060000,
+          "id": "trace-turn-ops",
+          "kind": "In chat",
+          "lastStep": "terminal: backup.sh",
+          "progress": 100,
+          "progressLabel": "1/1",
+          "rawStatus": "done",
+          "sessionId": "hermes-ops",
+          "status": "completed",
+          "steps": [
+            {
+              "active": false,
+              "done": true,
+              "text": "terminal: backup.sh"
+            }
+          ],
+          "title": "Run the backup",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      ],
+      "input": {
+        "channels": [
+          {
+            "id": "design",
+            "name": "Design",
+            "sessionId": "hermes-design"
+          },
+          {
+            "id": "ops",
+            "name": "Ops"
+          }
+        ],
+        "confirmedTaskIds": [
+          "trace-turn-ops"
+        ],
+        "entries": [
+          {
+            "channelId": "design",
+            "createdAtMs": 1795089560000,
+            "id": "du1",
+            "role": "user",
+            "source": "ui",
+            "text": "Draft the phone widget layout",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "design",
+            "createdAtMs": 1795089580000,
+            "id": "da1",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:09"
+          },
+          {
+            "channelId": "ops",
+            "createdAtMs": 1795089060000,
+            "id": "ou1",
+            "role": "user",
+            "source": "ui",
+            "text": "Run the backup",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "ops",
+            "createdAtMs": 1795089120000,
+            "id": "oa1",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: backup.sh",
+            "timestamp": "11:57:09"
+          }
+        ],
+        "sessions": [
+          {
+            "channelId": "design",
+            "lastMessage": "Draft the phone widget layout",
+            "name": "Design",
+            "persona": "Hermes",
+            "sessionId": "hermes-design",
+            "status": "thinking",
+            "topic": "Phone widget",
+            "turnCount": 2,
+            "updatedAtMs": 1795089585000
+          }
+        ],
+        "tasks": [
+          {
+            "background": true,
+            "channelId": "general",
+            "createdAtMs": 1795089475000,
+            "id": "task-build",
+            "kind": "Background",
+            "lastStep": "terminal: cargo check",
+            "profile": "default",
+            "progress": 40,
+            "progressLabel": "1/3",
+            "rawStatus": "running",
+            "sessionId": "hermes-general",
+            "status": "running",
+            "steps": [
+              {
+                "done": true,
+                "text": "Read raster code"
+              },
+              {
+                "active": true,
+                "text": "terminal: cargo check"
+              },
+              {
+                "text": "Write GPU emitter"
+              }
+            ],
+            "title": "Refactor the halftone emitter",
+            "updatedAt": "11:57",
+            "updatedAtMs": 1795089595000
+          }
+        ],
+        "thinkingByChannel": {
+          "design": true
+        }
+      },
+      "name": "synthetic-live-and-trace"
+    },
+    {
+      "expected": [
+        {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        },
+        {
+          "channelId": "design",
+          "createdAtMs": 1795089598000,
+          "id": "task-fresh",
+          "lastStep": "Working in hermes-design",
+          "progress": 0,
+          "rawStatus": "running",
+          "status": "running",
+          "title": "Draft the phone widget",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089599000
+        }
+      ],
+      "input": {
+        "entries": [
+          {
+            "channelId": "design",
+            "createdAtMs": 1795089560000,
+            "id": "du1",
+            "role": "user",
+            "source": "ui",
+            "text": "Draft the phone widget layout",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "design",
+            "createdAtMs": 1795089580000,
+            "id": "da1",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:09"
+          }
+        ],
+        "tasks": [
+          {
+            "background": true,
+            "channelId": "general",
+            "createdAtMs": 1795089475000,
+            "id": "task-build",
+            "kind": "Background",
+            "lastStep": "terminal: cargo check",
+            "profile": "default",
+            "progress": 40,
+            "progressLabel": "1/3",
+            "rawStatus": "running",
+            "sessionId": "hermes-general",
+            "status": "running",
+            "steps": [
+              {
+                "done": true,
+                "text": "Read raster code"
+              },
+              {
+                "active": true,
+                "text": "terminal: cargo check"
+              },
+              {
+                "text": "Write GPU emitter"
+              }
+            ],
+            "title": "Refactor the halftone emitter",
+            "updatedAt": "11:57",
+            "updatedAtMs": 1795089595000
+          },
+          {
+            "channelId": "design",
+            "createdAtMs": 1795089598000,
+            "id": "task-fresh",
+            "lastStep": "Working in hermes-design",
+            "progress": 0,
+            "rawStatus": "running",
+            "status": "running",
+            "title": "Draft the phone widget",
+            "updatedAt": "11:59",
+            "updatedAtMs": 1795089599000
+          }
+        ],
+        "thinkingByChannel": {
+          "design": true
+        }
+      },
+      "name": "no-synthetic-when-running-task-exists"
+    },
+    {
+      "expected": [],
+      "input": {
+        "entries": [],
+        "tasks": []
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "Synthetic live-turn tasks for busy threads without server tasks; completed trace-turn tasks for tool-only threads; confirmedTaskIds input is an array (Set in TS).",
+  "function": "mergeTasksWithSessionActivity",
+  "module": "taskInsights"
+}

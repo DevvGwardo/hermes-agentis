@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "expected": "voxcell-main",
+      "input": {
+        "raw": "voxcell-main"
+      },
+      "name": "plain"
+    },
+    {
+      "expected": "voxcell-key",
+      "input": {
+        "raw": "vox\r\ncell\u0000-key  "
+      },
+      "name": "control-chars"
+    },
+    {
+      "input": {
+        "raw": "\r\n\u0000"
+      },
+      "name": "empty-after-strip"
+    },
+    {
+      "input": {
+        "raw": null
+      },
+      "name": "null"
+    },
+    {
+      "expected": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "input": {
+        "raw": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+      },
+      "name": "over-256"
+    }
+  ],
+  "description": "X-Hermes-Session-Key sanitization: CRLF/NUL strip, trim, 256 cap.",
+  "function": "sanitizeSessionKeyHeader",
+  "module": "hermesProtocol"
+}

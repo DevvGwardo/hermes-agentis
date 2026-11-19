@@ -1,0 +1,172 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "isIndeterminate": false,
+        "pct": 33,
+        "ratioLabel": "1/3"
+      },
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "running-steps"
+    },
+    {
+      "expected": {
+        "isIndeterminate": false,
+        "pct": 33,
+        "ratioLabel": "2/6"
+      },
+      "input": {
+        "task": {
+          "channelId": "general",
+          "createdAtMs": 1795089510000,
+          "id": "task-research",
+          "lastStep": "Running web_search",
+          "progress": 33,
+          "progressLabel": "2/6",
+          "rawStatus": "running",
+          "status": "running",
+          "title": "Survey RUNE APIs",
+          "updatedAt": "11:58",
+          "updatedAtMs": 1795089580000
+        }
+      },
+      "name": "running-ratio"
+    },
+    {
+      "expected": {
+        "isIndeterminate": true,
+        "pct": 0,
+        "ratioLabel": "0%"
+      },
+      "input": {
+        "task": {
+          "channelId": "design",
+          "createdAtMs": 1795089598000,
+          "id": "task-fresh",
+          "lastStep": "Working in hermes-design",
+          "progress": 0,
+          "rawStatus": "running",
+          "status": "running",
+          "title": "Draft the phone widget",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089599000
+        }
+      },
+      "name": "running-zero-indeterminate"
+    },
+    {
+      "expected": {
+        "isIndeterminate": false,
+        "pct": 100,
+        "ratioLabel": "2/2"
+      },
+      "input": {
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Changelog summarized: 12 entries across 3 releases.",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "completed"
+    },
+    {
+      "expected": {
+        "isIndeterminate": false,
+        "pct": 80,
+        "ratioLabel": "80%"
+      },
+      "input": {
+        "task": {
+          "channelId": "ops",
+          "createdAtMs": 1795088880000,
+          "errorCode": "tool_error",
+          "id": "task-failed",
+          "lastStep": "terminal: cargo test",
+          "progress": 80,
+          "rawStatus": "failed",
+          "result": "error: test failed",
+          "status": "completed",
+          "title": "Run integration suite",
+          "updatedAt": "11:51",
+          "updatedAtMs": 1795089060000
+        }
+      },
+      "name": "failed-not-100"
+    },
+    {
+      "expected": {
+        "isIndeterminate": false,
+        "pct": 100,
+        "ratioLabel": "250%"
+      },
+      "input": {
+        "task": {
+          "channelId": "design",
+          "createdAtMs": 1795089598000,
+          "id": "task-fresh",
+          "lastStep": "Working in hermes-design",
+          "progress": 250,
+          "rawStatus": "running",
+          "status": "running",
+          "title": "Draft the phone widget",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089599000
+        }
+      },
+      "name": "progress-clamped"
+    }
+  ],
+  "description": "Progress pct/ratio/indeterminate derivation.",
+  "function": "resolveTaskProgress",
+  "module": "taskInsights"
+}

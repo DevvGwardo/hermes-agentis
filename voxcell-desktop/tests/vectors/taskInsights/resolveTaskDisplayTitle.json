@@ -1,0 +1,140 @@
+{
+  "cases": [
+    {
+      "expected": "Refactor the halftone emitter",
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "descriptive-kept"
+    },
+    {
+      "expected": "terminal: gh pr checks",
+      "input": {
+        "task": {
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "task-vague",
+          "lastStep": "Running terminal",
+          "progress": 50,
+          "rawStatus": "running",
+          "status": "running",
+          "steps": [
+            {
+              "text": "Running terminal"
+            },
+            {
+              "text": "terminal: gh pr checks"
+            }
+          ],
+          "title": "go",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089570000
+        }
+      },
+      "name": "vague-promoted-from-step"
+    },
+    {
+      "expected": "go",
+      "input": {
+        "task": {
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "task-vague",
+          "lastStep": "Running terminal",
+          "progress": 50,
+          "rawStatus": "running",
+          "status": "running",
+          "steps": [
+            {
+              "text": "Working in hermes-general"
+            },
+            {
+              "text": "Composing response"
+            }
+          ],
+          "title": "go",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089570000
+        }
+      },
+      "name": "vague-bootstrap-skipped"
+    },
+    {
+      "expected": "terminal: gh pr checks",
+      "input": {
+        "task": {
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "task-vague",
+          "lastStep": "terminal: gh pr checks",
+          "progress": 50,
+          "rawStatus": "running",
+          "status": "running",
+          "steps": [],
+          "title": "go",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089570000
+        }
+      },
+      "name": "vague-lastStep-fallback"
+    },
+    {
+      "expected": "Active task",
+      "input": {
+        "task": {
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "task-vague",
+          "lastStep": "Running terminal",
+          "progress": 50,
+          "rawStatus": "running",
+          "status": "running",
+          "steps": [
+            {
+              "text": "Running terminal"
+            },
+            {
+              "text": "terminal: gh pr checks"
+            }
+          ],
+          "title": "  ",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089570000
+        }
+      },
+      "name": "empty-title"
+    }
+  ],
+  "description": "Vague nudge titles promoted from concrete steps; descriptive titles kept.",
+  "function": "resolveTaskDisplayTitle",
+  "module": "taskInsights"
+}

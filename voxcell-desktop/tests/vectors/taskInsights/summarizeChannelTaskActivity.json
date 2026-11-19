@@ -1,0 +1,145 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "design": {
+          "channelId": "design",
+          "completedCount": 0,
+          "hasActiveTask": true,
+          "isThinking": false,
+          "pausedCount": 0,
+          "primaryTitle": "Draft the phone widget",
+          "runningCount": 1,
+          "startedAtMs": 1795089598000
+        },
+        "extra-think": {
+          "channelId": "extra-think",
+          "completedCount": 0,
+          "hasActiveTask": true,
+          "isThinking": true,
+          "pausedCount": 0,
+          "runningCount": 0
+        },
+        "general": {
+          "channelId": "general",
+          "completedCount": 1,
+          "hasActiveTask": true,
+          "isThinking": false,
+          "pausedCount": 1,
+          "primaryTitle": "Refactor the halftone emitter",
+          "runningCount": 1,
+          "startedAtMs": 1795089475000
+        },
+        "ops": {
+          "channelId": "ops",
+          "completedCount": 0,
+          "hasActiveTask": true,
+          "isThinking": true,
+          "pausedCount": 0,
+          "runningCount": 0
+        }
+      },
+      "input": {
+        "channels": [
+          {
+            "id": "general"
+          },
+          {
+            "id": "design"
+          },
+          {
+            "id": "ops"
+          }
+        ],
+        "tasks": [
+          {
+            "background": true,
+            "channelId": "general",
+            "createdAtMs": 1795089475000,
+            "id": "task-build",
+            "kind": "Background",
+            "lastStep": "terminal: cargo check",
+            "profile": "default",
+            "progress": 40,
+            "progressLabel": "1/3",
+            "rawStatus": "running",
+            "sessionId": "hermes-general",
+            "status": "running",
+            "steps": [
+              {
+                "done": true,
+                "text": "Read raster code"
+              },
+              {
+                "active": true,
+                "text": "terminal: cargo check"
+              },
+              {
+                "text": "Write GPU emitter"
+              }
+            ],
+            "title": "Refactor the halftone emitter",
+            "updatedAt": "11:57",
+            "updatedAtMs": 1795089595000
+          },
+          {
+            "channelId": "design",
+            "createdAtMs": 1795089598000,
+            "id": "task-fresh",
+            "lastStep": "Working in hermes-design",
+            "progress": 0,
+            "rawStatus": "running",
+            "status": "running",
+            "title": "Draft the phone widget",
+            "updatedAt": "11:59",
+            "updatedAtMs": 1795089599000
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089360000,
+            "id": "task-approval",
+            "lastStep": "Waiting for approval",
+            "progress": 60,
+            "rawStatus": "waiting_for_approval",
+            "status": "paused",
+            "title": "Deploy staging build",
+            "updatedAt": "11:58",
+            "updatedAtMs": 1795089480000
+          },
+          {
+            "agentDoneAtMs": 1795089120000,
+            "channelId": "general",
+            "createdAtMs": 1795089000000,
+            "id": "task-done",
+            "lastStep": "Completed response",
+            "progress": 100,
+            "rawStatus": "done",
+            "result": "Changelog summarized: 12 entries across 3 releases.",
+            "status": "completed",
+            "steps": [
+              {
+                "done": true,
+                "text": "Read CHANGELOG.md"
+              },
+              {
+                "done": true,
+                "text": "Completed response"
+              }
+            ],
+            "title": "Summarize the changelog",
+            "updatedAt": "11:52",
+            "updatedAtMs": 1795089120000
+          }
+        ],
+        "thinkingByChannel": {
+          "extra-think": true,
+          "ops": true
+        }
+      },
+      "name": "multi-channel"
+    }
+  ],
+  "description": "Per-channel active-task badges incl. thinking-only channels.",
+  "function": "summarizeChannelTaskActivity",
+  "module": "taskInsights"
+}

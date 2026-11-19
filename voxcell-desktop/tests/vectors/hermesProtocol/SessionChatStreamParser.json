@@ -1,0 +1,150 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "events": {
+          "commentary": [
+            {
+              "alreadyStreamed": false,
+              "messageId": "c1",
+              "text": "Checking vendor patches"
+            }
+          ],
+          "deltas": [
+            {
+              "accumulated": "Hello",
+              "chunk": "Hello"
+            },
+            {
+              "accumulated": "Hello world",
+              "chunk": " world"
+            }
+          ],
+          "tools": [
+            {
+              "label": "terminal: cargo check",
+              "phase": "started",
+              "status": "running",
+              "summary": "terminal: cargo check",
+              "toolName": "terminal"
+            },
+            {
+              "durationSec": 2.5,
+              "label": "terminal: ok",
+              "phase": "completed",
+              "status": "done",
+              "summary": "terminal: ok",
+              "toolName": "terminal"
+            },
+            {
+              "error": "timeout",
+              "label": "web: timeout",
+              "phase": "failed",
+              "status": "failed",
+              "summary": "web: timeout",
+              "toolName": "web"
+            }
+          ]
+        },
+        "result": {
+          "content": "Hello world",
+          "interrupted": true,
+          "outcome": "cancelled",
+          "partial": true
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"type\"",
+          ":\"assistant.d",
+          "elta\",\"delta\"",
+          ":\"Hello\"}\n\nda",
+          "ta: {\"event\":",
+          "\"assistant.de",
+          "lta\",\"text\":\"",
+          " world\"}\n\ndat",
+          "a: {\"type\":\"a",
+          "ssistant.comm",
+          "entary\",\"mess",
+          "age_id\":\"c1\",",
+          "\"text\":\"Check",
+          "ing vendor pa",
+          "tches\",\"alrea",
+          "dy_streamed\":",
+          "false}\n\ndata:",
+          " {\"type\":\"too",
+          "l.started\",\"t",
+          "ool\":\"termina",
+          "l\",\"args_prev",
+          "iew\":\"cargo c",
+          "heck\"}\n\ndata:",
+          " {\"type\":\"too",
+          "l.completed\",",
+          "\"tool\":\"termi",
+          "nal\",\"result\"",
+          ":\"ok\",\"durati",
+          "on\":2.5}\n\ndat",
+          "a: {\"type\":\"t",
+          "ool.failed\",\"",
+          "tool\":\"web\",\"",
+          "error\":\"timeo",
+          "ut\"}\n\ndata: {",
+          "\"type\":\"assis",
+          "tant.complete",
+          "d\",\"partial\":",
+          "true,\"interru",
+          "pted\":true}\n\n",
+          "data: [DONE]\n",
+          "\n"
+        ]
+      },
+      "name": "interrupted-turn"
+    },
+    {
+      "expected": {
+        "events": {
+          "commentary": [],
+          "deltas": [],
+          "tools": []
+        },
+        "result": {
+          "content": "Full answer from finalization.",
+          "interrupted": false,
+          "outcome": "completed",
+          "partial": false
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"assistant.completed\",\"content\":\"Full answer from finalization.\"}\n\ndata: {\"event\":\"run.completed\",\"output\":\"Authoritative output.\"}\n\n"
+        ]
+      },
+      "name": "run-completed"
+    },
+    {
+      "expected": {
+        "events": {
+          "commentary": [],
+          "deltas": [],
+          "tools": []
+        },
+        "result": {
+          "content": "",
+          "error": "gateway exploded",
+          "interrupted": false,
+          "outcome": "failed",
+          "partial": false
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"run.failed\",\"error\":\"gateway exploded\"}\n\n"
+        ]
+      },
+      "name": "run-failed"
+    }
+  ],
+  "description": "Session chat stream: deltas, commentary, tool lifecycle, interrupted/partial finalization. run.completed output fallback and completed outcome. run.failed outcome + error propagation.",
+  "function": "SessionChatStreamParser",
+  "module": "hermesProtocol"
+}

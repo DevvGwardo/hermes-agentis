@@ -1,0 +1,130 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "events": {
+          "content": [
+            {
+              "accumulated": "Hello",
+              "chunk": "Hello"
+            },
+            {
+              "accumulated": "Hello world",
+              "chunk": " world"
+            }
+          ],
+          "reasoning": [
+            {
+              "accumulated": "Planning. ",
+              "chunk": "Planning. "
+            }
+          ],
+          "tools": [
+            {
+              "label": "terminal: cargo check",
+              "phase": "progress",
+              "status": "running",
+              "summary": "terminal: cargo check",
+              "toolName": "terminal"
+            },
+            {
+              "label": "terminal: cargo check ok",
+              "phase": "completed",
+              "status": "done",
+              "summary": "terminal: cargo check ok",
+              "toolName": "terminal"
+            }
+          ]
+        },
+        "result": {
+          "admissionConflict": false,
+          "content": "Hello world",
+          "finishReason": "stop",
+          "outcome": "completed",
+          "reasoning": "Planning. ",
+          "sessionId": "hermes-general",
+          "sessionKey": "voxcell-main"
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"ses",
+          "sion_id\":\"h",
+          "ermes-gener",
+          "al\",\"sessio",
+          "n_key\":\"vox",
+          "cell-main\",",
+          "\"choices\":[",
+          "{\"delta\":{\"",
+          "reasoning_c",
+          "ontent\":\"Pl",
+          "anning. \"}}",
+          "]}\n\ndata: {",
+          "\"choices\":[",
+          "{\"delta\":{\"",
+          "content\":\"H",
+          "ello\"}}]}\n\n",
+          "event: herm",
+          "es.tool.pro",
+          "gress\ndata:",
+          " {\"tool\":\"t",
+          "erminal\",\"s",
+          "tatus\":\"run",
+          "ning\",\"summ",
+          "ary\":\"cargo",
+          " check\"}\n\ne",
+          "vent: herme",
+          "s.tool.prog",
+          "ress\ndata: ",
+          "{\"tool\":\"te",
+          "rminal\",\"st",
+          "atus\":\"done",
+          "\",\"summary\"",
+          ":\"cargo che",
+          "ck ok\"}\n\nda",
+          "ta: {\"choic",
+          "es\":[{\"delt",
+          "a\":{\"conten",
+          "t\":\" world\"",
+          "},\"finish_r",
+          "eason\":null",
+          "}]}\n\ndata: ",
+          "{\"choices\":",
+          "[{\"delta\":{",
+          "},\"finish_r",
+          "eason\":\"sto",
+          "p\"}]}\n\ndata",
+          ": [DONE]\n\n"
+        ]
+      },
+      "name": "full-turn"
+    },
+    {
+      "expected": {
+        "events": {
+          "content": [],
+          "reasoning": [],
+          "tools": []
+        },
+        "result": {
+          "admissionConflict": true,
+          "content": "partial",
+          "errorCode": "admission_conflict",
+          "errorMessage": "admission_conflict",
+          "finishReason": null,
+          "outcome": "admission_conflict",
+          "reasoning": ""
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"error\":{\"code\":\"admission_conflict\",\"message\":\"admission_conflict\"},\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n"
+        ]
+      },
+      "name": "admission-conflict-stream"
+    }
+  ],
+  "description": "Streaming chat completions: reasoning/content deltas, hermes.tool.progress frames, finish + [DONE]. Admission-conflict error frame classification.",
+  "function": "ChatCompletionsStreamParser",
+  "module": "hermesProtocol"
+}

@@ -1,0 +1,114 @@
+{
+  "cases": [
+    {
+      "expected": "In chat",
+      "input": {
+        "task": {
+          "background": false,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "in-chat"
+    },
+    {
+      "expected": "Background",
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "background-default"
+    },
+    {
+      "expected": "Cron",
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Cron",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "custom-kind"
+    }
+  ],
+  "description": "In-chat vs background kind labels.",
+  "function": "getTaskKindLabel",
+  "module": "taskInsights"
+}

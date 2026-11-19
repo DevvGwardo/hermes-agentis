@@ -1,0 +1,87 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "config": {
+          "accentBrightHex": "#E2E8F0",
+          "accentHex": "#94A3B8",
+          "accentPreset": "slate",
+          "accentSoftHex": "#CBD5E1",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#11141B",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Hermes"
+        }
+      },
+      "name": "default"
+    },
+    {
+      "expected": false,
+      "input": {
+        "config": {
+          "accentBrightHex": "#C084FC",
+          "accentHex": "#A855F7",
+          "accentPreset": "violet",
+          "accentSoftHex": "#D8B4FE",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#120B1E",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Lab"
+        }
+      },
+      "name": "customized"
+    }
+  ],
+  "description": "UI config equality against slate-v1 defaults.",
+  "function": "isUiConfigDefault",
+  "module": "settingsSnapshot"
+}

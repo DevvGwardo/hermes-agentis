@@ -1,0 +1,73 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "createdAtMs": 1795089000000,
+          "id": "m1",
+          "role": "user",
+          "text": "Hello"
+        },
+        {
+          "createdAtMs": 1795089595000,
+          "id": "gw-msg-hermes-general-1",
+          "reasoning": "greeting the user",
+          "role": "assistant",
+          "text": "Hi there\n[image]"
+        },
+        {
+          "createdAtMs": 1795089598000,
+          "id": "gw-msg-hermes-general-4",
+          "role": "system",
+          "text": "You are Hermes."
+        }
+      ],
+      "input": {
+        "raw": {
+          "messages": [
+            {
+              "content": "Hello",
+              "created_at": 1795089000,
+              "id": "m1",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "text": "Hi there",
+                  "type": "text"
+                },
+                {
+                  "type": "input_image"
+                }
+              ],
+              "reasoning_content": "greeting the user",
+              "role": "assistant"
+            },
+            {
+              "content": "tool output skipped",
+              "role": "tool"
+            },
+            {
+              "content": "dev skipped",
+              "role": "developer"
+            },
+            {
+              "role": "system",
+              "text": "You are Hermes."
+            },
+            {
+              "content": "   ",
+              "role": "assistant"
+            }
+          ]
+        },
+        "sessionId": "hermes-general"
+      },
+      "name": "mixed-messages"
+    }
+  ],
+  "description": "History mapping: role filtering, content parts, reasoning, synthetic timestamps (Date.now pinned).",
+  "function": "mapGatewaySessionMessages",
+  "module": "hermesProtocol"
+}

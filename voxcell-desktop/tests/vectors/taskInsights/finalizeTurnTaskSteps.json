@@ -1,0 +1,205 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "progress": "2/2",
+        "steps": [
+          {
+            "active": false,
+            "done": true,
+            "text": "Refactor complete"
+          },
+          {
+            "active": false,
+            "done": true,
+            "text": "terminal: cargo check"
+          }
+        ]
+      },
+      "input": {
+        "finalLabel": "Refactor complete",
+        "outcome": "done",
+        "prevSteps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Working in hermes-general"
+          },
+          {
+            "done": true,
+            "text": "terminal: cargo check"
+          }
+        ]
+      },
+      "name": "done-with-steps"
+    },
+    {
+      "expected": {
+        "progress": "1/1",
+        "steps": [
+          {
+            "active": false,
+            "done": true,
+            "text": "Completed response"
+          }
+        ]
+      },
+      "input": {
+        "outcome": "done",
+        "prevSteps": []
+      },
+      "name": "done-empty"
+    },
+    {
+      "expected": {
+        "progress": "1/3",
+        "steps": [
+          {
+            "active": false,
+            "done": false,
+            "text": "Working in hermes-general"
+          },
+          {
+            "active": false,
+            "done": true,
+            "text": "terminal: cargo check"
+          },
+          {
+            "active": false,
+            "done": false,
+            "text": "Refactor complete"
+          }
+        ]
+      },
+      "input": {
+        "finalLabel": "Refactor complete",
+        "outcome": "failed",
+        "prevSteps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Working in hermes-general"
+          },
+          {
+            "done": true,
+            "text": "terminal: cargo check"
+          }
+        ]
+      },
+      "name": "failed-with-steps"
+    },
+    {
+      "expected": {
+        "progress": "0/1",
+        "steps": []
+      },
+      "input": {
+        "outcome": "failed",
+        "prevSteps": []
+      },
+      "name": "failed-empty"
+    },
+    {
+      "expected": {
+        "progress": "1/3",
+        "steps": [
+          {
+            "active": false,
+            "done": false,
+            "text": "Working in hermes-general"
+          },
+          {
+            "active": false,
+            "done": true,
+            "text": "terminal: cargo check"
+          },
+          {
+            "active": false,
+            "done": false,
+            "text": "Refactor complete"
+          }
+        ]
+      },
+      "input": {
+        "finalLabel": "Refactor complete",
+        "outcome": "cancelled",
+        "prevSteps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Working in hermes-general"
+          },
+          {
+            "done": true,
+            "text": "terminal: cargo check"
+          }
+        ]
+      },
+      "name": "cancelled-with-steps"
+    },
+    {
+      "expected": {
+        "progress": "0/1",
+        "steps": []
+      },
+      "input": {
+        "outcome": "cancelled",
+        "prevSteps": []
+      },
+      "name": "cancelled-empty"
+    },
+    {
+      "expected": {
+        "progress": "2/2",
+        "steps": [
+          {
+            "active": false,
+            "done": true,
+            "text": "Refactor complete"
+          },
+          {
+            "active": false,
+            "done": true,
+            "text": "terminal: cargo check"
+          }
+        ]
+      },
+      "input": {
+        "finalLabel": "Refactor complete",
+        "outcome": "iteration_budget_exhausted",
+        "prevSteps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Working in hermes-general"
+          },
+          {
+            "done": true,
+            "text": "terminal: cargo check"
+          }
+        ]
+      },
+      "name": "iteration_budget_exhausted-with-steps"
+    },
+    {
+      "expected": {
+        "progress": "1/1",
+        "steps": [
+          {
+            "active": false,
+            "done": true,
+            "text": "Iteration budget reached (partial answer)"
+          }
+        ]
+      },
+      "input": {
+        "outcome": "iteration_budget_exhausted",
+        "prevSteps": []
+      },
+      "name": "iteration_budget_exhausted-empty"
+    }
+  ],
+  "description": "Turn settlement for done/failed/cancelled/budget outcomes.",
+  "function": "finalizeTurnTaskSteps",
+  "module": "taskInsights"
+}

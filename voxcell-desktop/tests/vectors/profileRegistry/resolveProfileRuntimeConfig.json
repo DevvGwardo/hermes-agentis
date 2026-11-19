@@ -1,0 +1,132 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "apiKey": "default-key",
+        "baseUrl": "http://127.0.0.1:8642",
+        "id": "default",
+        "isDefault": true,
+        "label": "default",
+        "mode": "standalone",
+        "routePrefix": "",
+        "source": "env"
+      },
+      "input": {
+        "def": {
+          "id": "default",
+          "mode": "standalone",
+          "source": "env"
+        },
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642"
+        }
+      },
+      "name": "default-profile"
+    },
+    {
+      "expected": {
+        "apiKey": "explicit",
+        "baseUrl": "http://127.0.0.1:8643",
+        "id": "coder",
+        "isDefault": false,
+        "label": "coder",
+        "mode": "standalone",
+        "routePrefix": "",
+        "source": "env"
+      },
+      "input": {
+        "def": {
+          "apiKey": "explicit",
+          "baseUrl": "http://127.0.0.1:8643/",
+          "id": "coder",
+          "mode": "standalone",
+          "source": "env"
+        },
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642"
+        }
+      },
+      "name": "standalone-with-url"
+    },
+    {
+      "expected": {
+        "apiKey": "default-key",
+        "baseUrl": "http://127.0.0.1:8642",
+        "id": "coder",
+        "isDefault": false,
+        "label": "coder",
+        "mode": "multiplexed",
+        "routePrefix": "/p/coder",
+        "source": "discovered"
+      },
+      "input": {
+        "def": {
+          "id": "coder",
+          "mode": "standalone",
+          "source": "discovered"
+        },
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642"
+        }
+      },
+      "name": "standalone-without-url-downgrades"
+    },
+    {
+      "expected": {
+        "apiKey": "shared",
+        "baseUrl": "http://127.0.0.1:8642",
+        "id": "researcher",
+        "isDefault": false,
+        "label": "researcher",
+        "mode": "multiplexed",
+        "routePrefix": "/p/researcher",
+        "source": "env"
+      },
+      "input": {
+        "def": {
+          "id": "researcher",
+          "mode": "multiplexed",
+          "source": "env"
+        },
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642",
+          "HERMES_PROFILE_API_KEY": "shared"
+        }
+      },
+      "name": "multiplexed-shared-key"
+    },
+    {
+      "expected": {
+        "apiKey": "scoped",
+        "baseUrl": "http://127.0.0.1:8642",
+        "id": "researcher",
+        "isDefault": false,
+        "label": "researcher",
+        "mode": "multiplexed",
+        "routePrefix": "/p/researcher",
+        "source": "env"
+      },
+      "input": {
+        "def": {
+          "id": "researcher",
+          "mode": "multiplexed",
+          "source": "env"
+        },
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_KEY_RESEARCHER": "scoped",
+          "HERMES_API_URL": "http://127.0.0.1:8642",
+          "HERMES_PROFILE_API_KEY": "shared"
+        }
+      },
+      "name": "profile-env-key-wins-over-shared"
+    }
+  ],
+  "description": "Per-profile routing: standalone vs /p/<profile>, key precedence explicit > profile-env > shared > default.",
+  "function": "resolveProfileRuntimeConfig",
+  "module": "profileRegistry"
+}

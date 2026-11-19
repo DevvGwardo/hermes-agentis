@@ -1,0 +1,108 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "attempts": 3,
+        "finalStatus": 200,
+        "waitsMs": [
+          2000,
+          700
+        ]
+      },
+      "input": {
+        "opts": {
+          "baseDelayMs": 350,
+          "maxDelayMs": 5000,
+          "maxRetries": 3
+        },
+        "responses": [
+          {
+            "retryAfter": "2",
+            "status": 429
+          },
+          {
+            "status": 429
+          },
+          {
+            "body": "ok",
+            "status": 200
+          }
+        ]
+      },
+      "name": "retry-after-then-exp-backoff"
+    },
+    {
+      "expected": {
+        "attempts": 2,
+        "finalStatus": 429,
+        "waitsMs": [
+          350
+        ]
+      },
+      "input": {
+        "opts": {
+          "baseDelayMs": 350,
+          "maxDelayMs": 5000,
+          "maxRetries": 1
+        },
+        "responses": [
+          {
+            "status": 429
+          },
+          {
+            "status": 429
+          },
+          {
+            "status": 429
+          }
+        ]
+      },
+      "name": "max-retries-exhausted"
+    },
+    {
+      "expected": {
+        "attempts": 2,
+        "finalStatus": 200,
+        "waitsMs": [
+          10000
+        ]
+      },
+      "input": {
+        "opts": {
+          "baseDelayMs": 350,
+          "maxDelayMs": 30000,
+          "maxRetries": 3
+        },
+        "responses": [
+          {
+            "retryAfter": "Thu, 19 Nov 2026 12:00:10 GMT",
+            "status": 429
+          },
+          {
+            "status": 200
+          }
+        ]
+      },
+      "name": "retry-after-http-date"
+    },
+    {
+      "expected": {
+        "attempts": 1,
+        "finalStatus": 200,
+        "waitsMs": []
+      },
+      "input": {
+        "opts": {},
+        "responses": [
+          {
+            "status": 200
+          }
+        ]
+      },
+      "name": "immediate-success"
+    }
+  ],
+  "description": "429 concurrent-run retry with injected makeRequest/sleep (offline). Retry-After seconds, HTTP-date (Date.now pinned), exponential backoff, retry cap.",
+  "function": "fetchWithConcurrentRetry",
+  "module": "hermesProtocol"
+}

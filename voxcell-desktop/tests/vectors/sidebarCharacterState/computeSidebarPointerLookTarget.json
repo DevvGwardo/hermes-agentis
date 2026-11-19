@@ -1,0 +1,144 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "x": 0,
+        "y": 0
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": 44,
+        "clientY": 33
+      },
+      "name": "portrait-center"
+    },
+    {
+      "expected": {
+        "x": 1,
+        "y": 0
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": 279,
+        "clientY": 33
+      },
+      "name": "far-right"
+    },
+    {
+      "expected": {
+        "x": -1,
+        "y": 0
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": -200,
+        "clientY": 33
+      },
+      "name": "far-left"
+    },
+    {
+      "expected": {
+        "x": 0,
+        "y": -1
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": 44,
+        "clientY": -300
+      },
+      "name": "above"
+    },
+    {
+      "expected": {
+        "x": 0,
+        "y": 1
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": 44,
+        "clientY": 400
+      },
+      "name": "below"
+    },
+    {
+      "expected": {
+        "x": 0.2777777777777778,
+        "y": 0.265625
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": 100,
+        "clientY": 50
+      },
+      "name": "default-offset"
+    },
+    {
+      "expected": {
+        "x": 0.39682539682539686,
+        "y": 0.46875
+      },
+      "input": {
+        "cardRect": {
+          "height": 66,
+          "left": 0,
+          "top": 0,
+          "width": 280
+        },
+        "clientX": 100,
+        "clientY": 50,
+        "portraitCenterOffsetPx": 20
+      },
+      "name": "custom-offset"
+    },
+    {
+      "expected": {
+        "x": 0.10416666666666667,
+        "y": 0
+      },
+      "input": {
+        "cardRect": {
+          "height": 20,
+          "left": 10,
+          "top": 10,
+          "width": 40
+        },
+        "clientX": 30,
+        "clientY": 20
+      },
+      "name": "tiny-card"
+    }
+  ],
+  "description": "Normalized gaze vector with clamping to [-1,1] and portrait-center offset.",
+  "function": "computeSidebarPointerLookTarget",
+  "module": "sidebarCharacterState"
+}

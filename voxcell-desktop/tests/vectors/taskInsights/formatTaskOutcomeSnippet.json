@@ -1,0 +1,134 @@
+{
+  "cases": [
+    {
+      "expected": "Changelog summarized: 12 entries across 3 releases.",
+      "input": {
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Changelog summarized: 12 entries across 3 releases.",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "short-result"
+    },
+    {
+      "expected": null,
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "no-result"
+    },
+    {
+      "expected": null,
+      "input": {
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Completed response",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "equals-lastStep"
+    },
+    {
+      "expected": "word word word word word word word word word word word word word word word word…",
+      "input": {
+        "maxChars": 80,
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word ",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "long-result-truncated"
+    }
+  ],
+  "description": "Outcome snippet: whitespace collapse, redundancy guard, word-boundary truncation.",
+  "function": "formatTaskOutcomeSnippet",
+  "module": "taskInsights"
+}

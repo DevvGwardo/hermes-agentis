@@ -1,0 +1,165 @@
+{
+  "command": "npx tsx voxcell-desktop/tools/gen-vectors.mjs",
+  "determinism": {
+    "canonicalJson": "Object keys sorted recursively; array order preserved; -0 normalized to 0; 2-space indent; trailing newline.",
+    "fixedNowIso": "2026-11-19T12:00:00.000Z",
+    "fixedNowMs": 1795089600000,
+    "notes": [
+      "formatStartClock uses local-time getters; vectors are only valid with TZ=UTC (set by the generator and by CI).",
+      "fetchWithConcurrentRetry vectors use injected makeRequest/sleep mocks; no network access.",
+      "mergeTasksWithSessionActivity.confirmedTaskIds is serialized as an array; the TS API takes a ReadonlySet.",
+      "All browser-gated functions (localStorage/DOM helpers in uiCustomization/backgrounds persistence) are never invoked; only pure exports are exercised."
+    ],
+    "prngSeed": "0x5eed1234",
+    "shims": [
+      "Date.now() pinned to fixedNowMs",
+      "Math.random replaced with seeded mulberry32 PRNG",
+      "crypto.randomUUID replaced with counter-based UUIDv4-shaped generator (affects createIdempotencyKey suffix only)"
+    ],
+    "tz": "UTC"
+  },
+  "generator": "voxcell-desktop/tools/gen-vectors.mjs",
+  "modules": [
+    {
+      "caseCount": 106,
+      "fileCount": 21,
+      "files": [
+        "ChatCompletionsStreamParser.json",
+        "RunsEventStreamParser.json",
+        "SessionChatStreamParser.json",
+        "SseLineDecoder.json",
+        "buildGatewayUrl.json",
+        "chooseGatewayTransport.json",
+        "classifyFinishReason.json",
+        "classifyGatewaySessionOrigin.json",
+        "createIdempotencyKey.json",
+        "extractModelOptions.json",
+        "fetchWithConcurrentRetry.json",
+        "isOpaqueSessionIdentifier.json",
+        "mapGatewayJobs.json",
+        "mapGatewaySessionMessages.json",
+        "mapGatewaySessions.json",
+        "mapGatewaySkills.json",
+        "mapGatewayToolsets.json",
+        "parseCapabilitiesPayload.json",
+        "parseChatCompletionsJson.json",
+        "resolveProfileGatewayConfig.json",
+        "sanitizeSessionKeyHeader.json"
+      ],
+      "module": "hermesProtocol",
+      "source": "src/utils/hermesProtocol.ts",
+      "status": "ok"
+    },
+    {
+      "caseCount": 46,
+      "fileCount": 8,
+      "files": [
+        "buildProfileCatalog.json",
+        "isValidCustomProfileSlug.json",
+        "isValidHttpUrl.json",
+        "normalizeBaseUrl.json",
+        "normalizeProfileId.json",
+        "parseHermesProfilesEnv.json",
+        "resolveProfileRuntimeConfig.json",
+        "toRedactedProfileSummary.json"
+      ],
+      "module": "profileRegistry",
+      "source": "src/utils/profileRegistry.ts",
+      "status": "ok"
+    },
+    {
+      "caseCount": 38,
+      "fileCount": 9,
+      "files": [
+        "compareSemver.json",
+        "hasCustomizedPreferences.json",
+        "isBackgroundDefault.json",
+        "isUiConfigDefault.json",
+        "normalizePreferencesSnapshot.json",
+        "parseImportedPreferencesJson.json",
+        "resolveBootHydrationSource.json",
+        "summarizeBackupRecord.json",
+        "summarizePreservedCategories.json"
+      ],
+      "module": "settingsSnapshot",
+      "source": "src/utils/settingsSnapshot.ts",
+      "status": "ok"
+    },
+    {
+      "caseCount": 51,
+      "fileCount": 3,
+      "files": [
+        "computeCanvasPopoverAlignment.json",
+        "resolveStageHeaderSize.json",
+        "resolveThreadTasksLayoutMode.json"
+      ],
+      "module": "responsiveLayout",
+      "source": "src/utils/responsiveLayout.ts",
+      "status": "ok"
+    },
+    {
+      "caseCount": 109,
+      "fileCount": 23,
+      "files": [
+        "applyStreamingDeltaToSteps.json",
+        "applyToolProgressToSteps.json",
+        "dedupeActivityEntries.json",
+        "deriveTurnTaskTitle.json",
+        "extractTrailingTurnContext.json",
+        "finalizeTurnTaskSteps.json",
+        "formatElapsedDuration.json",
+        "formatStartClock.json",
+        "formatTaskOutcomeSnippet.json",
+        "getTaskConfirmationLabel.json",
+        "getTaskConfirmationState.json",
+        "getTaskKindLabel.json",
+        "getTaskStatusDisplay.json",
+        "isActivityEntryRunning.json",
+        "isTaskInitiallyExpanded.json",
+        "mergeTasksWithSessionActivity.json",
+        "partitionChannelTasks.json",
+        "resolveTaskDisplayTitle.json",
+        "resolveTaskProgress.json",
+        "resolveTaskStepBreakdown.json",
+        "summarizeChannelTaskActivity.json",
+        "summarizeThreadTaskAggregate.json",
+        "summarizeThreadTasks.json"
+      ],
+      "module": "taskInsights",
+      "source": "src/utils/taskInsights.ts",
+      "status": "ok"
+    },
+    {
+      "caseCount": 20,
+      "fileCount": 2,
+      "files": [
+        "computeSidebarPointerLookTarget.json",
+        "deriveSidebarCharacterState.json"
+      ],
+      "module": "sidebarCharacterState",
+      "source": "src/utils/sidebarCharacterState.ts",
+      "status": "ok"
+    },
+    {
+      "caseCount": 27,
+      "fileCount": 4,
+      "files": [
+        "classifyTraceStep.json",
+        "coalesceConsecutiveSteps.json",
+        "groupThreadTimeline.json",
+        "isTerminalDiagnosticActivity.json"
+      ],
+      "module": "threadTrace",
+      "source": "src/utils/threadTrace.ts",
+      "status": "ok"
+    }
+  ],
+  "schemaVersion": 1,
+  "spec": "docs/RUNE_DESKTOP_SPEC.md §9 (ticket P0-04)",
+  "totals": {
+    "cases": 397,
+    "modulesOk": 7,
+    "modulesSkipped": 0,
+    "vectorFiles": 70
+  }
+}

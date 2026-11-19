@@ -1,0 +1,66 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "flush": [
+          {
+            "data": "{\"partial\":",
+            "event": "message"
+          }
+        ],
+        "frames": [
+          {
+            "data": "{\"tool\":\"terminal\",\"status\":\"running\"}",
+            "event": "hermes.tool.progress"
+          },
+          {
+            "data": "line-one\nline-two",
+            "event": "message"
+          }
+        ]
+      },
+      "input": {
+        "chunks": [
+          ": keepa",
+          "live\n\ne",
+          "vent: h",
+          "ermes.t",
+          "ool.pro",
+          "gress\r\n",
+          "data: {",
+          "\"tool\":",
+          "\"termin",
+          "al\",\"st",
+          "atus\":\"",
+          "running",
+          "\"}\r\n\r\nd",
+          "ata: li",
+          "ne-one\n",
+          "data: l",
+          "ine-two",
+          "\n\ndata:",
+          " {\"part",
+          "ial\":"
+        ]
+      },
+      "name": "chunked-wire"
+    },
+    {
+      "expected": {
+        "flush": [],
+        "frames": [],
+        "ping": []
+      },
+      "input": {
+        "chunks": [
+          "",
+          ": ping\n\n"
+        ]
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "SSE framing: chunk splits, CRLF, keepalive comments, multi-line data, flush tail.",
+  "function": "SseLineDecoder",
+  "module": "hermesProtocol"
+}

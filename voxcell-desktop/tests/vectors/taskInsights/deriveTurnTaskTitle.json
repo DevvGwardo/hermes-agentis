@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "expected": "Fix the halftone emitter",
+      "input": {
+        "prompt": "Fix the halftone emitter"
+      },
+      "name": "short"
+    },
+    {
+      "expected": "Check github.com/anomalyco/rune now",
+      "input": {
+        "prompt": "Check https://www.github.com/anomalyco/rune now"
+      },
+      "name": "url-stripped"
+    },
+    {
+      "expected": "Please refactor the entire halftone pipeline to use GPU…",
+      "input": {
+        "prompt": "Please refactor the entire halftone pipeline to use GPU instancing instead of CPU rasterization"
+      },
+      "name": "long-clipped"
+    },
+    {
+      "expected": "#general",
+      "input": {
+        "fallbackLabel": "#general",
+        "prompt": "   "
+      },
+      "name": "empty-fallback"
+    },
+    {
+      "expected": "Active session turn",
+      "input": {
+        "prompt": ""
+      },
+      "name": "empty-no-fallback"
+    }
+  ],
+  "description": "Prompt-derived titles: URL stripping, whitespace collapse, 64-char word-boundary clip, fallback.",
+  "function": "deriveTurnTaskTitle",
+  "module": "taskInsights"
+}

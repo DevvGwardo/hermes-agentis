@@ -1,0 +1,111 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "activityStatus": "error",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "errorCode": "tool_error",
+          "id": "a8",
+          "role": "activity",
+          "source": "ui",
+          "terminalOutcome": "failed",
+          "text": "Turn failed",
+          "timestamp": "11:57:06"
+        }
+      },
+      "name": "failed-outcome"
+    },
+    {
+      "expected": true,
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a8",
+          "role": "activity",
+          "source": "ui",
+          "terminalOutcome": "cancelled",
+          "text": "Turn failed",
+          "timestamp": "11:57:06"
+        }
+      },
+      "name": "cancelled"
+    },
+    {
+      "expected": true,
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a8",
+          "role": "activity",
+          "source": "ui",
+          "terminalOutcome": "admission_conflict",
+          "text": "Turn failed",
+          "timestamp": "11:57:06"
+        }
+      },
+      "name": "admission-conflict"
+    },
+    {
+      "expected": false,
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "activityStatus": "error",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "errorCode": "tool_error",
+          "id": "a8",
+          "role": "activity",
+          "source": "ui",
+          "terminalOutcome": "failed",
+          "text": "Turn failed",
+          "timestamp": "11:57:06"
+        }
+      },
+      "name": "tool-kind-excluded"
+    },
+    {
+      "expected": false,
+      "input": {
+        "entry": {
+          "channelId": "general",
+          "createdAtMs": 1795089480000,
+          "id": "u1",
+          "role": "user",
+          "source": "ui",
+          "text": "Refactor the halftone emitter please",
+          "timestamp": "11:57:09"
+        }
+      },
+      "name": "non-activity"
+    },
+    {
+      "expected": false,
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a7",
+          "role": "activity",
+          "source": "ui",
+          "text": "Opened gateway docs — https://example.dev/rune",
+          "timestamp": "11:57:05"
+        }
+      },
+      "name": "clean-status"
+    }
+  ],
+  "description": "Turn-boundary diagnostics: failed/cancelled/admission_conflict/error status; tool/reasoning kinds excluded.",
+  "function": "isTerminalDiagnosticActivity",
+  "module": "threadTrace"
+}

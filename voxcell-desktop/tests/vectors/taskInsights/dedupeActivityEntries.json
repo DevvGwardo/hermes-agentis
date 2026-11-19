@@ -1,0 +1,221 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "activityKind": "tool",
+          "activityStatus": "running",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a4",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal: cargo check",
+          "timestamp": "11:57:02"
+        }
+      ],
+      "input": {
+        "activities": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a4",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo check",
+            "timestamp": "11:57:02"
+          }
+        ]
+      },
+      "name": "upgrade-placeholder"
+    },
+    {
+      "expected": [
+        {
+          "activityKind": "tool",
+          "activityStatus": "running",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a4",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal: cargo check",
+          "timestamp": "11:57:02"
+        }
+      ],
+      "input": {
+        "activities": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a4",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo check",
+            "timestamp": "11:57:02"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ]
+      },
+      "name": "suppress-trailing-generic"
+    },
+    {
+      "expected": [
+        {
+          "activityKind": "tool",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a5",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal completed",
+          "timestamp": "11:57:03"
+        },
+        {
+          "activityKind": "tool",
+          "activityStatus": "running",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a3",
+          "role": "activity",
+          "source": "ui",
+          "text": "Running terminal",
+          "timestamp": "11:57:01"
+        }
+      ],
+      "input": {
+        "activities": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a5",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal completed",
+            "timestamp": "11:57:03"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ]
+      },
+      "name": "done-not-suppressed"
+    },
+    {
+      "expected": [
+        {
+          "activityKind": "tool",
+          "activityStatus": "running",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a3",
+          "role": "activity",
+          "source": "ui",
+          "text": "Running terminal",
+          "timestamp": "11:57:01"
+        },
+        {
+          "activityKind": "reasoning",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a1",
+          "reasoningDetail": "weighing GPU instancing options",
+          "role": "activity",
+          "source": "ui",
+          "text": "Reasoning: weighing GPU instancing options",
+          "timestamp": "11:57:09"
+        },
+        {
+          "activityKind": "tool",
+          "activityStatus": "running",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a4",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal: cargo check",
+          "timestamp": "11:57:02"
+        }
+      ],
+      "input": {
+        "activities": [
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a4",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo check",
+            "timestamp": "11:57:02"
+          }
+        ]
+      },
+      "name": "reasoning-barrier"
+    }
+  ],
+  "description": "Running-placeholder upgrades and duplicate suppression beside concrete steps; reasoning untouched.",
+  "function": "dedupeActivityEntries",
+  "module": "taskInsights"
+}

@@ -1,0 +1,101 @@
+{
+  "cases": [
+    {
+      "expected": "split",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": 900
+      },
+      "name": "w=900,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": 899
+      },
+      "name": "w=899,lg=true"
+    },
+    {
+      "expected": "split",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": 901
+      },
+      "name": "w=901,lg=true"
+    },
+    {
+      "expected": "split",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": 1440
+      },
+      "name": "w=1440,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": false,
+        "stageWidthPx": 900
+      },
+      "name": "w=900,lg=false"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": null
+      },
+      "name": "w=null,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true
+      },
+      "name": "w=undefined,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": 0
+      },
+      "name": "w=0,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": -5
+      },
+      "name": "w=-5,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": null
+      },
+      "name": "w=NaN,lg=true"
+    },
+    {
+      "expected": "overlay",
+      "input": {
+        "isDesktopLg": true,
+        "stageWidthPx": null
+      },
+      "name": "w=Infinity,lg=true"
+    },
+    {
+      "expected": 900,
+      "input": {
+        "note": "THREAD_SPLIT_MIN_STAGE_WIDTH"
+      },
+      "name": "threshold-constant"
+    }
+  ],
+  "description": "split vs overlay task drawer: >=900px stage on desktop-lg, overlay otherwise/unknown width.",
+  "function": "resolveThreadTasksLayoutMode",
+  "module": "responsiveLayout"
+}

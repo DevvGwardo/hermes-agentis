@@ -1,0 +1,372 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "events": {
+          "approvals": [
+            {
+              "choices": [
+                "once",
+                "deny"
+              ],
+              "command": "rm -rf build",
+              "destination": "terminal",
+              "executionGeneration": 2,
+              "kind": "approval",
+              "requestId": "req-1",
+              "summary": "Delete build dir",
+              "title": "Approve terminal",
+              "toolName": "terminal"
+            },
+            {
+              "choices": [
+                "once",
+                "always",
+                "deny"
+              ],
+              "command": "Which branch?",
+              "destination": "hermes-run",
+              "executionGeneration": 1,
+              "kind": "clarify",
+              "requestId": "req-2",
+              "summary": "Execute: Which branch?",
+              "title": "Approval required"
+            }
+          ],
+          "deltas": [
+            {
+              "accumulated": "Hello",
+              "chunk": "Hello"
+            },
+            {
+              "accumulated": "Hello world",
+              "chunk": " world"
+            }
+          ],
+          "interim": [
+            {
+              "alreadyStreamed": true,
+              "text": "Hello world"
+            }
+          ],
+          "reasoning": [
+            {
+              "accumulated": "Considering ",
+              "chunk": "Considering "
+            },
+            {
+              "accumulated": "Considering options. ",
+              "chunk": "options. "
+            }
+          ],
+          "steered": [
+            "focus on layout"
+          ],
+          "subagentCompletes": [
+            {
+              "childSessionId": "hermes-child",
+              "delegationId": "del-1",
+              "status": "completed",
+              "summary": "Found 3 APIs"
+            }
+          ],
+          "subagentStarts": [
+            {
+              "childSessionId": "hermes-child",
+              "delegationId": "del-1",
+              "summary": "Research RUNE APIs"
+            }
+          ],
+          "tools": [
+            {
+              "label": "terminal: cargo check",
+              "phase": "started",
+              "status": "running",
+              "summary": "terminal: cargo check",
+              "toolName": "terminal"
+            },
+            {
+              "durationSec": 1.5,
+              "label": "terminal: ok",
+              "phase": "completed",
+              "status": "done",
+              "summary": "terminal: ok",
+              "toolName": "terminal"
+            },
+            {
+              "error": "timeout",
+              "label": "web: timeout",
+              "phase": "failed",
+              "status": "failed",
+              "summary": "web: timeout",
+              "toolName": "web"
+            }
+          ]
+        },
+        "result": {
+          "model": "hermes-4",
+          "outcome": "completed",
+          "output": "Hello world",
+          "reasoning": "Considering options. "
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"m",
+          "essage.reasoning\"",
+          ",\"delta\":\"Conside",
+          "ring \"}\n\ndata: {\"",
+          "event\":\"message.d",
+          "elta\",\"reasoning_",
+          "content\":\"options",
+          ". \",\"delta\":\"Hell",
+          "o\"}\n\ndata: {\"even",
+          "t\":\"message.delta",
+          "\",\"delta\":\" world",
+          "\"}\n\ndata: {\"event",
+          "\":\"message.interi",
+          "m\",\"text\":\"Hello ",
+          "world\",\"already_s",
+          "treamed\":true}\n\nd",
+          "ata: {\"event\":\"to",
+          "ol.started\",\"tool",
+          "\":\"terminal\",\"pre",
+          "view\":\"cargo chec",
+          "k\"}\n\ndata: {\"even",
+          "t\":\"tool.complete",
+          "d\",\"tool\":\"termin",
+          "al\",\"result\":\"ok\"",
+          ",\"duration\":1.5}\n",
+          "\ndata: {\"event\":\"",
+          "tool.failed\",\"too",
+          "l\":\"web\",\"error\":",
+          "\"timeout\"}\n\ndata:",
+          " {\"event\":\"approv",
+          "al.request\",\"requ",
+          "est_id\":\"req-1\",\"",
+          "execution_generat",
+          "ion\":2,\"tool\":\"te",
+          "rminal\",\"command\"",
+          ":\"rm -rf build\",\"",
+          "title\":\"Approve t",
+          "erminal\",\"descrip",
+          "tion\":\"Delete bui",
+          "ld dir\",\"destinat",
+          "ion\":\"terminal\",\"",
+          "choices\":[\"once\",",
+          "\"deny\"]}\n\ndata: {",
+          "\"event\":\"clarify.",
+          "request\",\"prompt_",
+          "id\":\"req-2\",\"draf",
+          "t\":\"Which branch?",
+          "\"}\n\ndata: {\"event",
+          "\":\"subagent.start",
+          "\",\"task\":\"Researc",
+          "h RUNE APIs\",\"chi",
+          "ld_session_id\":\"h",
+          "ermes-child\",\"del",
+          "egation_id\":\"del-",
+          "1\"}\n\ndata: {\"even",
+          "t\":\"subagent.comp",
+          "lete\",\"status\":\"c",
+          "ompleted\",\"summar",
+          "y\":\"Found 3 APIs\"",
+          ",\"child_session_i",
+          "d\":\"hermes-child\"",
+          ",\"delegation_id\":",
+          "\"del-1\"}\n\ndata: {",
+          "\"event\":\"run.stee",
+          "red\",\"text\":\"focu",
+          "s on layout\"}\n\nda",
+          "ta: {\"event\":\"run",
+          ".completed\",\"outp",
+          "ut\":\"\",\"runtime\":",
+          "{\"model\":\"hermes-",
+          "4\"}}\n\ndata: [DONE",
+          "]\n\n"
+        ]
+      },
+      "name": "full-turn-empty-final-output"
+    },
+    {
+      "expected": {
+        "events": {
+          "approvals": [],
+          "deltas": [
+            {
+              "accumulated": "draft",
+              "chunk": "draft"
+            }
+          ],
+          "interim": [],
+          "reasoning": [],
+          "steered": [],
+          "subagentCompletes": [],
+          "subagentStarts": [],
+          "tools": []
+        },
+        "result": {
+          "model": "hermes-4",
+          "outcome": "completed",
+          "output": "Final answer.",
+          "reasoning": "fallback reasoning"
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"message.delta\",\"delta\":\"draft\"}\n\ndata: {\"event\":\"run.completed\",\"output\":\"Final answer.\",\"reasoning_content\":\"fallback reasoning\",\"runtime\":{\"model\":\"hermes-4\"}}\n\n"
+        ]
+      },
+      "name": "authoritative-output"
+    },
+    {
+      "expected": {
+        "events": {
+          "approvals": [],
+          "deltas": [],
+          "interim": [],
+          "reasoning": [],
+          "steered": [],
+          "subagentCompletes": [],
+          "subagentStarts": [],
+          "tools": []
+        },
+        "result": {
+          "errorCode": "iteration_budget_exhausted",
+          "outcome": "iteration_budget_exhausted",
+          "output": "Partial.",
+          "reasoning": ""
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"run.completed\",\"output\":\"Partial.\",\"error_code\":\"iteration_budget_exhausted\"}\n\n"
+        ]
+      },
+      "name": "budget-exhausted"
+    },
+    {
+      "expected": {
+        "events": {
+          "approvals": [],
+          "deltas": [],
+          "interim": [],
+          "reasoning": [],
+          "steered": [],
+          "subagentCompletes": [],
+          "subagentStarts": [],
+          "tools": []
+        },
+        "result": {
+          "error": "boom",
+          "errorCode": "tool_error",
+          "outcome": "failed",
+          "output": "",
+          "reasoning": ""
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"run.failed\",\"error\":\"boom\",\"error_code\":\"tool_error\"}\n\n"
+        ]
+      },
+      "name": "run-failed"
+    },
+    {
+      "expected": {
+        "events": {
+          "approvals": [],
+          "deltas": [],
+          "interim": [],
+          "reasoning": [],
+          "steered": [],
+          "subagentCompletes": [],
+          "subagentStarts": [],
+          "tools": []
+        },
+        "result": {
+          "error": "user stopped",
+          "outcome": "cancelled",
+          "output": "",
+          "reasoning": ""
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"run.cancelled\",\"error\":\"user stopped\"}\n\n"
+        ]
+      },
+      "name": "run-cancelled"
+    },
+    {
+      "expected": {
+        "events": {
+          "approvals": [],
+          "deltas": [],
+          "interim": [],
+          "reasoning": [],
+          "steered": [],
+          "subagentCompletes": [],
+          "subagentStarts": [],
+          "tools": []
+        },
+        "result": {
+          "error": "Gateway shutdown interrupted the run.",
+          "outcome": "interrupted",
+          "output": "",
+          "reasoning": ""
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"run.interrupted\"}\n\n"
+        ]
+      },
+      "name": "run-interrupted"
+    },
+    {
+      "expected": {
+        "events": {
+          "approvals": [
+            {
+              "choices": [
+                "once",
+                "always",
+                "deny"
+              ],
+              "command": "",
+              "destination": "terminal",
+              "executionGeneration": 1,
+              "kind": "approval",
+              "requestId": "req-9",
+              "summary": "Hermes run paused awaiting approval.",
+              "title": "Approve terminal",
+              "toolName": "terminal"
+            }
+          ],
+          "deltas": [],
+          "interim": [],
+          "reasoning": [],
+          "steered": [],
+          "subagentCompletes": [],
+          "subagentStarts": [],
+          "tools": []
+        },
+        "result": {
+          "outcome": "completed",
+          "output": "",
+          "reasoning": ""
+        }
+      },
+      "input": {
+        "chunks": [
+          "data: {\"event\":\"approval.request\",\"request_id\":\"req-9\",\"tool\":\"terminal\"}\n\n"
+        ]
+      },
+      "name": "approval-defaults"
+    }
+  ],
+  "description": "Full /v1/runs turn: reasoning/delta/interim, tool lifecycle, approval+clarify, subagents, steer; empty terminal output must not erase streamed text. Terminal event variants: authoritative output, budget, failed/cancelled/interrupted, approval defaults.",
+  "function": "RunsEventStreamParser",
+  "module": "hermesProtocol"
+}

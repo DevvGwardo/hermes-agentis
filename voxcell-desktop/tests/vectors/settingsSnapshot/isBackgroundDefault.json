@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "bg": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        }
+      },
+      "name": "default"
+    },
+    {
+      "expected": false,
+      "input": {
+        "bg": {
+          "activeId": "aurora-drift",
+          "blurPx": 10,
+          "customSlots": [],
+          "opacity": 0.5
+        }
+      },
+      "name": "customized"
+    }
+  ],
+  "description": "Background settings equality against defaults.",
+  "function": "isBackgroundDefault",
+  "module": "settingsSnapshot"
+}

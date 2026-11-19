@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "endpoints": {
+          "health": "/health",
+          "runs": "/v1/runs"
+        },
+        "features": {
+          "chat_completions": true,
+          "reasoning_streaming": true,
+          "run_approval": true,
+          "run_events_sse": true,
+          "run_stop": true,
+          "run_submission": true,
+          "session_chat_stream": true
+        },
+        "model": "hermes-4",
+        "object": "hermes.api_server.capabilities",
+        "platform": "hermes-agent",
+        "sessionKeyHeader": "X-Hermes-Session-Key"
+      },
+      "input": {
+        "raw": {
+          "endpoints": {
+            "health": "/health",
+            "runs": "/v1/runs"
+          },
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true,
+            "run_approval": true,
+            "run_events_sse": true,
+            "run_stop": true,
+            "run_submission": true,
+            "session_chat_stream": true
+          },
+          "model": "hermes-4",
+          "object": "hermes.api_server.capabilities",
+          "platform": "hermes-agent",
+          "session_key_header": "X-Hermes-Session-Key"
+        }
+      },
+      "name": "full"
+    },
+    {
+      "expected": {
+        "features": {
+          "run_events_sse": false,
+          "run_submission": true
+        },
+        "model": "hermes-agent",
+        "object": "hermes.api_server.capabilities",
+        "platform": "hermes-agent"
+      },
+      "input": {
+        "raw": {
+          "features": {
+            "run_events_sse": 0,
+            "run_submission": 1
+          }
+        }
+      },
+      "name": "minimal"
+    },
+    {
+      "expected": {
+        "endpoints": {
+          "runs": "/v1/runs"
+        },
+        "features": {},
+        "model": "hermes-agent",
+        "object": "hermes.api_server.capabilities",
+        "platform": "hermes-agent"
+      },
+      "input": {
+        "raw": {
+          "endpoints": {
+            "bad": 5,
+            "runs": "/v1/runs"
+          }
+        }
+      },
+      "name": "non-string-endpoints-dropped"
+    },
+    {
+      "expected": null,
+      "input": {
+        "raw": null
+      },
+      "name": "null"
+    },
+    {
+      "expected": null,
+      "input": {
+        "raw": 42
+      },
+      "name": "scalar"
+    }
+  ],
+  "description": "/v1/capabilities normalization with defaults and feature coercion.",
+  "function": "parseCapabilitiesPayload",
+  "module": "hermesProtocol"
+}

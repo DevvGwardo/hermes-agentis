@@ -1,0 +1,307 @@
+{
+  "cases": [
+    {
+      "expected": "full",
+      "input": {
+        "params": {
+          "panelView": "home",
+          "viewportHeightPx": 699
+        }
+      },
+      "name": "home@699"
+    },
+    {
+      "expected": "full",
+      "input": {
+        "params": {
+          "panelView": "home",
+          "viewportHeightPx": 700
+        }
+      },
+      "name": "home@700"
+    },
+    {
+      "expected": "full",
+      "input": {
+        "params": {
+          "panelView": "home",
+          "viewportHeightPx": 768
+        }
+      },
+      "name": "home@768"
+    },
+    {
+      "expected": "full",
+      "input": {
+        "params": {
+          "panelView": "home",
+          "viewportHeightPx": 859
+        }
+      },
+      "name": "home@859"
+    },
+    {
+      "expected": "full",
+      "input": {
+        "params": {
+          "panelView": "home",
+          "viewportHeightPx": 860
+        }
+      },
+      "name": "home@860"
+    },
+    {
+      "expected": "full",
+      "input": {
+        "params": {
+          "panelView": "home",
+          "viewportHeightPx": 1080
+        }
+      },
+      "name": "home@1080"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "canvas",
+          "viewportHeightPx": 699
+        }
+      },
+      "name": "canvas@699"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "canvas",
+          "viewportHeightPx": 700
+        }
+      },
+      "name": "canvas@700"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "canvas",
+          "viewportHeightPx": 768
+        }
+      },
+      "name": "canvas@768"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "canvas",
+          "viewportHeightPx": 859
+        }
+      },
+      "name": "canvas@859"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "canvas",
+          "viewportHeightPx": 860
+        }
+      },
+      "name": "canvas@860"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "canvas",
+          "viewportHeightPx": 1080
+        }
+      },
+      "name": "canvas@1080"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "voice",
+          "viewportHeightPx": 699
+        }
+      },
+      "name": "voice@699"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "voice",
+          "viewportHeightPx": 700
+        }
+      },
+      "name": "voice@700"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "voice",
+          "viewportHeightPx": 768
+        }
+      },
+      "name": "voice@768"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "voice",
+          "viewportHeightPx": 859
+        }
+      },
+      "name": "voice@859"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "voice",
+          "viewportHeightPx": 860
+        }
+      },
+      "name": "voice@860"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "voice",
+          "viewportHeightPx": 1080
+        }
+      },
+      "name": "voice@1080"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "queue",
+          "viewportHeightPx": 699
+        }
+      },
+      "name": "queue@699"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "queue",
+          "viewportHeightPx": 700
+        }
+      },
+      "name": "queue@700"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "queue",
+          "viewportHeightPx": 768
+        }
+      },
+      "name": "queue@768"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "queue",
+          "viewportHeightPx": 859
+        }
+      },
+      "name": "queue@859"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "queue",
+          "viewportHeightPx": 860
+        }
+      },
+      "name": "queue@860"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "queue",
+          "viewportHeightPx": 1080
+        }
+      },
+      "name": "queue@1080"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "cli",
+          "viewportHeightPx": 699
+        }
+      },
+      "name": "cli@699"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "cli",
+          "viewportHeightPx": 700
+        }
+      },
+      "name": "cli@700"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "cli",
+          "viewportHeightPx": 768
+        }
+      },
+      "name": "cli@768"
+    },
+    {
+      "expected": "strip",
+      "input": {
+        "params": {
+          "panelView": "cli",
+          "viewportHeightPx": 859
+        }
+      },
+      "name": "cli@859"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "cli",
+          "viewportHeightPx": 860
+        }
+      },
+      "name": "cli@860"
+    },
+    {
+      "expected": "compact",
+      "input": {
+        "params": {
+          "panelView": "cli",
+          "viewportHeightPx": 1080
+        }
+      },
+      "name": "cli@1080"
+    }
+  ],
+  "description": "Portrait header tiers: home=full, canvas=strip, queue/cli compact>=860, voice(thread) compact>=700.",
+  "function": "resolveStageHeaderSize",
+  "module": "responsiveLayout"
+}

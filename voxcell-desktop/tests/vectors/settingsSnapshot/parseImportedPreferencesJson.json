@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089600000,
+        "reason": "import",
+        "schemaVersion": 1,
+        "snapshotId": "snap-1",
+        "sourceOrigin": "http://127.0.0.1:5173",
+        "themeEpoch": "slate-v1",
+        "uiConfig": {
+          "accentBrightHex": "#C084FC",
+          "accentHex": "#A855F7",
+          "accentPreset": "violet",
+          "accentSoftHex": "#D8B4FE",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#120B1E",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Lab"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "rawText": "{\"capturedAt\":1795089540000,\"appVersion\":\"0.1.0\",\"reason\":\"manual\",\"themeEpoch\":\"slate-v1\",\"snapshotId\":\"snap-1\",\"sourceOrigin\":\"http://127.0.0.1:5173\",\"uiConfig\":{\"accentPreset\":\"violet\",\"workspaceTitle\":\"Lab\"}}"
+      },
+      "name": "valid-import"
+    },
+    {
+      "expected": null,
+      "input": {
+        "rawText": "{broken"
+      },
+      "name": "invalid-json"
+    },
+    {
+      "expected": null,
+      "input": {
+        "rawText": "42"
+      },
+      "name": "non-object-json"
+    }
+  ],
+  "description": "JSON import parser: re-stamps capturedAt (Date.now pinned) + reason=import; invalid text -> null.",
+  "function": "parseImportedPreferencesJson",
+  "module": "settingsSnapshot"
+}

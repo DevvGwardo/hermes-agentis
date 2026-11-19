@@ -1,0 +1,359 @@
+{
+  "cases": [
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": null,
+        "preferred": "auto"
+      },
+      "name": "auto+null"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "endpoints": {
+            "health": "/health",
+            "runs": "/v1/runs"
+          },
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true,
+            "run_approval": true,
+            "run_events_sse": true,
+            "run_stop": true,
+            "run_submission": true,
+            "session_chat_stream": true
+          },
+          "model": "hermes-4",
+          "object": "hermes.api_server.capabilities",
+          "platform": "hermes-agent",
+          "session_key_header": "X-Hermes-Session-Key"
+        },
+        "preferred": "auto"
+      },
+      "name": "auto+full"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "auto"
+      },
+      "name": "auto+runs-only"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true
+          }
+        },
+        "preferred": "auto"
+      },
+      "name": "auto+chat-reasoning"
+    },
+    {
+      "expected": "session_stream",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "session_chat_stream": true
+          }
+        },
+        "preferred": "auto"
+      },
+      "name": "auto+session-only"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "features": {
+            "reasoning_streaming": true,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "auto"
+      },
+      "name": "auto+runs-reasoning-no-controls"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": null,
+        "preferred": "runs"
+      },
+      "name": "runs+null"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "endpoints": {
+            "health": "/health",
+            "runs": "/v1/runs"
+          },
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true,
+            "run_approval": true,
+            "run_events_sse": true,
+            "run_stop": true,
+            "run_submission": true,
+            "session_chat_stream": true
+          },
+          "model": "hermes-4",
+          "object": "hermes.api_server.capabilities",
+          "platform": "hermes-agent",
+          "session_key_header": "X-Hermes-Session-Key"
+        },
+        "preferred": "runs"
+      },
+      "name": "runs+full"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "runs"
+      },
+      "name": "runs+runs-only"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true
+          }
+        },
+        "preferred": "runs"
+      },
+      "name": "runs+chat-reasoning"
+    },
+    {
+      "expected": "session_stream",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "session_chat_stream": true
+          }
+        },
+        "preferred": "runs"
+      },
+      "name": "runs+session-only"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "features": {
+            "reasoning_streaming": true,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "runs"
+      },
+      "name": "runs+runs-reasoning-no-controls"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": null,
+        "preferred": "session_stream"
+      },
+      "name": "session_stream+null"
+    },
+    {
+      "expected": "session_stream",
+      "input": {
+        "capabilities": {
+          "endpoints": {
+            "health": "/health",
+            "runs": "/v1/runs"
+          },
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true,
+            "run_approval": true,
+            "run_events_sse": true,
+            "run_stop": true,
+            "run_submission": true,
+            "session_chat_stream": true
+          },
+          "model": "hermes-4",
+          "object": "hermes.api_server.capabilities",
+          "platform": "hermes-agent",
+          "session_key_header": "X-Hermes-Session-Key"
+        },
+        "preferred": "session_stream"
+      },
+      "name": "session_stream+full"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "session_stream"
+      },
+      "name": "session_stream+runs-only"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true
+          }
+        },
+        "preferred": "session_stream"
+      },
+      "name": "session_stream+chat-reasoning"
+    },
+    {
+      "expected": "session_stream",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "session_chat_stream": true
+          }
+        },
+        "preferred": "session_stream"
+      },
+      "name": "session_stream+session-only"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "features": {
+            "reasoning_streaming": true,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "session_stream"
+      },
+      "name": "session_stream+runs-reasoning-no-controls"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": null,
+        "preferred": "chat_completions"
+      },
+      "name": "chat_completions+null"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "endpoints": {
+            "health": "/health",
+            "runs": "/v1/runs"
+          },
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true,
+            "run_approval": true,
+            "run_events_sse": true,
+            "run_stop": true,
+            "run_submission": true,
+            "session_chat_stream": true
+          },
+          "model": "hermes-4",
+          "object": "hermes.api_server.capabilities",
+          "platform": "hermes-agent",
+          "session_key_header": "X-Hermes-Session-Key"
+        },
+        "preferred": "chat_completions"
+      },
+      "name": "chat_completions+full"
+    },
+    {
+      "expected": "runs",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "chat_completions"
+      },
+      "name": "chat_completions+runs-only"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": true,
+            "reasoning_streaming": true
+          }
+        },
+        "preferred": "chat_completions"
+      },
+      "name": "chat_completions+chat-reasoning"
+    },
+    {
+      "expected": "session_stream",
+      "input": {
+        "capabilities": {
+          "features": {
+            "chat_completions": false,
+            "session_chat_stream": true
+          }
+        },
+        "preferred": "chat_completions"
+      },
+      "name": "chat_completions+session-only"
+    },
+    {
+      "expected": "chat_completions",
+      "input": {
+        "capabilities": {
+          "features": {
+            "reasoning_streaming": true,
+            "run_events_sse": true,
+            "run_submission": true
+          }
+        },
+        "preferred": "chat_completions"
+      },
+      "name": "chat_completions+runs-reasoning-no-controls"
+    }
+  ],
+  "description": "Transport selection matrix: preferred mode x advertised capabilities.",
+  "function": "chooseGatewayTransport",
+  "module": "hermesProtocol"
+}

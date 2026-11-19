@@ -1,0 +1,84 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "changed": true,
+        "progress": "2/3",
+        "steps": [
+          {
+            "active": false,
+            "done": true,
+            "text": "terminal: cargo check"
+          },
+          {
+            "active": false,
+            "done": true,
+            "text": "web_search: rune"
+          },
+          {
+            "active": true,
+            "done": false,
+            "text": "Composing response"
+          }
+        ]
+      },
+      "input": {
+        "prevSteps": [
+          {
+            "done": true,
+            "text": "terminal: cargo check"
+          },
+          {
+            "active": true,
+            "done": false,
+            "text": "web_search: rune"
+          }
+        ]
+      },
+      "name": "from-tool-steps"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "progress": "0/1",
+        "steps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Composing response"
+          }
+        ]
+      },
+      "input": {
+        "prevSteps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Composing response"
+          }
+        ]
+      },
+      "name": "already-composing"
+    },
+    {
+      "expected": {
+        "changed": true,
+        "progress": "0/1",
+        "steps": [
+          {
+            "active": true,
+            "done": false,
+            "text": "Composing response"
+          }
+        ]
+      },
+      "input": {
+        "prevSteps": []
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "Transition into Composing response; idempotent when already composing.",
+  "function": "applyStreamingDeltaToSteps",
+  "module": "taskInsights"
+}

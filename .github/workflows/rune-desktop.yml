@@ -1,0 +1,120 @@
+# RUNE Desktop CI — voxcell-desktop workspace (spec §9 / ticket P0-04).
+#
+# Matrix: ubuntu-latest + windows-latest.
+#   - checkout with the pinned RUNE submodule (third_party/rune, recursive for vendor patches)
+#   - Rust stable, cargo check --workspace + cargo test --workspace (headless;
+#     RUNE's headless Runtime needs no display server / GPU window)
+#   - golden-vector drift check: regenerate tests/vectors from the web TS utils
+#     and fail if the committed vectors no longer match (spec §10 drift mitigation)
+name: RUNE Desktop
+
+on:
+  push:
+    branches: [rune-desktop, main]
+    paths:
+      - 'voxcell-desktop/**'
+      - 'third_party/rune'
+      - '.github/workflows/rune-desktop.yml'
+      - 'src/utils/**'
+      - 'src/types/**'
+      - 'src/backgrounds/**'
+  pull_request:
+    paths:
+      - 'voxcell-desktop/**'
+      - 'third_party/rune'
+      - '.github/workflows/rune-desktop.yml'
+      - 'src/utils/**'
+      - 'src/types/**'
+      - 'src/backgrounds/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  check-test:
+    name: cargo check + test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: voxcell-desktop
+    steps:
+      - name: Checkout (with pinned RUNE submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      # Native libraries needed to BUILD the workspace on Linux:
+      #   alsa-sys (cpal)            -> libasound2-dev + pkg-config
+      #   bindgen/clang-sys          -> libclang-dev
+      #   fontique/fontconfig        -> libfontconfig1-dev
+      #   winit xkbcommon (dlopen)   -> libxkbcommon-dev
+      # Headless RUNE tests may still pick a software Vulkan adapter:
+      #   libvulkan1 + mesa-vulkan-drivers (lavapipe).
+      # X11/Wayland client libs are dlopen'd by the vendored winit and are not
+      # required for headless cargo test; no display server is used.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config \
+            libasound2-dev \
+            libclang-dev \
+            libfontconfig1-dev \
+            libxkbcommon-dev \
+            libvulkan1 \
+            mesa-vulkan-drivers
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: voxcell-desktop
+
+      - name: cargo check --workspace
+        run: cargo check --workspace --locked
+
+      # Headless: tests construct rune's headless Runtime directly; no X11 /
+      # Wayland / DISPLAY is required on Linux CI runners.
+      - name: cargo test --workspace (headless)
+        run: cargo test --workspace --locked
+
+  vectors:
+    name: golden vector drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # The generator only imports local web TS (src/utils + its local deps),
+      # so a standalone tsx is sufficient — no web node_modules install needed.
+      - name: Regenerate golden vectors from web TS utils
+        run: npx --yes tsx@4.21.0 voxcell-desktop/tools/gen-vectors.mjs
+
+      - name: Fail if committed vectors are stale
+        run: git diff --exit-code -- voxcell-desktop/tests/vectors

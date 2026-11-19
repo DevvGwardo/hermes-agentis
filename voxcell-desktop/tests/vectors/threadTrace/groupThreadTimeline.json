@@ -1,0 +1,776 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          "id": "u1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a1",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "weighing GPU instancing options",
+              "icon": "reasoning",
+              "id": "a1",
+              "isReasoning": true,
+              "label": "Reasoning",
+              "timestamp": "11:57:09"
+            },
+            {
+              "detail": "completed",
+              "icon": "tool",
+              "id": "a5",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:03"
+            }
+          ],
+          "kind": "trace"
+        },
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          "id": "r1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a9",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "cargo test",
+              "icon": "tool",
+              "id": "a9",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:07"
+            }
+          ],
+          "kind": "trace"
+        },
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089595000,
+            "id": "u2",
+            "role": "user",
+            "source": "ui",
+            "text": "Now add the tests",
+            "timestamp": "11:57:00"
+          },
+          "id": "u2",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-b1",
+          "isLive": true,
+          "items": [
+            {
+              "detail": "weighing GPU instancing options",
+              "icon": "reasoning",
+              "id": "b1",
+              "isReasoning": true,
+              "label": "Reasoning",
+              "timestamp": "11:57:09"
+            },
+            {
+              "detail": "",
+              "icon": "tool",
+              "id": "b2",
+              "isReasoning": false,
+              "label": "Running terminal",
+              "timestamp": "11:57:01"
+            }
+          ],
+          "kind": "trace"
+        }
+      ],
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a5",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal completed",
+            "timestamp": "11:57:03"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089590000,
+            "id": "a9",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo test",
+            "timestamp": "11:57:07"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089595000,
+            "id": "u2",
+            "role": "user",
+            "source": "ui",
+            "text": "Now add the tests",
+            "timestamp": "11:57:00"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "b1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "b2",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ],
+        "isThinking": true
+      },
+      "name": "two-turns-thinking"
+    },
+    {
+      "expected": [
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          "id": "u1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a1",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "weighing GPU instancing options",
+              "icon": "reasoning",
+              "id": "a1",
+              "isReasoning": true,
+              "label": "Reasoning",
+              "timestamp": "11:57:09"
+            },
+            {
+              "detail": "completed",
+              "icon": "tool",
+              "id": "a5",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:03"
+            }
+          ],
+          "kind": "trace"
+        },
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          "id": "r1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a9",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "cargo test",
+              "icon": "tool",
+              "id": "a9",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:07"
+            }
+          ],
+          "kind": "trace"
+        },
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089595000,
+            "id": "u2",
+            "role": "user",
+            "source": "ui",
+            "text": "Now add the tests",
+            "timestamp": "11:57:00"
+          },
+          "id": "u2",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-b1",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "weighing GPU instancing options",
+              "icon": "reasoning",
+              "id": "b1",
+              "isReasoning": true,
+              "label": "Reasoning",
+              "timestamp": "11:57:09"
+            },
+            {
+              "detail": "",
+              "icon": "tool",
+              "id": "b2",
+              "isReasoning": false,
+              "label": "Running terminal",
+              "timestamp": "11:57:01"
+            }
+          ],
+          "kind": "trace"
+        }
+      ],
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a5",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal completed",
+            "timestamp": "11:57:03"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089590000,
+            "id": "a9",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo test",
+            "timestamp": "11:57:07"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089595000,
+            "id": "u2",
+            "role": "user",
+            "source": "ui",
+            "text": "Now add the tests",
+            "timestamp": "11:57:00"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "b1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "b2",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          }
+        ],
+        "isThinking": false
+      },
+      "name": "two-turns-settled"
+    },
+    {
+      "expected": [
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          "id": "u1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a1",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "weighing GPU instancing options",
+              "icon": "reasoning",
+              "id": "a1",
+              "isReasoning": true,
+              "label": "Reasoning",
+              "timestamp": "11:57:09"
+            },
+            {
+              "detail": "completed",
+              "icon": "tool",
+              "id": "a5",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:03"
+            }
+          ],
+          "kind": "trace"
+        },
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          "id": "r1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a9",
+          "isLive": true,
+          "items": [
+            {
+              "detail": "cargo test",
+              "icon": "tool",
+              "id": "a9",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:07"
+            }
+          ],
+          "kind": "trace"
+        }
+      ],
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "reasoning",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a1",
+            "reasoningDetail": "weighing GPU instancing options",
+            "role": "activity",
+            "source": "ui",
+            "text": "Reasoning: weighing GPU instancing options",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a5",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal completed",
+            "timestamp": "11:57:03"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r1",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089590000,
+            "id": "a9",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo test",
+            "timestamp": "11:57:07"
+          }
+        ],
+        "isThinking": true
+      },
+      "name": "reply-settled-no-placeholder"
+    },
+    {
+      "expected": [
+        {
+          "id": "trace-live",
+          "isLive": true,
+          "items": [],
+          "kind": "trace"
+        }
+      ],
+      "input": {
+        "entries": [],
+        "isThinking": true
+      },
+      "name": "empty-thinking-placeholder"
+    },
+    {
+      "expected": [],
+      "input": {
+        "entries": [],
+        "includeLivePlaceholder": false,
+        "isThinking": true
+      },
+      "name": "empty-thinking-no-placeholder"
+    },
+    {
+      "expected": [
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          "id": "u1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a5",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "completed",
+              "icon": "tool",
+              "id": "a5",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:03"
+            }
+          ],
+          "kind": "trace"
+        },
+        {
+          "entry": {
+            "activityKind": "status",
+            "activityStatus": "error",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "errorCode": "tool_error",
+            "id": "a8",
+            "role": "activity",
+            "source": "ui",
+            "terminalOutcome": "failed",
+            "text": "Turn failed",
+            "timestamp": "11:57:06"
+          },
+          "id": "a8",
+          "kind": "entry"
+        },
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r2",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          },
+          "id": "r2",
+          "kind": "entry"
+        }
+      ],
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a5",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal completed",
+            "timestamp": "11:57:03"
+          },
+          {
+            "activityKind": "status",
+            "activityStatus": "error",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "errorCode": "tool_error",
+            "id": "a8",
+            "role": "activity",
+            "source": "ui",
+            "terminalOutcome": "failed",
+            "text": "Turn failed",
+            "timestamp": "11:57:06"
+          },
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089570000,
+            "id": "r2",
+            "role": "hermes",
+            "source": "ui",
+            "text": "Here is the refactor plan.",
+            "timestamp": "11:57:09"
+          }
+        ],
+        "isThinking": false
+      },
+      "name": "diagnostic-boundary"
+    },
+    {
+      "expected": [
+        {
+          "entry": {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          "id": "u1",
+          "kind": "entry"
+        },
+        {
+          "id": "trace-a4",
+          "isLive": false,
+          "items": [
+            {
+              "detail": "cargo check",
+              "icon": "tool",
+              "id": "a4",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:02"
+            },
+            {
+              "detail": "completed",
+              "icon": "tool",
+              "id": "a5",
+              "isReasoning": false,
+              "label": "terminal",
+              "timestamp": "11:57:03"
+            }
+          ],
+          "kind": "trace"
+        }
+      ],
+      "input": {
+        "entries": [
+          {
+            "channelId": "general",
+            "createdAtMs": 1795089480000,
+            "id": "u1",
+            "role": "user",
+            "source": "ui",
+            "text": "Refactor the halftone emitter please",
+            "timestamp": "11:57:09"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a3",
+            "role": "activity",
+            "source": "ui",
+            "text": "Running terminal",
+            "timestamp": "11:57:01"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "running",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a4",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal: cargo check",
+            "timestamp": "11:57:02"
+          },
+          {
+            "activityKind": "tool",
+            "activityStatus": "done",
+            "channelId": "general",
+            "createdAtMs": 1795089540000,
+            "id": "a5",
+            "role": "activity",
+            "source": "ui",
+            "text": "terminal completed",
+            "timestamp": "11:57:03"
+          }
+        ],
+        "isThinking": false
+      },
+      "name": "dedupe-inside-trace"
+    }
+  ],
+  "description": "Turn segmentation, activity/reply interleaving, late tools below replies, live thinking attachment, diagnostic boundaries.",
+  "function": "groupThreadTimeline",
+  "module": "threadTrace"
+}

@@ -1,0 +1,71 @@
+{
+  "cases": [
+    {
+      "expected": -1,
+      "input": {
+        "currentRaw": "0.1.0",
+        "latestRaw": "0.2.0"
+      },
+      "name": "0.1.0_vs_0.2.0"
+    },
+    {
+      "expected": 1,
+      "input": {
+        "currentRaw": "0.2.0",
+        "latestRaw": "0.1.0"
+      },
+      "name": "0.2.0_vs_0.1.0"
+    },
+    {
+      "expected": 0,
+      "input": {
+        "currentRaw": "1.0.0",
+        "latestRaw": "1.0.0"
+      },
+      "name": "1.0.0_vs_1.0.0"
+    },
+    {
+      "expected": -1,
+      "input": {
+        "currentRaw": "v1.2.3",
+        "latestRaw": "1.2.4"
+      },
+      "name": "v1.2.3_vs_1.2.4"
+    },
+    {
+      "expected": 0,
+      "input": {
+        "currentRaw": "1.2.3-beta.1",
+        "latestRaw": "1.2.3"
+      },
+      "name": "1.2.3-beta.1_vs_1.2.3"
+    },
+    {
+      "expected": 0,
+      "input": {
+        "currentRaw": "1.2",
+        "latestRaw": "1.2.0"
+      },
+      "name": "1.2_vs_1.2.0"
+    },
+    {
+      "expected": -1,
+      "input": {
+        "currentRaw": "2.0.0",
+        "latestRaw": "10.0.0"
+      },
+      "name": "2.0.0_vs_10.0.0"
+    },
+    {
+      "expected": -1,
+      "input": {
+        "currentRaw": "garbage",
+        "latestRaw": "0.0.1"
+      },
+      "name": "garbage_vs_0.0.1"
+    }
+  ],
+  "description": "Semver comparison with v-prefix, prerelease suffix, short forms.",
+  "function": "compareSemver",
+  "module": "settingsSnapshot"
+}

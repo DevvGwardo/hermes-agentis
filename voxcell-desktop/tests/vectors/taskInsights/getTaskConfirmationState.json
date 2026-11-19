@@ -1,0 +1,142 @@
+{
+  "cases": [
+    {
+      "expected": "open",
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "running-open"
+    },
+    {
+      "expected": "needs-confirm",
+      "input": {
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Changelog summarized: 12 entries across 3 releases.",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "completed-needs-confirm"
+    },
+    {
+      "expected": "confirmed",
+      "input": {
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "confirmedAtMs": 1795089180000,
+          "createdAtMs": 1795089000000,
+          "id": "task-confirmed",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Changelog summarized: 12 entries across 3 releases.",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Clean the dist folder",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089180000
+        }
+      },
+      "name": "confirmed"
+    },
+    {
+      "expected": "open",
+      "input": {
+        "task": {
+          "channelId": "ops",
+          "createdAtMs": 1795088880000,
+          "errorCode": "tool_error",
+          "id": "task-failed",
+          "lastStep": "terminal: cargo test",
+          "progress": 80,
+          "rawStatus": "failed",
+          "result": "error: test failed",
+          "status": "completed",
+          "title": "Run integration suite",
+          "updatedAt": "11:51",
+          "updatedAtMs": 1795089060000
+        }
+      },
+      "name": "failed-open"
+    },
+    {
+      "expected": "open",
+      "input": {
+        "task": {
+          "channelId": "ops",
+          "createdAtMs": 1795088700000,
+          "id": "task-cancelled",
+          "lastStep": "Running web_extract",
+          "progress": 10,
+          "rawStatus": "cancelled",
+          "status": "completed",
+          "title": "Long crawl",
+          "updatedAt": "11:46",
+          "updatedAtMs": 1795088760000
+        }
+      },
+      "name": "cancelled-open"
+    }
+  ],
+  "description": "Confirmation state machine.",
+  "function": "getTaskConfirmationState",
+  "module": "taskInsights"
+}

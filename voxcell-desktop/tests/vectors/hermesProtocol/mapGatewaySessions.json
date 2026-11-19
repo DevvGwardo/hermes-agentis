@@ -1,0 +1,74 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "createdAtMs": 1795089000000,
+          "id": "hermes-general",
+          "lastMessage": "hello",
+          "messageCount": 8,
+          "model": "hermes-4",
+          "sessionKey": "voxcell-main",
+          "source": "web",
+          "title": "General",
+          "updatedAtMs": 1795089300000
+        },
+        {
+          "createdAtMs": 1795089000000,
+          "id": "hermes-ops",
+          "lastMessage": "backup done",
+          "updatedAtMs": 1795089400000
+        },
+        {
+          "createdAtMs": 1795089000000,
+          "id": "hermes-cron",
+          "lastMessage": "nightly brief",
+          "updatedAtMs": 1795089000000
+        }
+      ],
+      "input": {
+        "raw": {
+          "sessions": [
+            {
+              "created_at": 1795089000,
+              "last_message": "hello",
+              "message_count": 8,
+              "model": "hermes-4",
+              "session_id": "hermes-general",
+              "session_key": "voxcell-main",
+              "source": "web",
+              "title": "General",
+              "updated_at": 1795089300
+            },
+            {
+              "id": "hermes-ops",
+              "last_active_at": 1795089400000,
+              "preview": "backup done",
+              "started_at": "2026-11-19T11:50:00Z"
+            },
+            {
+              "session_id": "  ",
+              "title": "skipped"
+            },
+            {
+              "created_at": "1795089000",
+              "first_prompt": "nightly brief",
+              "session_id": "hermes-cron"
+            }
+          ]
+        }
+      },
+      "name": "mixed-timestamps"
+    },
+    {
+      "expected": [],
+      "input": {
+        "raw": 7
+      },
+      "name": "garbage"
+    }
+  ],
+  "description": "Session record mapping: epoch seconds vs ms vs ISO strings, preview fallbacks.",
+  "function": "mapGatewaySessions",
+  "module": "hermesProtocol"
+}

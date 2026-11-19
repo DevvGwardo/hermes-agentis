@@ -1,0 +1,664 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089540000,
+        "reason": "sync",
+        "schemaVersion": 1,
+        "uiConfig": {
+          "accentBrightHex": "#E2E8F0",
+          "accentHex": "#94A3B8",
+          "accentPreset": "slate",
+          "accentSoftHex": "#CBD5E1",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#11141B",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Hermes"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "raw": {
+          "appVersion": "0.1.0",
+          "capturedAt": 1795089540000,
+          "reason": "sync"
+        }
+      },
+      "name": "minimal-defaults"
+    },
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089540000,
+        "reason": "sync",
+        "schemaVersion": 1,
+        "uiConfig": {
+          "accentBrightHex": "#E2E8F0",
+          "accentHex": "#94A3B8",
+          "accentPreset": "slate",
+          "accentSoftHex": "#CBD5E1",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#11141B",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Hermes"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "raw": {
+          "appVersion": "0.1.0",
+          "capturedAt": 1795089540000,
+          "reason": "sync",
+          "uiConfig": {
+            "accentHex": "#34D399",
+            "accentPreset": "emerald",
+            "borderOpacity": 0.42,
+            "glowIntensity": 1,
+            "panelAlpha": 0.76,
+            "surfaceHex": "#0A1613",
+            "textHex": "#ECF3F0"
+          }
+        }
+      },
+      "name": "legacy-untouched-emerald-migrates"
+    },
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089540000,
+        "reason": "sync",
+        "schemaVersion": 1,
+        "uiConfig": {
+          "accentBrightHex": "#61DDAF",
+          "accentHex": "#34D399",
+          "accentPreset": "emerald",
+          "accentSoftHex": "#89E5C4",
+          "animationSpeed": 1,
+          "borderOpacity": 0.42,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 1,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.9,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#0A1613",
+          "textHex": "#ECF3F0",
+          "workspaceTitle": "Hermes"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "raw": {
+          "appVersion": "0.1.0",
+          "capturedAt": 1795089540000,
+          "reason": "sync",
+          "uiConfig": {
+            "accentHex": "#34D399",
+            "accentPreset": "emerald",
+            "borderOpacity": 0.42,
+            "glowIntensity": 1,
+            "panelAlpha": 0.9,
+            "surfaceHex": "#0A1613",
+            "textHex": "#ECF3F0"
+          }
+        }
+      },
+      "name": "customized-emerald-preserved"
+    },
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089540000,
+        "reason": "manual",
+        "schemaVersion": 1,
+        "snapshotId": "snap-1",
+        "sourceOrigin": "http://127.0.0.1:5173",
+        "themeEpoch": "slate-v1",
+        "uiConfig": {
+          "accentBrightHex": "#C084FC",
+          "accentHex": "#A855F7",
+          "accentPreset": "violet",
+          "accentSoftHex": "#D8B4FE",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#120B1E",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Lab"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "raw": {
+          "appVersion": "0.1.0",
+          "capturedAt": 1795089540000,
+          "reason": "manual",
+          "snapshotId": "snap-1",
+          "sourceOrigin": "http://127.0.0.1:5173",
+          "themeEpoch": "slate-v1",
+          "uiConfig": {
+            "accentPreset": "violet",
+            "workspaceTitle": "Lab"
+          }
+        }
+      },
+      "name": "explicit-slate-with-custom-ui"
+    },
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 10,
+          "customSlots": [],
+          "opacity": 0.5
+        },
+        "canvas": {
+          "dismissedIds": [
+            "ok-1",
+            "ok-2"
+          ],
+          "pins": [
+            {
+              "detail": "Pinned spatial context for connected Dots.",
+              "id": "pin-1",
+              "kind": "note",
+              "meta": "Canvas pin",
+              "title": "Remember this",
+              "xPct": 30,
+              "yPct": 40
+            },
+            {
+              "detail": "Pinned spatial context for connected Dots.",
+              "id": "pin-2",
+              "kind": "note",
+              "meta": "Canvas pin",
+              "title": "auto id",
+              "xPct": 20,
+              "yPct": 20
+            }
+          ],
+          "sessions": [
+            {
+              "agentPersona": "High-energy release and save_page builder running fast launch turns.",
+              "autonomyMode": "manual",
+              "autonomyPaused": false,
+              "channelId": "general",
+              "connectedTo": [
+                "ops",
+                "research"
+              ],
+              "eyeStyle": "open",
+              "hermesSessionId": "hermes-general",
+              "id": "dot-1",
+              "isCore": false,
+              "mood": "thinking",
+              "name": "General",
+              "sandboxEnv": "cloud-sandbox",
+              "scheduleLabel": "On-demand",
+              "shape": "star",
+              "skills": [
+                "browser",
+                "files",
+                "research"
+              ],
+              "tint": "pink",
+              "topic": "Launch runner",
+              "workspaceDir": "~/hermes/dots/general",
+              "xPct": 10,
+              "yPct": 20
+            },
+            {
+              "agentPersona": "Calm primary Hermes coordinator styled after the main cyber-bob operator.",
+              "autonomyMode": "manual",
+              "autonomyPaused": false,
+              "channelId": "second-dot",
+              "eyeStyle": "open",
+              "hermesSessionId": "hermes-second-dot",
+              "id": "session-second-dot",
+              "isCore": false,
+              "mood": "happy",
+              "name": "Second Dot",
+              "sandboxEnv": "cloud-sandbox",
+              "scheduleLabel": "On-demand",
+              "shape": "clover",
+              "skills": [
+                "browser",
+                "files"
+              ],
+              "tint": "lime",
+              "topic": "Core strategist",
+              "workspaceDir": "~/hermes/dots/second-dot",
+              "xPct": 90,
+              "yPct": 18
+            }
+          ]
+        },
+        "capturedAt": 1795089540000,
+        "reason": "sync",
+        "schemaVersion": 1,
+        "uiConfig": {
+          "accentBrightHex": "#E2E8F0",
+          "accentHex": "#94A3B8",
+          "accentPreset": "slate",
+          "accentSoftHex": "#CBD5E1",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#11141B",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Hermes"
+        },
+        "workspace": {
+          "draftProfile": "coder",
+          "mood": "focused",
+          "onboardingCompleted": true,
+          "showThinking": false,
+          "transportMode": "runs",
+          "voiceMuted": true
+        }
+      },
+      "input": {
+        "raw": {
+          "appVersion": "0.1.0",
+          "background": {
+            "activeId": "aurora-drift",
+            "blurPx": 10,
+            "customSlots": [],
+            "opacity": 0.5
+          },
+          "canvas": {
+            "dismissedIds": [
+              "ok-1",
+              "  ",
+              7,
+              "ok-2"
+            ],
+            "pins": [
+              {
+                "id": "pin-1",
+                "kind": "note",
+                "title": "Remember this",
+                "xPct": 30,
+                "yPct": 40
+              },
+              {
+                "title": "auto id"
+              },
+              {
+                "id": "pin-1",
+                "title": "dup dropped"
+              }
+            ],
+            "sessions": [
+              {
+                "channelId": "general",
+                "hermesSessionId": "hermes-general",
+                "id": "dot-1",
+                "mood": "thinking",
+                "name": "General",
+                "shape": "star",
+                "xPct": 10,
+                "yPct": 20
+              },
+              {
+                "name": "#Second Dot",
+                "xPct": 500,
+                "yPct": -40
+              },
+              {
+                "channelId": "general",
+                "name": "duplicate channel dropped"
+              },
+              "garbage"
+            ]
+          },
+          "capturedAt": 1795089540000,
+          "reason": "sync",
+          "workspace": {
+            "draftProfile": " coder ",
+            "mood": "focused",
+            "onboardingCompleted": true,
+            "showThinking": false,
+            "transportMode": "runs",
+            "voiceMuted": true
+          }
+        }
+      },
+      "name": "full-canvas-workspace"
+    },
+    {
+      "expected": {
+        "appVersion": "0.1.0",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089600000,
+        "reason": "sync",
+        "schemaVersion": 1,
+        "uiConfig": {
+          "accentBrightHex": "#E2E8F0",
+          "accentHex": "#94A3B8",
+          "accentPreset": "slate",
+          "accentSoftHex": "#CBD5E1",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#11141B",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Hermes"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "raw": {
+          "appVersion": "0.1.0"
+        }
+      },
+      "name": "missing-capturedAt-uses-pinned-now"
+    },
+    {
+      "expected": {
+        "appVersion": "9.9.9",
+        "background": {
+          "activeId": "aurora-drift",
+          "blurPx": 12,
+          "customSlots": [],
+          "opacity": 0.64
+        },
+        "canvas": {
+          "dismissedIds": [],
+          "pins": [],
+          "sessions": []
+        },
+        "capturedAt": 1795089600000,
+        "reason": "sync",
+        "schemaVersion": 1,
+        "uiConfig": {
+          "accentBrightHex": "#E2E8F0",
+          "accentHex": "#94A3B8",
+          "accentPreset": "slate",
+          "accentSoftHex": "#CBD5E1",
+          "animationSpeed": 1,
+          "borderOpacity": 0.22,
+          "brailleBloom": 0.75,
+          "brailleDotProfile": "balanced",
+          "composerStyle": "docked",
+          "cornerRadius": "rounded",
+          "density": "comfortable",
+          "fontPreset": "jakarta",
+          "fontScale": 1,
+          "glowIntensity": 0.3,
+          "horizonOpacity": 0.8,
+          "horizonStyle": "silk",
+          "horizonVisible": true,
+          "panelAlpha": 0.8,
+          "portraitScale": 1,
+          "portraitTintHex": null,
+          "portraitVisible": true,
+          "reducedMotion": false,
+          "showTopNav": true,
+          "sidebarChannelsVisible": true,
+          "sidebarPosition": "left",
+          "sidebarQueueVisible": true,
+          "sidebarVisible": true,
+          "sidebarWidthPx": 296,
+          "statusReadoutVisible": true,
+          "surfaceHex": "#11141B",
+          "textHex": "#F1F5F9",
+          "workspaceTitle": "Hermes"
+        },
+        "workspace": {
+          "draftProfile": "default",
+          "mood": "happy",
+          "onboardingCompleted": false,
+          "showThinking": true,
+          "voiceMuted": false
+        }
+      },
+      "input": {
+        "fallbackVersion": "9.9.9",
+        "raw": {
+          "appVersion": "  ",
+          "capturedAt": 1795089600000,
+          "workspace": {
+            "draftProfile": "   ",
+            "mood": "angry"
+          }
+        }
+      },
+      "name": "invalid-mood-and-version-fallback"
+    },
+    {
+      "expected": null,
+      "input": {
+        "raw": null
+      },
+      "name": "null"
+    },
+    {
+      "expected": null,
+      "input": {
+        "raw": "nope"
+      },
+      "name": "scalar"
+    }
+  ],
+  "description": "Snapshot normalization: defaults, legacy untouched-emerald auto-migration to slate-v1, customized palettes preserved, canvas/workspace sanitization.",
+  "function": "normalizePreferencesSnapshot",
+  "module": "settingsSnapshot"
+}

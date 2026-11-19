@@ -1,0 +1,87 @@
+{
+  "cases": [
+    {
+      "expected": "42s",
+      "input": {
+        "createdAtMs": 1795089558000,
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=1795089558000,showSeconds=true"
+    },
+    {
+      "expected": "1m 00s",
+      "input": {
+        "createdAtMs": 1795089540000,
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=1795089540000,showSeconds=true"
+    },
+    {
+      "expected": "4m 08s",
+      "input": {
+        "createdAtMs": 1795089352000,
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=1795089352000,showSeconds=true"
+    },
+    {
+      "expected": "4m",
+      "input": {
+        "createdAtMs": 1795089352000,
+        "nowMs": 1795089600000,
+        "showSeconds": false
+      },
+      "name": "created=1795089352000,showSeconds=false"
+    },
+    {
+      "expected": "1h 07m",
+      "input": {
+        "createdAtMs": 1795085580000,
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=1795085580000,showSeconds=true"
+    },
+    {
+      "expected": "0s",
+      "input": {
+        "createdAtMs": 1795089605000,
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=1795089605000,showSeconds=true"
+    },
+    {
+      "expected": "0s",
+      "input": {
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=undefined,showSeconds=true"
+    },
+    {
+      "expected": "0s",
+      "input": {
+        "createdAtMs": null,
+        "nowMs": 1795089600000,
+        "showSeconds": true
+      },
+      "name": "created=NaN,showSeconds=true"
+    },
+    {
+      "expected": "0s",
+      "input": {
+        "createdAtMs": 1795089600000,
+        "nowMs": null,
+        "showSeconds": true
+      },
+      "name": "created=1795089600000,showSeconds=true"
+    }
+  ],
+  "description": "Compact elapsed formatting: seconds, m+ss, h+mm; invalid inputs -> 0s.",
+  "function": "formatElapsedDuration",
+  "module": "taskInsights"
+}

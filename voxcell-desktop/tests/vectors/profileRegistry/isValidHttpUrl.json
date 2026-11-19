@@ -1,0 +1,42 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "raw": "http://127.0.0.1:8642"
+      },
+      "name": "http://127.0.0.1:8642"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "https://gw.example.dev/"
+      },
+      "name": "https://gw.example.dev/"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "ftp://x.dev"
+      },
+      "name": "ftp://x.dev"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "not a url"
+      },
+      "name": "not a url"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": ""
+      },
+      "name": "(empty)"
+    }
+  ],
+  "description": "HTTP(S)-only URL validation.",
+  "function": "isValidHttpUrl",
+  "module": "profileRegistry"
+}

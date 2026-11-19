@@ -1,0 +1,106 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "activityStatus": "running",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a3",
+          "role": "activity",
+          "source": "ui",
+          "text": "Running terminal",
+          "timestamp": "11:57:01"
+        }
+      },
+      "name": "running-status"
+    },
+    {
+      "expected": false,
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a5",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal completed",
+          "timestamp": "11:57:03"
+        }
+      },
+      "name": "done-status"
+    },
+    {
+      "expected": true,
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a3",
+          "role": "activity",
+          "source": "ui",
+          "text": "Running terminal",
+          "timestamp": "11:57:01"
+        }
+      },
+      "name": "running-text-no-status"
+    },
+    {
+      "expected": true,
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "activityStatus": "queued",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a3",
+          "role": "activity",
+          "source": "ui",
+          "text": "Running terminal",
+          "timestamp": "11:57:01"
+        }
+      },
+      "name": "queued"
+    },
+    {
+      "expected": false,
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "activityStatus": "failed",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a3",
+          "role": "activity",
+          "source": "ui",
+          "text": "Running terminal",
+          "timestamp": "11:57:01"
+        }
+      },
+      "name": "failed"
+    },
+    {
+      "expected": false,
+      "input": {
+        "entry": {
+          "channelId": "general",
+          "createdAtMs": 1795089480000,
+          "id": "u1",
+          "role": "user",
+          "source": "ui",
+          "text": "Refactor the halftone emitter please",
+          "timestamp": "11:57:09"
+        }
+      },
+      "name": "non-activity"
+    }
+  ],
+  "description": "In-flight activity detection via status or Running-text heuristic.",
+  "function": "isActivityEntryRunning",
+  "module": "taskInsights"
+}

@@ -1,0 +1,361 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "activeCount": 2,
+        "aggregatePct": 71,
+        "completedCount": 3,
+        "failedCount": 0,
+        "pausedCount": 1,
+        "totalTasks": 6
+      },
+      "input": {
+        "activeIsThinking": true,
+        "partition": {
+          "all": [
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "run-new",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089540000
+            },
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "run-old",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089240000
+            },
+            {
+              "channelId": "general",
+              "createdAtMs": 1795089360000,
+              "id": "pause-1",
+              "lastStep": "Waiting for approval",
+              "progress": 60,
+              "rawStatus": "waiting_for_approval",
+              "status": "paused",
+              "title": "Deploy staging build",
+              "updatedAt": "11:58",
+              "updatedAtMs": 1795089480000
+            },
+            {
+              "agentDoneAtMs": 1795089120000,
+              "channelId": "general",
+              "createdAtMs": 1795089000000,
+              "id": "done-unconfirmed-new",
+              "lastStep": "Completed response",
+              "progress": 100,
+              "rawStatus": "done",
+              "result": "Changelog summarized: 12 entries across 3 releases.",
+              "status": "completed",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read CHANGELOG.md"
+                },
+                {
+                  "done": true,
+                  "text": "Completed response"
+                }
+              ],
+              "title": "Summarize the changelog",
+              "updatedAt": "11:52",
+              "updatedAtMs": 1795089480000
+            },
+            {
+              "agentDoneAtMs": 1795089120000,
+              "channelId": "general",
+              "createdAtMs": 1795089000000,
+              "id": "done-unconfirmed-old",
+              "lastStep": "Completed response",
+              "progress": 100,
+              "rawStatus": "done",
+              "result": "Changelog summarized: 12 entries across 3 releases.",
+              "status": "completed",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read CHANGELOG.md"
+                },
+                {
+                  "done": true,
+                  "text": "Completed response"
+                }
+              ],
+              "title": "Summarize the changelog",
+              "updatedAt": "11:52",
+              "updatedAtMs": 1795088400000
+            },
+            {
+              "agentDoneAtMs": 1795089120000,
+              "channelId": "general",
+              "confirmedAtMs": 1795089180000,
+              "createdAtMs": 1795089000000,
+              "id": "done-confirmed",
+              "lastStep": "Completed response",
+              "progress": 100,
+              "rawStatus": "done",
+              "result": "Changelog summarized: 12 entries across 3 releases.",
+              "status": "completed",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read CHANGELOG.md"
+                },
+                {
+                  "done": true,
+                  "text": "Completed response"
+                }
+              ],
+              "title": "Clean the dist folder",
+              "updatedAt": "11:52",
+              "updatedAtMs": 1795089540000
+            }
+          ],
+          "completed": [
+            {
+              "agentDoneAtMs": 1795089120000,
+              "channelId": "general",
+              "createdAtMs": 1795089000000,
+              "id": "done-unconfirmed-new",
+              "lastStep": "Completed response",
+              "progress": 100,
+              "rawStatus": "done",
+              "result": "Changelog summarized: 12 entries across 3 releases.",
+              "status": "completed",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read CHANGELOG.md"
+                },
+                {
+                  "done": true,
+                  "text": "Completed response"
+                }
+              ],
+              "title": "Summarize the changelog",
+              "updatedAt": "11:52",
+              "updatedAtMs": 1795089480000
+            },
+            {
+              "agentDoneAtMs": 1795089120000,
+              "channelId": "general",
+              "createdAtMs": 1795089000000,
+              "id": "done-unconfirmed-old",
+              "lastStep": "Completed response",
+              "progress": 100,
+              "rawStatus": "done",
+              "result": "Changelog summarized: 12 entries across 3 releases.",
+              "status": "completed",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read CHANGELOG.md"
+                },
+                {
+                  "done": true,
+                  "text": "Completed response"
+                }
+              ],
+              "title": "Summarize the changelog",
+              "updatedAt": "11:52",
+              "updatedAtMs": 1795088400000
+            },
+            {
+              "agentDoneAtMs": 1795089120000,
+              "channelId": "general",
+              "confirmedAtMs": 1795089180000,
+              "createdAtMs": 1795089000000,
+              "id": "done-confirmed",
+              "lastStep": "Completed response",
+              "progress": 100,
+              "rawStatus": "done",
+              "result": "Changelog summarized: 12 entries across 3 releases.",
+              "status": "completed",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read CHANGELOG.md"
+                },
+                {
+                  "done": true,
+                  "text": "Completed response"
+                }
+              ],
+              "title": "Clean the dist folder",
+              "updatedAt": "11:52",
+              "updatedAtMs": 1795089540000
+            }
+          ],
+          "paused": [
+            {
+              "channelId": "general",
+              "createdAtMs": 1795089360000,
+              "id": "pause-1",
+              "lastStep": "Waiting for approval",
+              "progress": 60,
+              "rawStatus": "waiting_for_approval",
+              "status": "paused",
+              "title": "Deploy staging build",
+              "updatedAt": "11:58",
+              "updatedAtMs": 1795089480000
+            }
+          ],
+          "running": [
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "run-new",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089540000
+            },
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "run-old",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089240000
+            }
+          ]
+        }
+      },
+      "name": "mixed"
+    },
+    {
+      "expected": {
+        "activeCount": 1,
+        "aggregatePct": 0,
+        "completedCount": 0,
+        "failedCount": 0,
+        "pausedCount": 0,
+        "totalTasks": 1
+      },
+      "input": {
+        "activeIsThinking": true,
+        "partition": {
+          "all": [],
+          "completed": [],
+          "paused": [],
+          "running": []
+        }
+      },
+      "name": "empty-thinking"
+    },
+    {
+      "expected": {
+        "activeCount": 0,
+        "aggregatePct": 0,
+        "completedCount": 0,
+        "failedCount": 0,
+        "pausedCount": 0,
+        "totalTasks": 0
+      },
+      "input": {
+        "activeIsThinking": false,
+        "partition": {
+          "all": [],
+          "completed": [],
+          "paused": [],
+          "running": []
+        }
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "Aggregate completion strip across a thread partition.",
+  "function": "summarizeThreadTaskAggregate",
+  "module": "taskInsights"
+}

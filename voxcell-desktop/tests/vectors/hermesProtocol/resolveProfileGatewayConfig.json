@@ -1,0 +1,97 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "apiKey": "",
+        "baseUrl": "http://127.0.0.1:8642",
+        "profile": "default",
+        "routePrefix": ""
+      },
+      "input": {
+        "env": {}
+      },
+      "name": "empty-env-defaults"
+    },
+    {
+      "expected": {
+        "apiKey": "",
+        "baseUrl": "http://127.0.0.1:8642",
+        "profile": "default",
+        "routePrefix": ""
+      },
+      "input": {
+        "env": {
+          "HERMES_API_URL": "http://127.0.0.1:8642///"
+        }
+      },
+      "name": "trailing-slash-url"
+    },
+    {
+      "expected": {
+        "apiKey": "shared-key",
+        "baseUrl": "http://127.0.0.1:8642",
+        "profile": "coder",
+        "routePrefix": "/p/coder"
+      },
+      "input": {
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_PROFILE": "coder",
+          "HERMES_PROFILE_API_KEY": "shared-key"
+        }
+      },
+      "name": "named-profile-shared-key"
+    },
+    {
+      "expected": {
+        "apiKey": "scoped-key",
+        "baseUrl": "http://127.0.0.1:8642",
+        "profile": "researcher",
+        "routePrefix": "/p/researcher"
+      },
+      "input": {
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_KEY_RESEARCHER": "scoped-key",
+          "HERMES_PROFILE": "researcher",
+          "HERMES_PROFILE_API_KEY": "shared-key"
+        }
+      },
+      "name": "named-profile-specific-key-wins"
+    },
+    {
+      "expected": {
+        "apiKey": "default-key",
+        "baseUrl": "http://127.0.0.1:8642",
+        "profile": "default",
+        "routePrefix": ""
+      },
+      "input": {
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_PROFILE": "default",
+          "HERMES_PROFILE_API_KEY": "shared-key"
+        }
+      },
+      "name": "default-profile-ignores-shared-key"
+    },
+    {
+      "expected": {
+        "apiKey": "scoped",
+        "baseUrl": "http://127.0.0.1:8642",
+        "profile": "Side Bot!",
+        "routePrefix": "/p/Side%20Bot!"
+      },
+      "input": {
+        "env": {
+          "HERMES_API_KEY_SIDE_BOT_": "scoped",
+          "HERMES_PROFILE": "Side Bot!"
+        }
+      },
+      "name": "profile-slug-normalization"
+    }
+  ],
+  "description": "Gateway base URL / profile routing / key precedence from env.",
+  "function": "resolveProfileGatewayConfig",
+  "module": "hermesProtocol"
+}

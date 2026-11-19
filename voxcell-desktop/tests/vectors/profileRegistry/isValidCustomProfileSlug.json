@@ -1,0 +1,77 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "raw": "coder"
+      },
+      "name": "coder"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "default"
+      },
+      "name": "default"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "api"
+      },
+      "name": "api"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "a"
+      },
+      "name": "a"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "9lives"
+      },
+      "name": "9lives"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "-x"
+      },
+      "name": "-x"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "x-"
+      },
+      "name": "x-"
+    },
+    {
+      "expected": true,
+      "input": {
+        "raw": "x_y"
+      },
+      "name": "x_y"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": "has space"
+      },
+      "name": "has space"
+    },
+    {
+      "expected": false,
+      "input": {
+        "raw": ""
+      },
+      "name": "(empty)"
+    }
+  ],
+  "description": "Custom slug validity rules.",
+  "function": "isValidCustomProfileSlug",
+  "module": "profileRegistry"
+}

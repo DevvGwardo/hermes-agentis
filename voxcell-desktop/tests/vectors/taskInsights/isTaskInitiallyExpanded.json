@@ -1,0 +1,153 @@
+{
+  "cases": [
+    {
+      "expected": true,
+      "input": {
+        "inSidebar": true,
+        "leadRunningTaskId": "task-build",
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "lead-in-sidebar"
+    },
+    {
+      "expected": false,
+      "input": {
+        "inSidebar": true,
+        "leadRunningTaskId": "other",
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "non-lead"
+    },
+    {
+      "expected": false,
+      "input": {
+        "inSidebar": false,
+        "leadRunningTaskId": "task-build",
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "outside-sidebar"
+    },
+    {
+      "expected": false,
+      "input": {
+        "inSidebar": true,
+        "leadRunningTaskId": "task-done",
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Changelog summarized: 12 entries across 3 releases.",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "completed-lead"
+    }
+  ],
+  "description": "Only the lead running task expands inside the sidebar.",
+  "function": "isTaskInitiallyExpanded",
+  "module": "taskInsights"
+}

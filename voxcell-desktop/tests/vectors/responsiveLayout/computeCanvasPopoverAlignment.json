@@ -1,0 +1,70 @@
+{
+  "cases": [
+    {
+      "expected": "left",
+      "input": {
+        "xPct": 0
+      },
+      "name": "x=0"
+    },
+    {
+      "expected": "left",
+      "input": {
+        "xPct": 23.9
+      },
+      "name": "x=23.9"
+    },
+    {
+      "expected": "center",
+      "input": {
+        "xPct": 24
+      },
+      "name": "x=24"
+    },
+    {
+      "expected": "center",
+      "input": {
+        "xPct": 50
+      },
+      "name": "x=50"
+    },
+    {
+      "expected": "center",
+      "input": {
+        "xPct": 76
+      },
+      "name": "x=76"
+    },
+    {
+      "expected": "right",
+      "input": {
+        "xPct": 76.1
+      },
+      "name": "x=76.1"
+    },
+    {
+      "expected": "right",
+      "input": {
+        "xPct": 100
+      },
+      "name": "x=100"
+    },
+    {
+      "expected": "center",
+      "input": {
+        "xPct": null
+      },
+      "name": "x=NaN"
+    },
+    {
+      "expected": "center",
+      "input": {
+        "xPct": null
+      },
+      "name": "x=Infinity"
+    }
+  ],
+  "description": "Edge-safe popover alignment: left <24%, right >76%, center otherwise; non-finite -> center.",
+  "function": "computeCanvasPopoverAlignment",
+  "module": "responsiveLayout"
+}

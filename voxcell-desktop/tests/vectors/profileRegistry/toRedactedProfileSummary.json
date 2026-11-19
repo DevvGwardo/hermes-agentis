@@ -1,0 +1,122 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "baseUrl": "http://127.0.0.1:8643",
+        "description": "Coder profile",
+        "hasApiKey": true,
+        "id": "coder",
+        "isDefault": false,
+        "label": "coder",
+        "mode": "standalone",
+        "routePrefix": "",
+        "source": "custom"
+      },
+      "input": {
+        "runtime": {
+          "apiKey": "secret-key",
+          "baseUrl": "http://127.0.0.1:8643",
+          "description": "Coder profile",
+          "id": "coder",
+          "isDefault": false,
+          "label": "coder",
+          "mode": "standalone",
+          "routePrefix": "",
+          "source": "custom"
+        }
+      },
+      "name": "without-status"
+    },
+    {
+      "expected": {
+        "activeModel": "hermes-4",
+        "baseUrl": "http://127.0.0.1:8643",
+        "connected": true,
+        "description": "Coder profile",
+        "hasApiKey": true,
+        "healthStatus": "ok",
+        "id": "coder",
+        "isDefault": false,
+        "label": "coder",
+        "mode": "standalone",
+        "routePrefix": "",
+        "source": "custom"
+      },
+      "input": {
+        "runtime": {
+          "apiKey": "secret-key",
+          "baseUrl": "http://127.0.0.1:8643",
+          "description": "Coder profile",
+          "id": "coder",
+          "isDefault": false,
+          "label": "coder",
+          "mode": "standalone",
+          "routePrefix": "",
+          "source": "custom"
+        },
+        "status": {
+          "activeModel": "hermes-4",
+          "connected": true,
+          "gatewayUrl": "http://127.0.0.1:8642",
+          "healthStatus": "ok",
+          "mode": "hermes-gateway",
+          "models": [
+            "hermes-4"
+          ],
+          "profile": "default",
+          "sessionHeader": "X-Hermes-Session-Id",
+          "skillsCount": 12
+        }
+      },
+      "name": "with-status"
+    },
+    {
+      "expected": {
+        "activeModel": "",
+        "baseUrl": "http://127.0.0.1:8643",
+        "connected": false,
+        "description": "Coder profile",
+        "error": "ECONNREFUSED",
+        "hasApiKey": true,
+        "healthStatus": "error",
+        "id": "coder",
+        "isDefault": false,
+        "label": "coder",
+        "mode": "standalone",
+        "routePrefix": "",
+        "source": "custom"
+      },
+      "input": {
+        "runtime": {
+          "apiKey": "secret-key",
+          "baseUrl": "http://127.0.0.1:8643",
+          "description": "Coder profile",
+          "id": "coder",
+          "isDefault": false,
+          "label": "coder",
+          "mode": "standalone",
+          "routePrefix": "",
+          "source": "custom"
+        },
+        "status": {
+          "activeModel": "",
+          "connected": false,
+          "error": "ECONNREFUSED",
+          "gatewayUrl": "http://127.0.0.1:8642",
+          "healthStatus": "error",
+          "mode": "hermes-gateway",
+          "models": [
+            "hermes-4"
+          ],
+          "profile": "default",
+          "sessionHeader": "X-Hermes-Session-Id",
+          "skillsCount": 12
+        }
+      },
+      "name": "offline-status-error"
+    }
+  ],
+  "description": "API keys fully redacted for UI summaries; gateway status merged when present.",
+  "function": "toRedactedProfileSummary",
+  "module": "profileRegistry"
+}

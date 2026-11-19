@@ -1,0 +1,155 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "defaultProfileId": "default",
+        "runtimes": [
+          {
+            "apiKey": "default-key",
+            "baseUrl": "http://127.0.0.1:8642",
+            "description": "Primary ~/.hermes workspace",
+            "id": "default",
+            "isDefault": true,
+            "label": "default",
+            "mode": "standalone",
+            "routePrefix": "",
+            "source": "env"
+          },
+          {
+            "apiKey": "custom-key",
+            "baseUrl": "http://127.0.0.1:9999",
+            "id": "coder",
+            "isDefault": false,
+            "label": "Discovered coder label",
+            "mode": "standalone",
+            "routePrefix": "",
+            "source": "custom"
+          },
+          {
+            "apiKey": "default-key",
+            "baseUrl": "http://127.0.0.1:8642",
+            "id": "lab",
+            "isDefault": false,
+            "label": "lab",
+            "mode": "multiplexed",
+            "routePrefix": "/p/lab",
+            "source": "custom"
+          },
+          {
+            "apiKey": "default-key",
+            "baseUrl": "http://127.0.0.1:8642",
+            "description": "Found in ~/.hermes/profiles",
+            "id": "researcher",
+            "isDefault": false,
+            "label": "researcher",
+            "mode": "multiplexed",
+            "routePrefix": "/p/researcher",
+            "source": "discovered"
+          }
+        ]
+      },
+      "input": {
+        "customProfiles": [
+          {
+            "apiKey": "custom-key",
+            "baseUrl": "http://127.0.0.1:9999",
+            "id": "coder",
+            "mode": "standalone",
+            "source": "custom"
+          },
+          {
+            "id": "lab",
+            "mode": "multiplexed",
+            "source": "custom"
+          }
+        ],
+        "discoveredProfiles": [
+          {
+            "description": "Found in ~/.hermes/profiles",
+            "id": "researcher",
+            "mode": "multiplexed",
+            "source": "discovered"
+          },
+          {
+            "id": "coder",
+            "label": "Discovered coder label",
+            "mode": "multiplexed",
+            "source": "discovered"
+          }
+        ],
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642",
+          "HERMES_PROFILES": "[{\"id\":\"coder\",\"mode\":\"standalone\",\"baseUrl\":\"http://127.0.0.1:8643\"}]"
+        }
+      },
+      "name": "full-merge"
+    },
+    {
+      "expected": {
+        "defaultProfileId": "default",
+        "runtimes": [
+          {
+            "apiKey": "default-key",
+            "baseUrl": "http://127.0.0.1:8642",
+            "description": "Primary ~/.hermes workspace",
+            "id": "default",
+            "isDefault": true,
+            "label": "default",
+            "mode": "standalone",
+            "routePrefix": "",
+            "source": "env"
+          },
+          {
+            "apiKey": "default-key",
+            "baseUrl": "http://127.0.0.1:8643",
+            "id": "coder",
+            "isDefault": false,
+            "label": "coder",
+            "mode": "standalone",
+            "routePrefix": "",
+            "source": "env"
+          }
+        ]
+      },
+      "input": {
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642",
+          "HERMES_PROFILES": "[{\"id\":\"coder\",\"mode\":\"standalone\",\"baseUrl\":\"http://127.0.0.1:8643\"}]"
+        }
+      },
+      "name": "env-only"
+    },
+    {
+      "expected": {
+        "defaultProfileId": "coder",
+        "runtimes": [
+          {
+            "apiKey": "coder-key",
+            "baseUrl": "http://127.0.0.1:8643",
+            "id": "coder",
+            "isDefault": false,
+            "label": "coder",
+            "mode": "standalone",
+            "routePrefix": "",
+            "source": "env"
+          }
+        ]
+      },
+      "input": {
+        "env": {
+          "HERMES_API_KEY": "default-key",
+          "HERMES_API_KEY_CODER": "coder-key",
+          "HERMES_API_URL": "http://127.0.0.1:8642",
+          "HERMES_PROFILE": "coder",
+          "HERMES_PROFILES": "[{\"id\":\"coder\",\"mode\":\"standalone\",\"baseUrl\":\"http://127.0.0.1:8643\"}]"
+        }
+      },
+      "name": "named-primary"
+    }
+  ],
+  "description": "Catalog merge precedence custom > discovered > env, default-first + alphabetical sort.",
+  "function": "buildProfileCatalog",
+  "module": "profileRegistry"
+}

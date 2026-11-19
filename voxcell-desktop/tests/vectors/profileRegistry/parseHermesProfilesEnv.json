@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "apiKey": "coder-key",
+          "baseUrl": "http://127.0.0.1:8643",
+          "description": "Coding side session",
+          "id": "coder",
+          "label": "Coder",
+          "mode": "standalone",
+          "source": "env"
+        },
+        {
+          "baseUrl": "http://127.0.0.1:8644",
+          "id": "researcher",
+          "mode": "standalone",
+          "source": "env"
+        },
+        {
+          "id": "default",
+          "label": "reserved becomes default",
+          "mode": "multiplexed",
+          "source": "env"
+        },
+        {
+          "id": "badurl",
+          "mode": "multiplexed",
+          "source": "env"
+        }
+      ],
+      "input": {
+        "env": {
+          "HERMES_PROFILES": "[{\"id\":\"coder\",\"label\":\" Coder \",\"mode\":\"standalone\",\"baseUrl\":\"http://127.0.0.1:8643/\",\"apiKey\":\"coder-key\",\"description\":\"Coding side session\"},{\"name\":\"researcher\",\"baseUrl\":\"http://127.0.0.1:8644\"},{\"id\":\"coder\",\"label\":\"duplicate dropped\"},{\"id\":\"api\",\"label\":\"reserved becomes default\"},{\"id\":\"badurl\",\"baseUrl\":\"ftp://nope\"},\"skipped\"]"
+        }
+      },
+      "name": "json-array"
+    },
+    {
+      "expected": [
+        {
+          "baseUrl": "http://127.0.0.1:8643",
+          "id": "coder",
+          "mode": "standalone",
+          "source": "env"
+        },
+        {
+          "id": "researcher",
+          "mode": "multiplexed",
+          "source": "env"
+        },
+        {
+          "id": "default",
+          "mode": "multiplexed",
+          "source": "env"
+        }
+      ],
+      "input": {
+        "env": {
+          "HERMES_PROFILES": "coder=http://127.0.0.1:8643, researcher , ,api"
+        }
+      },
+      "name": "csv-mixed"
+    },
+    {
+      "expected": [
+        {
+          "id": "broken-json",
+          "mode": "multiplexed",
+          "source": "env"
+        }
+      ],
+      "input": {
+        "env": {
+          "HERMES_PROFILES": "[broken json"
+        }
+      },
+      "name": "malformed-json-falls-through"
+    },
+    {
+      "expected": [],
+      "input": {
+        "env": {}
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "HERMES_PROFILES parsing: JSON array, CSV shorthand, malformed-JSON fallthrough, dedupe.",
+  "function": "parseHermesProfilesEnv",
+  "module": "profileRegistry"
+}

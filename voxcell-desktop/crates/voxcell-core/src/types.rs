@@ -421,6 +421,12 @@ pub struct HermesModelOption {
     pub provider: Option<String>,
 }
 
+/// Legacy ambient backdrop identifiers kept for API compatibility with
+/// `voxcell-ui::theme` (exhaustive match). Under the `slate-v1` epoch the
+/// default `EmeraldAurora` variant renders the neutral **Aurora Drift** slate
+/// wash (its primary color follows `theme.accent`, now Slate 400 `#94A3B8`);
+/// emerald is no longer ambient chrome. Web-parity string ids live in
+/// [`BackgroundPresetId::web_id`] / [`BackgroundSettings::active_id`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum BackgroundPresetId {
@@ -437,7 +443,7 @@ pub enum BackgroundPresetId {
 impl BackgroundPresetId {
     pub fn label(self) -> &'static str {
         match self {
-            Self::EmeraldAurora => "Emerald Aurora",
+            Self::EmeraldAurora => "Aurora Drift",
             Self::AbyssGrid => "Abyss Grid",
             Self::CyberMist => "Cyber Mist",
             Self::SolarFlare => "Solar Flare",
@@ -458,69 +464,363 @@ impl BackgroundPresetId {
             Self::PhosphorGrain,
         ]
     }
+
+    /// Crosswalk to the web `BackgroundPresetKind` ids used by
+    /// `settingsSnapshot` / `backgrounds/persistence.ts`. The legacy scaffold
+    /// variants map best-effort onto the 7 web presets (documented assumption;
+    /// full shader parity is P2-03).
+    pub fn web_id(self) -> &'static str {
+        match self {
+            Self::EmeraldAurora => "aurora-drift",
+            Self::AbyssGrid => "mesh-gradient",
+            Self::CyberMist => "nebula",
+            Self::SolarFlare => "scanline-shimmer",
+            Self::MidnightPulse => "constellation-drift",
+            Self::ObsidianSilk => "horizon-tide",
+            Self::PhosphorGrain => "braille-rain",
+        }
+    }
+
+    pub fn from_web_id(id: &str) -> Option<Self> {
+        Self::all().iter().copied().find(|p| p.web_id() == id)
+    }
+}
+
+/// Whether an uploaded backdrop slot holds an image or a video.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BackgroundMediaType {
+    #[default]
+    Image,
+    Video,
+}
+
+/// User-uploaded backdrop slot (port of `BackgroundCustomSlot` in
+/// `src/backgrounds/types.ts`, sanitized by `backgrounds/persistence.ts`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundCustomSlot {
+    pub id: String,
+    pub label: String,
+    pub media_type: BackgroundMediaType,
+    pub src: String,
+    pub created_at: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct BackgroundSettings {
+    /// Legacy scaffold preset selector (kept for `voxcell-ui` compatibility).
+    #[serde(alias = "preset")]
     pub preset: BackgroundPresetId,
+    #[serde(alias = "opacity")]
     pub opacity: f32,
+    #[serde(alias = "motion_speed")]
     pub motion_speed: f32,
+    #[serde(alias = "intensity")]
     pub intensity: f32,
+    /// Web-parity active backdrop id (`aurora-drift` default, `custom-*` slots).
+    #[serde(alias = "active_id")]
+    pub active_id: String,
+    #[serde(alias = "blur_px")]
+    pub blur_px: f32,
+    #[serde(alias = "custom_slots")]
+    pub custom_slots: Vec<BackgroundCustomSlot>,
 }
 
 impl Default for BackgroundSettings {
     fn default() -> Self {
         Self {
             preset: BackgroundPresetId::EmeraldAurora,
-            opacity: 0.72,
+            opacity: 0.64,
             motion_speed: 1.0,
             intensity: 0.8,
+            active_id: "aurora-drift".to_string(),
+            blur_px: 12.0,
+            custom_slots: Vec::new(),
         }
     }
 }
 
+/// Accent swatch ids — port of `UiAccentPreset` (`src/utils/uiCustomization.ts`).
+/// `slate` is the `slate-v1` default; emerald/amber/rose remain available as
+/// opt-in accents while their hex values stay reserved for semantic telemetry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AccentPreset {
+    #[default]
+    Slate,
+    Emerald,
+    Cyan,
+    Violet,
+    Amber,
+    Rose,
+    Crimson,
+    Mono,
+    Custom,
+}
+
+impl AccentPreset {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Slate => "slate",
+            Self::Emerald => "emerald",
+            Self::Cyan => "cyan",
+            Self::Violet => "violet",
+            Self::Amber => "amber",
+            Self::Rose => "rose",
+            Self::Crimson => "crimson",
+            Self::Mono => "mono",
+            Self::Custom => "custom",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "slate" => Some(Self::Slate),
+            "emerald" => Some(Self::Emerald),
+            "cyan" => Some(Self::Cyan),
+            "violet" => Some(Self::Violet),
+            "amber" => Some(Self::Amber),
+            "rose" => Some(Self::Rose),
+            "crimson" => Some(Self::Crimson),
+            "mono" => Some(Self::Mono),
+            "custom" => Some(Self::Custom),
+            _ => None,
+        }
+    }
+}
+
+/// Corner radius style — port of `UiCornerRadius` (sharp 4px / rounded 16px / pill 26px).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CornerRadius {
+    Sharp,
+    #[default]
+    Rounded,
+    Pill,
+}
+
+impl CornerRadius {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sharp => "sharp",
+            Self::Rounded => "rounded",
+            Self::Pill => "pill",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "sharp" => Some(Self::Sharp),
+            "rounded" => Some(Self::Rounded),
+            "pill" => Some(Self::Pill),
+            _ => None,
+        }
+    }
+}
+
+/// Font stack preset — port of `UiFontPreset`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FontPreset {
+    #[default]
+    Jakarta,
+    Mono,
+    Display,
+    System,
+}
+
+impl FontPreset {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Jakarta => "jakarta",
+            Self::Mono => "mono",
+            Self::Display => "display",
+            Self::System => "system",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "jakarta" => Some(Self::Jakarta),
+            "mono" => Some(Self::Mono),
+            "display" => Some(Self::Display),
+            "system" => Some(Self::System),
+            _ => None,
+        }
+    }
+}
+
+/// Composer dock style — port of `UiComposerStyle`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComposerStyle {
+    #[default]
+    Docked,
+    Floating,
+    Minimal,
+}
+
+impl ComposerStyle {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Docked => "docked",
+            Self::Floating => "floating",
+            Self::Minimal => "minimal",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "docked" => Some(Self::Docked),
+            "floating" => Some(Self::Floating),
+            "minimal" => Some(Self::Minimal),
+            _ => None,
+        }
+    }
+}
+
+/// UI customization state — `slate-v1` Charcoal-Slate default epoch.
+///
+/// Port of `UiCustomizationConfig` in `src/utils/uiCustomization.ts` plus the
+/// legacy scaffold fields (`bg_hex`, `amber_hex`, `rose_hex`, `glass_opacity`,
+/// `sidebar_collapsed`, `custom_css_note`, `preset_name`) kept so existing
+/// `voxcell-ui` / `voxcell-store` consumers keep compiling. Emerald `#34D399`,
+/// Amber `#F59E0B` and Rose `#F43F5E` are semantic telemetry colors only
+/// (live/working/error) — never ambient chrome defaults.
+///
+/// Serde: camelCase primary keys (web snapshot parity) with snake_case aliases
+/// so legacy desktop-persisted JSON still deserializes; missing fields fall
+/// back to the slate-v1 defaults via struct-level `serde(default)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct UiCustomizationConfig {
+    #[serde(alias = "accent_preset")]
+    pub accent_preset: AccentPreset,
+    #[serde(alias = "accent_hex")]
     pub accent_hex: String,
+    #[serde(alias = "accent_soft_hex")]
+    pub accent_soft_hex: String,
+    #[serde(alias = "accent_bright_hex")]
+    pub accent_bright_hex: String,
+    /// Semantic "working/thinking" telemetry color (never ambient chrome).
+    #[serde(alias = "amber_hex")]
     pub amber_hex: String,
+    /// Semantic "error/offline/stop" telemetry color (never ambient chrome).
+    #[serde(alias = "rose_hex")]
     pub rose_hex: String,
+    #[serde(alias = "surface_hex")]
     pub surface_hex: String,
+    #[serde(alias = "bg_hex")]
     pub bg_hex: String,
+    #[serde(alias = "text_hex")]
     pub text_hex: String,
-    pub portrait_tint_hex: Option<String>,
-    pub dot_profile: DotProfile,
-    pub bloom: f32,
-    pub horizon_mode: HorizonMode,
+    #[serde(alias = "panel_alpha")]
+    pub panel_alpha: f32,
+    #[serde(alias = "border_opacity")]
+    pub border_opacity: f32,
+    #[serde(alias = "glow_intensity")]
+    pub glow_intensity: f32,
+    #[serde(alias = "corner_radius")]
+    pub corner_radius: CornerRadius,
+    #[serde(alias = "density")]
     pub density: DensityMode,
+    #[serde(alias = "font_preset")]
+    pub font_preset: FontPreset,
+    #[serde(alias = "font_scale")]
+    pub font_scale: f32,
+    #[serde(alias = "sidebar_visible")]
+    pub sidebar_visible: bool,
+    #[serde(alias = "sidebar_position")]
     pub sidebar_position: SidebarPosition,
+    #[serde(alias = "sidebar_width", alias = "sidebar_width_px")]
     pub sidebar_width: f32,
-    pub sidebar_collapsed: bool,
+    #[serde(alias = "sidebar_queue_visible")]
+    pub sidebar_queue_visible: bool,
+    #[serde(alias = "sidebar_channels_visible")]
+    pub sidebar_channels_visible: bool,
+    #[serde(alias = "show_top_nav")]
+    pub show_top_nav: bool,
+    #[serde(alias = "composer_style")]
+    pub composer_style: ComposerStyle,
+    #[serde(alias = "workspace_title")]
+    pub workspace_title: String,
+    #[serde(alias = "portrait_visible")]
+    pub portrait_visible: bool,
+    #[serde(alias = "portrait_scale")]
+    pub portrait_scale: f32,
+    #[serde(alias = "portrait_tint_hex")]
+    pub portrait_tint_hex: Option<String>,
+    #[serde(alias = "dot_profile", alias = "braille_dot_profile")]
+    pub dot_profile: DotProfile,
+    #[serde(alias = "bloom", alias = "braille_bloom")]
+    pub bloom: f32,
+    #[serde(alias = "horizon_visible")]
+    pub horizon_visible: bool,
+    #[serde(alias = "horizon_opacity")]
+    pub horizon_opacity: f32,
+    #[serde(alias = "horizon_mode", alias = "horizon_style")]
+    pub horizon_mode: HorizonMode,
+    #[serde(alias = "status_readout_visible")]
+    pub status_readout_visible: bool,
+    #[serde(alias = "animation_speed")]
+    pub animation_speed: f32,
+    #[serde(alias = "reduced_motion")]
     pub reduced_motion: bool,
+    // ---- Legacy scaffold fields (desktop-only, no web counterpart) ----
+    /// Legacy glass fill alpha; kept in sync with `panel_alpha` by patch appliers.
+    #[serde(alias = "glass_opacity")]
     pub glass_opacity: f32,
+    #[serde(alias = "sidebar_collapsed")]
+    pub sidebar_collapsed: bool,
+    #[serde(alias = "preset_name")]
     pub preset_name: String,
+    #[serde(alias = "custom_css_note")]
     pub custom_css_note: String,
 }
 
 impl Default for UiCustomizationConfig {
     fn default() -> Self {
         Self {
-            accent_hex: "#34D399".to_string(),
+            accent_preset: AccentPreset::Slate,
+            accent_hex: "#94A3B8".to_string(),
+            accent_soft_hex: "#CBD5E1".to_string(),
+            accent_bright_hex: "#E2E8F0".to_string(),
             amber_hex: "#F59E0B".to_string(),
             rose_hex: "#F43F5E".to_string(),
-            surface_hex: "#0A1410".to_string(),
-            bg_hex: "#050C0A".to_string(),
-            text_hex: "#ECF3F0".to_string(),
-            portrait_tint_hex: None,
-            dot_profile: DotProfile::Balanced,
-            bloom: 0.38,
-            horizon_mode: HorizonMode::Silk,
+            surface_hex: "#11141B".to_string(),
+            bg_hex: "#0B0D12".to_string(),
+            text_hex: "#F1F5F9".to_string(),
+            panel_alpha: 0.80,
+            border_opacity: 0.22,
+            glow_intensity: 0.30,
+            corner_radius: CornerRadius::Rounded,
             density: DensityMode::Comfortable,
+            font_preset: FontPreset::Jakarta,
+            font_scale: 1.0,
+            sidebar_visible: true,
             sidebar_position: SidebarPosition::Left,
             sidebar_width: 296.0,
-            sidebar_collapsed: false,
+            sidebar_queue_visible: true,
+            sidebar_channels_visible: true,
+            show_top_nav: true,
+            composer_style: ComposerStyle::Docked,
+            workspace_title: "Hermes".to_string(),
+            portrait_visible: true,
+            portrait_scale: 1.0,
+            portrait_tint_hex: None,
+            dot_profile: DotProfile::Balanced,
+            bloom: 0.75,
+            horizon_visible: true,
+            horizon_opacity: 0.8,
+            horizon_mode: HorizonMode::Silk,
+            status_readout_visible: true,
+            animation_speed: 1.0,
             reduced_motion: false,
-            glass_opacity: 0.92,
-            preset_name: "Voxcell Abyss".to_string(),
+            glass_opacity: 0.80,
+            sidebar_collapsed: false,
+            preset_name: "Slate Monochrome".to_string(),
             custom_css_note: String::new(),
         }
     }

@@ -1,0 +1,331 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "activeStepText": "terminal: cargo check",
+        "completedCount": 1,
+        "ratioLabel": "1/3",
+        "steps": [
+          {
+            "state": "done",
+            "text": "Read raster code"
+          },
+          {
+            "state": "active",
+            "text": "terminal: cargo check"
+          },
+          {
+            "state": "pending",
+            "text": "Write GPU emitter"
+          }
+        ],
+        "totalCount": 3
+      },
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "running",
+          "sessionId": "hermes-general",
+          "status": "running",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "running-with-steps"
+    },
+    {
+      "expected": {
+        "activeStepText": "Running web_search",
+        "completedCount": 2,
+        "ratioLabel": "2/6",
+        "steps": [
+          {
+            "state": "active",
+            "text": "Running web_search"
+          }
+        ],
+        "totalCount": 6
+      },
+      "input": {
+        "task": {
+          "channelId": "general",
+          "createdAtMs": 1795089510000,
+          "id": "task-research",
+          "lastStep": "Running web_search",
+          "progress": 33,
+          "progressLabel": "2/6",
+          "rawStatus": "running",
+          "status": "running",
+          "title": "Survey RUNE APIs",
+          "updatedAt": "11:58",
+          "updatedAtMs": 1795089580000
+        }
+      },
+      "name": "running-ratio-label"
+    },
+    {
+      "expected": {
+        "activeStepText": "Working in hermes-design",
+        "completedCount": 0,
+        "ratioLabel": "0%",
+        "steps": [
+          {
+            "state": "active",
+            "text": "Working in hermes-design"
+          }
+        ],
+        "totalCount": 1
+      },
+      "input": {
+        "task": {
+          "channelId": "design",
+          "createdAtMs": 1795089598000,
+          "id": "task-fresh",
+          "lastStep": "Working in hermes-design",
+          "progress": 0,
+          "rawStatus": "running",
+          "status": "running",
+          "title": "Draft the phone widget",
+          "updatedAt": "11:59",
+          "updatedAtMs": 1795089599000
+        }
+      },
+      "name": "running-zero-fallback"
+    },
+    {
+      "expected": {
+        "activeStepText": "Completed response",
+        "completedCount": 2,
+        "ratioLabel": "2/2",
+        "steps": [
+          {
+            "state": "done",
+            "text": "Read CHANGELOG.md"
+          },
+          {
+            "state": "done",
+            "text": "Completed response"
+          }
+        ],
+        "totalCount": 2
+      },
+      "input": {
+        "task": {
+          "agentDoneAtMs": 1795089120000,
+          "channelId": "general",
+          "createdAtMs": 1795089000000,
+          "id": "task-done",
+          "lastStep": "Completed response",
+          "progress": 100,
+          "rawStatus": "done",
+          "result": "Changelog summarized: 12 entries across 3 releases.",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read CHANGELOG.md"
+            },
+            {
+              "done": true,
+              "text": "Completed response"
+            }
+          ],
+          "title": "Summarize the changelog",
+          "updatedAt": "11:52",
+          "updatedAtMs": 1795089120000
+        }
+      },
+      "name": "completed-all-done"
+    },
+    {
+      "expected": {
+        "activeStepText": "terminal: cargo check",
+        "completedCount": 1,
+        "ratioLabel": "1/3",
+        "steps": [
+          {
+            "state": "done",
+            "text": "Read raster code"
+          },
+          {
+            "state": "pending",
+            "text": "terminal: cargo check"
+          },
+          {
+            "state": "pending",
+            "text": "Write GPU emitter"
+          }
+        ],
+        "totalCount": 3
+      },
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "failed",
+          "sessionId": "hermes-general",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "failed-no-active"
+    },
+    {
+      "expected": {
+        "activeStepText": "terminal: cargo check",
+        "completedCount": 1,
+        "ratioLabel": "1/3",
+        "steps": [
+          {
+            "state": "done",
+            "text": "Read raster code"
+          },
+          {
+            "state": "pending",
+            "text": "terminal: cargo check"
+          },
+          {
+            "state": "pending",
+            "text": "Write GPU emitter"
+          }
+        ],
+        "totalCount": 3
+      },
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "cancelled",
+          "sessionId": "hermes-general",
+          "status": "completed",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "cancelled-no-active"
+    },
+    {
+      "expected": {
+        "activeStepText": "terminal: cargo check",
+        "completedCount": 1,
+        "ratioLabel": "1/3",
+        "steps": [
+          {
+            "state": "done",
+            "text": "Read raster code"
+          },
+          {
+            "state": "active",
+            "text": "terminal: cargo check"
+          },
+          {
+            "state": "pending",
+            "text": "Write GPU emitter"
+          }
+        ],
+        "totalCount": 3
+      },
+      "input": {
+        "task": {
+          "background": true,
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "kind": "Background",
+          "lastStep": "terminal: cargo check",
+          "profile": "default",
+          "progress": 40,
+          "progressLabel": "1/3",
+          "rawStatus": "waiting_for_approval",
+          "sessionId": "hermes-general",
+          "status": "paused",
+          "steps": [
+            {
+              "done": true,
+              "text": "Read raster code"
+            },
+            {
+              "active": true,
+              "text": "terminal: cargo check"
+            },
+            {
+              "text": "Write GPU emitter"
+            }
+          ],
+          "title": "Refactor the halftone emitter",
+          "updatedAt": "11:57",
+          "updatedAtMs": 1795089595000
+        }
+      },
+      "name": "paused-pending"
+    }
+  ],
+  "description": "Step checklist resolution: explicit steps, completed override, fraction labels, fallback single step.",
+  "function": "resolveTaskStepBreakdown",
+  "module": "taskInsights"
+}

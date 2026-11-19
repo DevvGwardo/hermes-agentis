@@ -1,0 +1,74 @@
+{
+  "cases": [
+    {
+      "expected": "workspace",
+      "input": {
+        "params": {
+          "sessionKey": "voxcell-main",
+          "source": "cli"
+        }
+      },
+      "name": "voxcell-key"
+    },
+    {
+      "expected": "workspace",
+      "input": {
+        "params": {
+          "source": "web"
+        }
+      },
+      "name": "web-source"
+    },
+    {
+      "expected": "external",
+      "input": {
+        "params": {
+          "sessionId": "hermes-general",
+          "source": "cli"
+        }
+      },
+      "name": "cli-source"
+    },
+    {
+      "expected": "workspace",
+      "input": {
+        "params": {
+          "channelId": "general",
+          "sessionId": "hermes-general"
+        }
+      },
+      "name": "hermes-slug-workspace"
+    },
+    {
+      "expected": "external",
+      "input": {
+        "params": {
+          "sessionId": "hermes-local-abc123def"
+        }
+      },
+      "name": "opaque-id-external"
+    },
+    {
+      "expected": "workspace",
+      "input": {
+        "params": {
+          "createdInWorkspace": true,
+          "source": "telegram"
+        }
+      },
+      "name": "created-in-workspace-flag"
+    },
+    {
+      "expected": "external",
+      "input": {
+        "params": {
+          "sessionId": "random-session"
+        }
+      },
+      "name": "unknown-external"
+    }
+  ],
+  "description": "Workspace vs external session provenance.",
+  "function": "classifyGatewaySessionOrigin",
+  "module": "hermesProtocol"
+}

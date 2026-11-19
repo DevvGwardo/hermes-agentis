@@ -1,0 +1,288 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "detail": "weighing GPU instancing options",
+        "icon": "reasoning",
+        "id": "a1",
+        "isReasoning": true,
+        "label": "Reasoning",
+        "timestamp": "11:57:09"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "reasoning",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a1",
+          "reasoningDetail": "weighing GPU instancing options",
+          "role": "activity",
+          "source": "ui",
+          "text": "Reasoning: weighing GPU instancing options",
+          "timestamp": "11:57:09"
+        }
+      },
+      "name": "reasoning-kind"
+    },
+    {
+      "expected": {
+        "detail": "comparing shader paths",
+        "icon": "reasoning",
+        "id": "x1",
+        "isReasoning": true,
+        "label": "Reasoning",
+        "timestamp": "11:57:09"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x1",
+          "role": "activity",
+          "source": "ui",
+          "text": "Reasoning: comparing shader paths",
+          "timestamp": "11:57:09"
+        }
+      },
+      "name": "reasoning-prefix-text"
+    },
+    {
+      "expected": {
+        "detail": "checking the vendor patches first",
+        "icon": "commentary",
+        "id": "a2",
+        "label": "Commentary",
+        "timestamp": "11:57:00"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "commentary",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a2",
+          "role": "activity",
+          "source": "ui",
+          "text": "Commentary: checking the vendor patches first",
+          "timestamp": "11:57:00"
+        }
+      },
+      "name": "commentary"
+    },
+    {
+      "expected": {
+        "detail": "",
+        "icon": "spawn",
+        "id": "a6",
+        "isReasoning": false,
+        "label": "Spawned subagent for RUNE research",
+        "timestamp": "11:57:04"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "subagent",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a6",
+          "role": "activity",
+          "source": "ui",
+          "text": "Spawned subagent for RUNE research",
+          "timestamp": "11:57:04"
+        }
+      },
+      "name": "subagent"
+    },
+    {
+      "expected": {
+        "detail": "completed",
+        "icon": "tool",
+        "id": "a5",
+        "isReasoning": false,
+        "label": "terminal",
+        "timestamp": "11:57:03"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "tool",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a5",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal completed",
+          "timestamp": "11:57:03"
+        }
+      },
+      "name": "tool-kind"
+    },
+    {
+      "expected": {
+        "detail": "//example.dev/rune",
+        "icon": "link",
+        "id": "a7",
+        "isReasoning": false,
+        "label": "Opened gateway docs — https",
+        "timestamp": "11:57:05"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "activityStatus": "done",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "a7",
+          "role": "activity",
+          "source": "ui",
+          "text": "Opened gateway docs — https://example.dev/rune",
+          "timestamp": "11:57:05"
+        }
+      },
+      "name": "link-heuristic"
+    },
+    {
+      "expected": {
+        "detail": "",
+        "icon": "tool",
+        "id": "x2",
+        "isReasoning": false,
+        "label": "Read the Cargo manifest",
+        "timestamp": "11:57:00"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x2",
+          "role": "activity",
+          "source": "ui",
+          "text": "Read the Cargo manifest",
+          "timestamp": "11:57:00"
+        }
+      },
+      "name": "tool-heuristic"
+    },
+    {
+      "expected": {
+        "detail": "",
+        "icon": "spawn",
+        "id": "x3",
+        "isReasoning": false,
+        "label": "New agent session attached",
+        "timestamp": "11:57:01"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x3",
+          "role": "activity",
+          "source": "ui",
+          "text": "New agent session attached",
+          "timestamp": "11:57:01"
+        }
+      },
+      "name": "spawn-heuristic"
+    },
+    {
+      "expected": {
+        "detail": "completed",
+        "icon": "status",
+        "id": "x4",
+        "isReasoning": false,
+        "label": "terminal",
+        "timestamp": "11:57:02"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x4",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal completed",
+          "timestamp": "11:57:02"
+        }
+      },
+      "name": "status-suffix-split"
+    },
+    {
+      "expected": {
+        "detail": "cargo check",
+        "icon": "status",
+        "id": "x5",
+        "isReasoning": false,
+        "label": "terminal",
+        "timestamp": "11:57:03"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x5",
+          "role": "activity",
+          "source": "ui",
+          "text": "terminal: cargo check",
+          "timestamp": "11:57:03"
+        }
+      },
+      "name": "colon-label-split"
+    },
+    {
+      "expected": {
+        "detail": "all green",
+        "icon": "link",
+        "id": "x6",
+        "isReasoning": false,
+        "label": "Gateway probe",
+        "timestamp": "11:57:04"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x6",
+          "role": "activity",
+          "source": "ui",
+          "text": "Gateway probe — all green",
+          "timestamp": "11:57:04"
+        }
+      },
+      "name": "emdash-label-split"
+    },
+    {
+      "expected": {
+        "detail": "",
+        "icon": "status",
+        "id": "x7",
+        "isReasoning": false,
+        "label": "Idle",
+        "timestamp": "11:57:05"
+      },
+      "input": {
+        "entry": {
+          "activityKind": "status",
+          "channelId": "general",
+          "createdAtMs": 1795089540000,
+          "id": "x7",
+          "role": "activity",
+          "source": "ui",
+          "text": "Idle",
+          "timestamp": "11:57:05"
+        }
+      },
+      "name": "plain-status"
+    }
+  ],
+  "description": "Trace icon classification + label/detail splitting for every branch.",
+  "function": "classifyTraceStep",
+  "module": "threadTrace"
+}

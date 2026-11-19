@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "configured": true,
+          "description": "",
+          "enabled": true,
+          "label": "core",
+          "name": "core",
+          "tools": []
+        },
+        {
+          "configured": false,
+          "description": "Search & extract",
+          "enabled": false,
+          "label": "Web tools",
+          "name": "web",
+          "tools": [
+            "web_search",
+            "web_extract"
+          ]
+        }
+      ],
+      "input": {
+        "raw": {
+          "toolsets": [
+            "core",
+            {
+              "configured": false,
+              "description": "Search & extract",
+              "enabled": false,
+              "label": "Web tools",
+              "name": "web",
+              "tools": [
+                "web_search",
+                "web_extract",
+                7
+              ]
+            },
+            {
+              "name": "  "
+            }
+          ]
+        }
+      },
+      "name": "mixed"
+    },
+    {
+      "expected": [],
+      "input": {
+        "raw": []
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "Toolset normalization incl. bare-string toolsets.",
+  "function": "mapGatewayToolsets",
+  "module": "hermesProtocol"
+}

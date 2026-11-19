@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "expected": "completed",
+      "input": {
+        "finishReason": "stop"
+      },
+      "name": "stop|undefined|undefined"
+    },
+    {
+      "expected": "cancelled",
+      "input": {
+        "finishReason": "cancelled"
+      },
+      "name": "cancelled|undefined|undefined"
+    },
+    {
+      "expected": "failed",
+      "input": {
+        "finishReason": "error"
+      },
+      "name": "error|undefined|undefined"
+    },
+    {
+      "expected": "iteration_budget_exhausted",
+      "input": {
+        "errorCode": "iteration_budget_exhausted",
+        "finishReason": "length"
+      },
+      "name": "length|iteration_budget_exhausted|undefined"
+    },
+    {
+      "expected": "completed",
+      "input": {
+        "finishReason": "length"
+      },
+      "name": "length|undefined|undefined"
+    },
+    {
+      "expected": "admission_conflict",
+      "input": {
+        "errorCode": "admission_conflict",
+        "finishReason": null
+      },
+      "name": "null|admission_conflict|undefined"
+    },
+    {
+      "expected": "admission_conflict",
+      "input": {
+        "errorMessage": "admission_conflict",
+        "finishReason": null
+      },
+      "name": "null|undefined|admission_conflict"
+    },
+    {
+      "expected": "completed",
+      "input": {
+        "errorMessage": "Something else",
+        "finishReason": null
+      },
+      "name": "null|undefined|Something else"
+    }
+  ],
+  "description": "Terminal outcome classification from finish_reason + error metadata.",
+  "function": "classifyFinishReason",
+  "module": "hermesProtocol"
+}

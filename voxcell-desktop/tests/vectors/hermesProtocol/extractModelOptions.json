@@ -1,0 +1,112 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "activeModel": "hermes-4",
+        "activeProvider": "nous",
+        "models": [
+          "hermes-4",
+          "hermes-4-mini",
+          "hermes-3",
+          "legacy"
+        ],
+        "providers": [
+          {
+            "configured": true,
+            "id": "openai",
+            "label": "openai"
+          },
+          {
+            "configured": true,
+            "id": "nous",
+            "label": "Nous Research"
+          },
+          {
+            "configured": false,
+            "id": "anthropic",
+            "label": "anthropic"
+          }
+        ]
+      },
+      "input": {
+        "raw": {
+          "current_model": "hermes-4",
+          "current_provider": "nous",
+          "models": [
+            "hermes-4",
+            " hermes-4 ",
+            {
+              "id": "hermes-4-mini"
+            },
+            {
+              "model": "hermes-3"
+            },
+            {
+              "name": "legacy"
+            }
+          ],
+          "providers": [
+            "openai",
+            {
+              "authenticated": true,
+              "id": "nous",
+              "label": "Nous Research",
+              "models": [
+                "hermes-4"
+              ]
+            },
+            {
+              "configured": false,
+              "slug": "anthropic"
+            }
+          ]
+        }
+      },
+      "name": "models-and-providers"
+    },
+    {
+      "expected": {
+        "activeModel": "m9",
+        "activeProvider": "p9",
+        "models": [
+          "m9",
+          "m1",
+          "m2",
+          "m3"
+        ],
+        "providers": []
+      },
+      "input": {
+        "raw": {
+          "curated_models": [
+            "m3"
+          ],
+          "data": [
+            {
+              "id": "m1"
+            },
+            "m2"
+          ],
+          "selected": {
+            "model": "m9",
+            "provider": "p9"
+          }
+        }
+      },
+      "name": "data-and-selected-fallback"
+    },
+    {
+      "expected": {
+        "models": [],
+        "providers": []
+      },
+      "input": {
+        "raw": null
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "Model/provider catalog extraction from heterogeneous gateway payloads.",
+  "function": "extractModelOptions",
+  "module": "hermesProtocol"
+}

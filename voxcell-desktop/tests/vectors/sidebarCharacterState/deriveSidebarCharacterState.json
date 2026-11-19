@@ -1,0 +1,679 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "activeTask": {
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "isIndeterminate": false,
+          "progressPct": 33,
+          "ratioLabel": "1/3",
+          "stepText": "terminal: cargo check",
+          "title": "Refactor the halftone emitter"
+        },
+        "energy": 0.72,
+        "eyeState": "happy",
+        "gatewayLine": "hermes-4 · default",
+        "mode": "speaking",
+        "mood": "speaking",
+        "pendingApprovalCount": 1,
+        "pulseState": "speaking",
+        "runningTaskCount": 1,
+        "statusLabel": "speaking",
+        "tone": "emerald",
+        "topApproval": {
+          "channelId": "general",
+          "id": "ap-1",
+          "title": "Approve deploy"
+        },
+        "viseme": "round"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [
+            {
+              "actionType": "deploy",
+              "channelId": "general",
+              "destination": "terminal",
+              "draft": "deploy.sh",
+              "id": "ap-1",
+              "status": "pending",
+              "summary": "Deploy staging",
+              "title": "Approve deploy"
+            }
+          ],
+          "baseMood": "happy",
+          "frequencyBands": [
+            0.62,
+            0.55,
+            0.48,
+            0.4,
+            0.33,
+            0.27,
+            0.2,
+            0.16,
+            0.12,
+            0.09,
+            0.06,
+            0.04
+          ],
+          "gatewayStatus": {
+            "activeModel": "hermes-4",
+            "connected": true,
+            "gatewayUrl": "http://127.0.0.1:8642",
+            "healthStatus": "ok",
+            "mode": "hermes-gateway",
+            "models": [
+              "hermes-4"
+            ],
+            "profile": "default",
+            "sessionHeader": "X-Hermes-Session-Id",
+            "skillsCount": 12
+          },
+          "isListening": false,
+          "isSpeaking": true,
+          "lastSpokenLine": "Hello from Hermes",
+          "outputLevel": 0.72,
+          "tasks": [
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "task-build",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089595000
+            }
+          ],
+          "tick": 7
+        }
+      },
+      "name": "speaking-with-bands"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.46,
+        "eyeState": "happy",
+        "gatewayLine": "hm",
+        "mode": "speaking",
+        "mood": "speaking",
+        "pendingApprovalCount": 0,
+        "pulseState": "speaking",
+        "runningTaskCount": 0,
+        "statusLabel": "speaking",
+        "tone": "emerald",
+        "topApproval": null,
+        "viseme": "small"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "isListening": false,
+          "isSpeaking": true,
+          "lastSpokenLine": "hm",
+          "outputLevel": 0.1,
+          "tasks": [],
+          "tick": 2
+        }
+      },
+      "name": "speaking-quiet"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.5,
+        "eyeState": "open",
+        "gatewayLine": "hermes-4 · default",
+        "mode": "listening",
+        "mood": "listening",
+        "pendingApprovalCount": 0,
+        "pulseState": "listening",
+        "runningTaskCount": 0,
+        "statusLabel": "listening",
+        "tone": "emerald",
+        "topApproval": null,
+        "viseme": "rest"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "frequencyBands": [
+            0.62,
+            0.55,
+            0.48,
+            0.4,
+            0.33,
+            0.27,
+            0.2,
+            0.16,
+            0.12,
+            0.09,
+            0.06,
+            0.04
+          ],
+          "gatewayStatus": {
+            "activeModel": "hermes-4",
+            "connected": true,
+            "gatewayUrl": "http://127.0.0.1:8642",
+            "healthStatus": "ok",
+            "mode": "hermes-gateway",
+            "models": [
+              "hermes-4"
+            ],
+            "profile": "default",
+            "sessionHeader": "X-Hermes-Session-Id",
+            "skillsCount": 12
+          },
+          "inputLevel": 0.5,
+          "isListening": true,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "listening"
+    },
+    {
+      "expected": {
+        "activeTask": {
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "isIndeterminate": false,
+          "progressPct": 33,
+          "ratioLabel": "1/3",
+          "stepText": "terminal: cargo check",
+          "title": "Refactor the halftone emitter"
+        },
+        "energy": 0.78,
+        "eyeState": "side",
+        "gatewayLine": "hermes-4 · default",
+        "mode": "working",
+        "mood": "thinking",
+        "pendingApprovalCount": 0,
+        "pulseState": "thinking",
+        "runningTaskCount": 5,
+        "statusLabel": "5 working",
+        "tone": "amber",
+        "topApproval": null,
+        "viseme": "rest"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "gatewayStatus": {
+            "activeModel": "hermes-4",
+            "connected": true,
+            "gatewayUrl": "http://127.0.0.1:8642",
+            "healthStatus": "ok",
+            "mode": "hermes-gateway",
+            "models": [
+              "hermes-4"
+            ],
+            "profile": "default",
+            "sessionHeader": "X-Hermes-Session-Id",
+            "skillsCount": 12
+          },
+          "hermesSessions": [
+            {
+              "channelId": "lab",
+              "name": "Lab",
+              "persona": "Hermes",
+              "sessionId": "hermes-lab",
+              "status": "running",
+              "topic": "",
+              "turnCount": 1,
+              "updatedAtMs": 1795089600000
+            }
+          ],
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": [
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "task-build",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089595000
+            },
+            {
+              "channelId": "general",
+              "createdAtMs": 1795089510000,
+              "id": "task-research",
+              "lastStep": "Running web_search",
+              "progress": 33,
+              "progressLabel": "2/6",
+              "rawStatus": "running",
+              "status": "running",
+              "title": "Survey RUNE APIs",
+              "updatedAt": "11:58",
+              "updatedAtMs": 1795089580000
+            },
+            {
+              "channelId": "design",
+              "createdAtMs": 1795089598000,
+              "id": "task-fresh",
+              "lastStep": "Working in hermes-design",
+              "progress": 0,
+              "rawStatus": "running",
+              "status": "running",
+              "title": "Draft the phone widget",
+              "updatedAt": "11:59",
+              "updatedAtMs": 1795089599000
+            }
+          ],
+          "thinkingByChannel": {
+            "ops": true
+          }
+        }
+      },
+      "name": "working-multi-channel"
+    },
+    {
+      "expected": {
+        "activeTask": {
+          "channelId": "general",
+          "createdAtMs": 1795089475000,
+          "id": "task-build",
+          "isIndeterminate": false,
+          "progressPct": 33,
+          "ratioLabel": "1/3",
+          "stepText": "terminal: cargo check",
+          "title": "Refactor the halftone emitter"
+        },
+        "energy": 0.44,
+        "eyeState": "side",
+        "gatewayLine": "",
+        "mode": "working",
+        "mood": "thinking",
+        "pendingApprovalCount": 0,
+        "pulseState": "thinking",
+        "runningTaskCount": 1,
+        "statusLabel": "working",
+        "tone": "amber",
+        "topApproval": null,
+        "viseme": "rest"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": [
+            {
+              "background": true,
+              "channelId": "general",
+              "createdAtMs": 1795089475000,
+              "id": "task-build",
+              "kind": "Background",
+              "lastStep": "terminal: cargo check",
+              "profile": "default",
+              "progress": 40,
+              "progressLabel": "1/3",
+              "rawStatus": "running",
+              "sessionId": "hermes-general",
+              "status": "running",
+              "steps": [
+                {
+                  "done": true,
+                  "text": "Read raster code"
+                },
+                {
+                  "active": true,
+                  "text": "terminal: cargo check"
+                },
+                {
+                  "text": "Write GPU emitter"
+                }
+              ],
+              "title": "Refactor the halftone emitter",
+              "updatedAt": "11:57",
+              "updatedAtMs": 1795089595000
+            }
+          ]
+        }
+      },
+      "name": "working-single"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.42,
+        "eyeState": "wide",
+        "gatewayLine": "",
+        "mode": "attention",
+        "mood": "alert",
+        "pendingApprovalCount": 2,
+        "pulseState": "waiting",
+        "runningTaskCount": 0,
+        "statusLabel": "2 approvals",
+        "tone": "amber",
+        "topApproval": {
+          "channelId": "general",
+          "id": "ap-1",
+          "title": "Approve deploy"
+        },
+        "viseme": "rest"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [
+            {
+              "actionType": "deploy",
+              "channelId": "general",
+              "destination": "terminal",
+              "draft": "deploy.sh",
+              "id": "ap-1",
+              "status": "pending",
+              "summary": "Deploy staging",
+              "title": "Approve deploy"
+            },
+            {
+              "actionType": "deploy",
+              "channelId": "general",
+              "destination": "terminal",
+              "draft": "deploy.sh",
+              "id": "ap-3",
+              "status": "pending",
+              "summary": "Deploy staging",
+              "title": "Approve deploy"
+            },
+            {
+              "actionType": "deploy",
+              "channelId": "general",
+              "destination": "terminal",
+              "draft": "deploy.sh",
+              "id": "ap-2",
+              "status": "approved",
+              "summary": "Deploy staging",
+              "title": "Approve deploy"
+            }
+          ],
+          "baseMood": "happy",
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "attention-approvals"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.08,
+        "eyeState": "happy",
+        "gatewayLine": "Gateway offline · Open Ops",
+        "mode": "offline",
+        "mood": "happy",
+        "pendingApprovalCount": 0,
+        "pulseState": "error",
+        "runningTaskCount": 0,
+        "statusLabel": "offline",
+        "tone": "rose",
+        "topApproval": null,
+        "viseme": "closed"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "gatewayStatus": {
+            "activeModel": "",
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "gatewayUrl": "http://127.0.0.1:8642",
+            "healthStatus": "error",
+            "mode": "hermes-gateway",
+            "models": [
+              "hermes-4"
+            ],
+            "profile": "default",
+            "sessionHeader": "X-Hermes-Session-Id",
+            "skillsCount": 12
+          },
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "offline"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.08,
+        "eyeState": "open",
+        "gatewayLine": "Gateway offline · Open Ops",
+        "mode": "offline",
+        "mood": "neutral",
+        "pendingApprovalCount": 0,
+        "pulseState": "error",
+        "runningTaskCount": 0,
+        "statusLabel": "offline",
+        "tone": "rose",
+        "topApproval": null,
+        "viseme": "closed"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "thinking",
+          "gatewayStatus": {
+            "activeModel": "",
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "gatewayUrl": "http://127.0.0.1:8642",
+            "healthStatus": "error",
+            "mode": "hermes-gateway",
+            "models": [
+              "hermes-4"
+            ],
+            "profile": "default",
+            "sessionHeader": "X-Hermes-Session-Id",
+            "skillsCount": 12
+          },
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "offline-thinking-base"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.16,
+        "eyeState": "happy",
+        "gatewayLine": "hermes-4 · default",
+        "mode": "idle",
+        "mood": "happy",
+        "pendingApprovalCount": 0,
+        "pulseState": "live",
+        "runningTaskCount": 0,
+        "statusLabel": "online",
+        "tone": "emerald",
+        "topApproval": null,
+        "viseme": "smile"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "gatewayStatus": {
+            "activeModel": "hermes-4",
+            "connected": true,
+            "gatewayUrl": "http://127.0.0.1:8642",
+            "healthStatus": "ok",
+            "mode": "hermes-gateway",
+            "models": [
+              "hermes-4"
+            ],
+            "profile": "default",
+            "sessionHeader": "X-Hermes-Session-Id",
+            "skillsCount": 12
+          },
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "idle-online"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.16,
+        "eyeState": "happy",
+        "gatewayLine": "",
+        "mode": "idle",
+        "mood": "happy",
+        "pendingApprovalCount": 0,
+        "pulseState": "idle",
+        "runningTaskCount": 0,
+        "statusLabel": "new session",
+        "tone": "emerald",
+        "topApproval": null,
+        "viseme": "smile"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "happy",
+          "homeSessionDraft": true,
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "idle-new-session"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.16,
+        "eyeState": "happy",
+        "gatewayLine": "",
+        "mode": "idle",
+        "mood": "happy",
+        "pendingApprovalCount": 0,
+        "pulseState": "idle",
+        "runningTaskCount": 0,
+        "statusLabel": "#design",
+        "tone": "emerald",
+        "topApproval": null,
+        "viseme": "smile"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "design",
+          "approvals": [],
+          "baseMood": "happy",
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "idle-channel"
+    },
+    {
+      "expected": {
+        "activeTask": null,
+        "energy": 0.16,
+        "eyeState": "wide",
+        "gatewayLine": "",
+        "mode": "idle",
+        "mood": "alert",
+        "pendingApprovalCount": 0,
+        "pulseState": "idle",
+        "runningTaskCount": 0,
+        "statusLabel": "#general",
+        "tone": "emerald",
+        "topApproval": null,
+        "viseme": "closed"
+      },
+      "input": {
+        "input": {
+          "activeChannel": "general",
+          "approvals": [],
+          "baseMood": "alert",
+          "isListening": false,
+          "isSpeaking": false,
+          "lastSpokenLine": "",
+          "tasks": []
+        }
+      },
+      "name": "idle-moods"
+    }
+  ],
+  "description": "Synchronized sidebar character: mode/mood/eyes/viseme/energy/tone + task & approval telemetry across all six modes.",
+  "function": "deriveSidebarCharacterState",
+  "module": "sidebarCharacterState"
+}

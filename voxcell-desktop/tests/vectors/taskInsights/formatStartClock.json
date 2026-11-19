@@ -1,0 +1,47 @@
+{
+  "cases": [
+    {
+      "expected": "",
+      "input": {
+        "createdAtMs": 0
+      },
+      "name": "0"
+    },
+    {
+      "expected": "",
+      "input": {},
+      "name": "undefined"
+    },
+    {
+      "expected": "",
+      "input": {
+        "createdAtMs": null
+      },
+      "name": "NaN"
+    },
+    {
+      "expected": "12:00",
+      "input": {
+        "createdAtMs": 1795089600000
+      },
+      "name": "1795089600000"
+    },
+    {
+      "expected": "00:05",
+      "input": {
+        "createdAtMs": 1795046700000
+      },
+      "name": "1795046700000"
+    },
+    {
+      "expected": "23:59",
+      "input": {
+        "createdAtMs": 1795132799000
+      },
+      "name": "1795132799000"
+    }
+  ],
+  "description": "HH:MM 24h clock. TZ pinned to UTC by the generator (see manifest); 0/invalid -> empty string.",
+  "function": "formatStartClock",
+  "module": "taskInsights"
+}

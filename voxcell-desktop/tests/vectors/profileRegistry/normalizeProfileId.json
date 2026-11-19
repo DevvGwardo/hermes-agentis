@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "expected": "coder-bot",
+      "input": {
+        "raw": "  Coder Bot! "
+      },
+      "name": "  Coder Bot! "
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": "api"
+      },
+      "name": "api"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": "v1"
+      },
+      "name": "v1"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": "health"
+      },
+      "name": "health"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": "p"
+      },
+      "name": "p"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": "sessions"
+      },
+      "name": "sessions"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": "runs"
+      },
+      "name": "runs"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": ""
+      },
+      "name": "(empty)"
+    },
+    {
+      "expected": "default",
+      "input": {
+        "raw": null
+      },
+      "name": "(null)"
+    },
+    {
+      "expected": "upper_case-9",
+      "input": {
+        "raw": "UPPER_case-9"
+      },
+      "name": "UPPER_case-9"
+    },
+    {
+      "expected": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "input": {
+        "raw": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "expected": "trimmed",
+      "input": {
+        "raw": "--trimmed--"
+      },
+      "name": "--trimmed--"
+    }
+  ],
+  "description": "Slug normalization + reserved-slug guard (api/v1/health/p/sessions/runs -> default).",
+  "function": "normalizeProfileId",
+  "module": "profileRegistry"
+}

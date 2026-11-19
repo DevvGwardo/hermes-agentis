@@ -1,0 +1,82 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "admissionConflict": false,
+        "content": "Done.",
+        "finishReason": "stop",
+        "outcome": "completed",
+        "reasoning": "thought about it",
+        "sessionId": "hermes-general",
+        "sessionKey": "voxcell-main"
+      },
+      "input": {
+        "raw": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "message": {
+                "content": "Done.",
+                "reasoning_content": "thought about it"
+              }
+            }
+          ],
+          "hermes": {
+            "error_code": ""
+          },
+          "session_id": "hermes-general",
+          "session_key": "voxcell-main"
+        }
+      },
+      "name": "full-response"
+    },
+    {
+      "expected": {
+        "admissionConflict": true,
+        "content": "",
+        "errorCode": "admission_conflict",
+        "errorMessage": "admission_conflict",
+        "finishReason": "error",
+        "outcome": "admission_conflict",
+        "reasoning": ""
+      },
+      "input": {
+        "raw": {
+          "choices": [
+            {
+              "finish_reason": "error"
+            }
+          ],
+          "error": {
+            "code": "admission_conflict",
+            "message": "admission_conflict"
+          }
+        }
+      },
+      "name": "admission-conflict"
+    },
+    {
+      "expected": {
+        "admissionConflict": false,
+        "content": "",
+        "finishReason": null,
+        "outcome": "completed",
+        "reasoning": ""
+      },
+      "input": {
+        "raw": {}
+      },
+      "name": "empty"
+    },
+    {
+      "expected": null,
+      "input": {
+        "raw": null
+      },
+      "name": "null"
+    }
+  ],
+  "description": "Non-streaming /v1/chat/completions response parsing.",
+  "function": "parseChatCompletionsJson",
+  "module": "hermesProtocol"
+}

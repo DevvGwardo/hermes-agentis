@@ -1,0 +1,35 @@
+{
+  "cases": [
+    {
+      "expected": "http://127.0.0.1:8642",
+      "input": {
+        "raw": "http://127.0.0.1:8642///"
+      },
+      "name": "http://127.0.0.1:8642///"
+    },
+    {
+      "expected": "http://x.dev",
+      "input": {
+        "raw": " http://x.dev "
+      },
+      "name": " http://x.dev "
+    },
+    {
+      "expected": "",
+      "input": {
+        "raw": ""
+      },
+      "name": "(empty)"
+    },
+    {
+      "expected": "",
+      "input": {
+        "raw": null
+      },
+      "name": "(null)"
+    }
+  ],
+  "description": "Trailing-slash trimming.",
+  "function": "normalizeBaseUrl",
+  "module": "profileRegistry"
+}

@@ -1,0 +1,120 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "detail": "completed",
+          "icon": "tool",
+          "id": "a5",
+          "isReasoning": false,
+          "label": "terminal",
+          "repeatCount": 3,
+          "timestamp": "11:57:03"
+        },
+        {
+          "detail": "weighing GPU instancing options",
+          "icon": "reasoning",
+          "id": "a1",
+          "isReasoning": true,
+          "label": "Reasoning",
+          "repeatCount": 1,
+          "timestamp": "11:57:09"
+        },
+        {
+          "detail": "cargo check",
+          "icon": "tool",
+          "id": "a4",
+          "isReasoning": false,
+          "label": "terminal",
+          "repeatCount": 1,
+          "timestamp": "11:57:02"
+        },
+        {
+          "detail": "checking the vendor patches first",
+          "icon": "commentary",
+          "id": "a2",
+          "label": "Commentary",
+          "repeatCount": 1,
+          "timestamp": "11:57:00"
+        },
+        {
+          "detail": "checking the vendor patches first",
+          "icon": "commentary",
+          "id": "a2b",
+          "label": "Commentary",
+          "repeatCount": 1,
+          "timestamp": "11:57:00"
+        }
+      ],
+      "input": {
+        "steps": [
+          {
+            "detail": "completed",
+            "icon": "tool",
+            "id": "a5",
+            "isReasoning": false,
+            "label": "terminal",
+            "timestamp": "11:57:03"
+          },
+          {
+            "detail": "completed",
+            "icon": "tool",
+            "id": "a5b",
+            "isReasoning": false,
+            "label": "terminal",
+            "timestamp": "11:57:03"
+          },
+          {
+            "detail": "completed",
+            "icon": "tool",
+            "id": "a5c",
+            "isReasoning": false,
+            "label": "terminal",
+            "timestamp": "11:57:03"
+          },
+          {
+            "detail": "weighing GPU instancing options",
+            "icon": "reasoning",
+            "id": "a1",
+            "isReasoning": true,
+            "label": "Reasoning",
+            "timestamp": "11:57:09"
+          },
+          {
+            "detail": "cargo check",
+            "icon": "tool",
+            "id": "a4",
+            "isReasoning": false,
+            "label": "terminal",
+            "timestamp": "11:57:02"
+          },
+          {
+            "detail": "checking the vendor patches first",
+            "icon": "commentary",
+            "id": "a2",
+            "label": "Commentary",
+            "timestamp": "11:57:00"
+          },
+          {
+            "detail": "checking the vendor patches first",
+            "icon": "commentary",
+            "id": "a2b",
+            "label": "Commentary",
+            "timestamp": "11:57:00"
+          }
+        ]
+      },
+      "name": "mixed-run"
+    },
+    {
+      "expected": [],
+      "input": {
+        "steps": []
+      },
+      "name": "empty"
+    }
+  ],
+  "description": "Consecutive identical completed steps merge with repeatCount + latest timestamp; reasoning/commentary never merge.",
+  "function": "coalesceConsecutiveSteps",
+  "module": "threadTrace"
+}

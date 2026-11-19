@@ -1,0 +1,274 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "customized": false,
+          "detail": "slate · #94A3B8 · 80% glass",
+          "id": "theme",
+          "label": "Theme & Colors"
+        },
+        {
+          "customized": false,
+          "detail": "aurora-drift · 64%",
+          "id": "backdrop",
+          "label": "Backdrop & Media"
+        },
+        {
+          "customized": false,
+          "detail": "left rail · comfortable · jakarta",
+          "id": "layout",
+          "label": "Layout & Typography"
+        },
+        {
+          "customized": false,
+          "detail": "balanced braille · trace on · audio on",
+          "id": "stage",
+          "label": "Stage, Voice & Trace"
+        },
+        {
+          "customized": false,
+          "detail": "0 dots · 0 pins · tour pending",
+          "id": "canvas",
+          "label": "Canvas & Tour State"
+        }
+      ],
+      "input": {
+        "snapshot": {
+          "appVersion": "0.1.0",
+          "background": {
+            "activeId": "aurora-drift",
+            "blurPx": 12,
+            "customSlots": [],
+            "opacity": 0.64
+          },
+          "canvas": {
+            "dismissedIds": [],
+            "pins": [],
+            "sessions": []
+          },
+          "capturedAt": 1795089540000,
+          "reason": "sync",
+          "schemaVersion": 1,
+          "uiConfig": {
+            "accentBrightHex": "#E2E8F0",
+            "accentHex": "#94A3B8",
+            "accentPreset": "slate",
+            "accentSoftHex": "#CBD5E1",
+            "animationSpeed": 1,
+            "borderOpacity": 0.22,
+            "brailleBloom": 0.75,
+            "brailleDotProfile": "balanced",
+            "composerStyle": "docked",
+            "cornerRadius": "rounded",
+            "density": "comfortable",
+            "fontPreset": "jakarta",
+            "fontScale": 1,
+            "glowIntensity": 0.3,
+            "horizonOpacity": 0.8,
+            "horizonStyle": "silk",
+            "horizonVisible": true,
+            "panelAlpha": 0.8,
+            "portraitScale": 1,
+            "portraitTintHex": null,
+            "portraitVisible": true,
+            "reducedMotion": false,
+            "showTopNav": true,
+            "sidebarChannelsVisible": true,
+            "sidebarPosition": "left",
+            "sidebarQueueVisible": true,
+            "sidebarVisible": true,
+            "sidebarWidthPx": 296,
+            "statusReadoutVisible": true,
+            "surfaceHex": "#11141B",
+            "textHex": "#F1F5F9",
+            "workspaceTitle": "Hermes"
+          },
+          "workspace": {
+            "draftProfile": "default",
+            "mood": "happy",
+            "onboardingCompleted": false,
+            "showThinking": true,
+            "voiceMuted": false
+          }
+        }
+      },
+      "name": "default-snapshot"
+    },
+    {
+      "expected": [
+        {
+          "customized": false,
+          "detail": "slate · #94A3B8 · 80% glass",
+          "id": "theme",
+          "label": "Theme & Colors"
+        },
+        {
+          "customized": true,
+          "detail": "aurora-drift · 50%",
+          "id": "backdrop",
+          "label": "Backdrop & Media"
+        },
+        {
+          "customized": false,
+          "detail": "left rail · comfortable · jakarta",
+          "id": "layout",
+          "label": "Layout & Typography"
+        },
+        {
+          "customized": true,
+          "detail": "balanced braille · clean · muted",
+          "id": "stage",
+          "label": "Stage, Voice & Trace"
+        },
+        {
+          "customized": true,
+          "detail": "2 dots · 2 pins · tour done",
+          "id": "canvas",
+          "label": "Canvas & Tour State"
+        }
+      ],
+      "input": {
+        "snapshot": {
+          "appVersion": "0.1.0",
+          "background": {
+            "activeId": "aurora-drift",
+            "blurPx": 10,
+            "customSlots": [],
+            "opacity": 0.5
+          },
+          "canvas": {
+            "dismissedIds": [
+              "ok-1",
+              "ok-2"
+            ],
+            "pins": [
+              {
+                "detail": "Pinned spatial context for connected Dots.",
+                "id": "pin-1",
+                "kind": "note",
+                "meta": "Canvas pin",
+                "title": "Remember this",
+                "xPct": 30,
+                "yPct": 40
+              },
+              {
+                "detail": "Pinned spatial context for connected Dots.",
+                "id": "pin-2",
+                "kind": "note",
+                "meta": "Canvas pin",
+                "title": "auto id",
+                "xPct": 20,
+                "yPct": 20
+              }
+            ],
+            "sessions": [
+              {
+                "agentPersona": "High-energy release and save_page builder running fast launch turns.",
+                "autonomyMode": "manual",
+                "autonomyPaused": false,
+                "channelId": "general",
+                "connectedTo": [
+                  "ops",
+                  "research"
+                ],
+                "eyeStyle": "open",
+                "hermesSessionId": "hermes-general",
+                "id": "dot-1",
+                "isCore": false,
+                "mood": "thinking",
+                "name": "General",
+                "sandboxEnv": "cloud-sandbox",
+                "scheduleLabel": "On-demand",
+                "shape": "star",
+                "skills": [
+                  "browser",
+                  "files",
+                  "research"
+                ],
+                "tint": "pink",
+                "topic": "Launch runner",
+                "workspaceDir": "~/hermes/dots/general",
+                "xPct": 10,
+                "yPct": 20
+              },
+              {
+                "agentPersona": "Calm primary Hermes coordinator styled after the main cyber-bob operator.",
+                "autonomyMode": "manual",
+                "autonomyPaused": false,
+                "channelId": "second-dot",
+                "eyeStyle": "open",
+                "hermesSessionId": "hermes-second-dot",
+                "id": "session-second-dot",
+                "isCore": false,
+                "mood": "happy",
+                "name": "Second Dot",
+                "sandboxEnv": "cloud-sandbox",
+                "scheduleLabel": "On-demand",
+                "shape": "clover",
+                "skills": [
+                  "browser",
+                  "files"
+                ],
+                "tint": "lime",
+                "topic": "Core strategist",
+                "workspaceDir": "~/hermes/dots/second-dot",
+                "xPct": 90,
+                "yPct": 18
+              }
+            ]
+          },
+          "capturedAt": 1795089540000,
+          "reason": "sync",
+          "schemaVersion": 1,
+          "uiConfig": {
+            "accentBrightHex": "#E2E8F0",
+            "accentHex": "#94A3B8",
+            "accentPreset": "slate",
+            "accentSoftHex": "#CBD5E1",
+            "animationSpeed": 1,
+            "borderOpacity": 0.22,
+            "brailleBloom": 0.75,
+            "brailleDotProfile": "balanced",
+            "composerStyle": "docked",
+            "cornerRadius": "rounded",
+            "density": "comfortable",
+            "fontPreset": "jakarta",
+            "fontScale": 1,
+            "glowIntensity": 0.3,
+            "horizonOpacity": 0.8,
+            "horizonStyle": "silk",
+            "horizonVisible": true,
+            "panelAlpha": 0.8,
+            "portraitScale": 1,
+            "portraitTintHex": null,
+            "portraitVisible": true,
+            "reducedMotion": false,
+            "showTopNav": true,
+            "sidebarChannelsVisible": true,
+            "sidebarPosition": "left",
+            "sidebarQueueVisible": true,
+            "sidebarVisible": true,
+            "sidebarWidthPx": 296,
+            "statusReadoutVisible": true,
+            "surfaceHex": "#11141B",
+            "textHex": "#F1F5F9",
+            "workspaceTitle": "Hermes"
+          },
+          "workspace": {
+            "draftProfile": "coder",
+            "mood": "focused",
+            "onboardingCompleted": true,
+            "showThinking": false,
+            "transportMode": "runs",
+            "voiceMuted": true
+          }
+        }
+      },
+      "name": "customized-snapshot"
+    }
+  ],
+  "description": "Preserved-category diffs for update receipts.",
+  "function": "summarizePreservedCategories",
+  "module": "settingsSnapshot"
+}

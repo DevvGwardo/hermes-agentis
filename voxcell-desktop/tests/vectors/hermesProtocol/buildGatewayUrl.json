@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "expected": "http://127.0.0.1:8642/p/coder/v1/runs",
+      "input": {
+        "config": {
+          "baseUrl": "http://127.0.0.1:8642",
+          "routePrefix": "/p/coder"
+        },
+        "pathname": "/v1/runs"
+      },
+      "name": "prefixed-path"
+    },
+    {
+      "expected": "http://127.0.0.1:8642/health",
+      "input": {
+        "config": {
+          "baseUrl": "http://127.0.0.1:8642",
+          "routePrefix": "/p/coder"
+        },
+        "options": {
+          "unprefixed": true
+        },
+        "pathname": "health"
+      },
+      "name": "unprefixed-health"
+    },
+    {
+      "expected": "http://127.0.0.1:8642/v1/capabilities",
+      "input": {
+        "config": {
+          "baseUrl": "http://127.0.0.1:8642",
+          "routePrefix": ""
+        },
+        "pathname": "v1/capabilities"
+      },
+      "name": "missing-leading-slash"
+    }
+  ],
+  "description": "URL joining with /p/<profile> prefix and unprefixed escape hatch.",
+  "function": "buildGatewayUrl",
+  "module": "hermesProtocol"
+}
