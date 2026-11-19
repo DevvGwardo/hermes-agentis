@@ -75,6 +75,9 @@ pub enum UiCommand {
     PersistVoiceSettings,
     PersistDots,
     DismissChannel(String),
+    // P4-02 (phone-tray, append-only): end the phone call — stop active runs,
+    // drop the mic and close the widget. Side effects live in app/bridge.rs.
+    PhoneHangup,
 }
 
 pub struct AppState {
@@ -158,11 +161,94 @@ pub struct AppState {
     pub dot_pixels: HashMap<String, Pixels>,
 
     pub pending_commands: Vec<UiCommand>,
+
+    /// P3-02 sidebar: parallel-profile badges per session. Maps channel_id or
+    /// session_id -> gateway profile name (e.g. "ops"). Populated by the bridge
+    /// from gateway session history; absent/empty/"default" = no badge.
+    pub session_profiles: HashMap<String, String>,
+
+    /// P3-05 CLI terminal: submitted command history (oldest first, capped).
+    pub cli_history: Vec<String>,
+    /// P3-05 CLI terminal: history browse cursor; None = editing a fresh line.
+    pub cli_history_cursor: Option<usize>,
+    /// P3-05 CLI terminal: stashed in-progress draft while browsing history.
+    pub cli_history_draft: String,
+    /// P3-05 CLI terminal: highlighted autocomplete row index.
+    pub cli_suggestion_selected: usize,
+    /// P3-05 CLI terminal: autocomplete dismissed via Esc until next edit.
+    pub cli_suggestions_dismissed: bool,
+    /// P3-05 CLI terminal: collapsed output trace blocks (mirrors thread traces).
+    pub cli_collapsed_traces: HashSet<String>,
+
+    /// P4-02/P4-03 (phone-tray): call timer anchor, set by `sync_phone_call_timer`
+    /// when the widget opens; elapsed = now_ms - started.
+    pub phone_call_started_ms: Option<u64>,
+    /// P4-02 (phone-tray): true while the widget lives in its own always-on-top
+    /// window (or `--scene phone` companion) instead of the embedded dock.
+    pub phone_detached: bool,
+
+    /// P3-01 theme-chrome: laid-out rect `[x, y, w, h]` of the titlebar tab
+    /// container, reported by `El::on_layout`; feeds the sliding indicator via
+    /// `core::motion::compute_sliding_indicator_rect`.
+    pub nav_container_rect: Option<[f32; 4]>,
+    /// P3-01 theme-chrome: laid-out rects of the five titlebar tabs in
+    /// Home/Canvas/Thread/Queue/CLI order, reported by `El::on_layout`.
+    pub nav_tab_rects: [Option<[f32; 4]>; 5],
+
+    /// P3-04 thread: right-corner Task drawer visibility (hidden by default).
+    pub thread_tasks_open: bool,
+    /// P3-04 thread: trace blocks explicitly expanded by the user. Traces are
+    /// collapsed by default (web parity) unless live or listed here;
+    /// `collapsed_traces` keeps ids the user explicitly collapsed.
+    pub thread_expanded_traces: HashSet<String>,
+    /// P3-04 thread: trace blocks whose full coalesced step list is revealed
+    /// ("+N earlier groups" pressed).
+    pub thread_trace_show_all: HashSet<String>,
+    /// P3-04 thread: bottom-anchor scroll pin state for the virtual transcript.
+    pub thread_scroll: voxcell_core::thread::ScrollAnchorState,
+    /// P3-04 thread: previous measured scroll offset (pin intent detection).
+    pub thread_prev_scroll_top: f32,
+    /// P3-04 thread: channel the scroll pin state belongs to (re-pin on visit).
+    pub thread_scroll_channel: String,
+    /// P3-04 thread: minimap turn anchor currently in view.
+    pub thread_minimap_active: Option<String>,
+    /// P3-04 thread: cached grouped timeline shared by virtual row builders.
+    pub thread_timeline_cache: std::cell::RefCell<crate::views::thread::ThreadTimelineCache>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// P4-02 (phone-tray, append-only): call-timer helpers for the phone widget.
+// Kept in a separate impl block so existing items stay untouched.
+impl AppState {
+    /// Elapsed call time in ms; 0 when no call is active.
+    pub fn phone_call_elapsed_ms(&self) -> u64 {
+        match self.phone_call_started_ms {
+            Some(started) => self.now_ms.saturating_sub(started),
+            None => 0,
+        }
+    }
+
+    /// `MM:SS` call timer label (minutes accumulate past 59 for long calls).
+    pub fn phone_call_timer_label(&self) -> String {
+        let total_s = self.phone_call_elapsed_ms() / 1000;
+        format!("{:02}:{:02}", total_s / 60, total_s % 60)
+    }
+
+    /// Anchor the call timer when the widget opens, clear it when it closes.
+    /// Idempotent: an already-anchored open call keeps its original start.
+    pub fn sync_phone_call_timer(&mut self) {
+        if self.phone_widget_open {
+            if self.phone_call_started_ms.is_none() {
+                self.phone_call_started_ms = Some(self.now_ms);
+            }
+        } else {
+            self.phone_call_started_ms = None;
+        }
     }
 }
 
@@ -293,6 +379,32 @@ impl AppState {
             dot_pixels: HashMap::new(),
 
             pending_commands: Vec::new(),
+            session_profiles: HashMap::new(),
+            cli_history: Vec::new(),
+            cli_history_cursor: None,
+            cli_history_draft: String::new(),
+            cli_suggestion_selected: 0,
+            cli_suggestions_dismissed: false,
+            cli_collapsed_traces: HashSet::new(),
+            phone_call_started_ms: None,
+            phone_detached: false,
+            nav_container_rect: None,
+            nav_tab_rects: [None; 5],
+            thread_tasks_open: false,
+            thread_expanded_traces: HashSet::new(),
+            thread_trace_show_all: HashSet::new(),
+            thread_scroll: voxcell_core::thread::ScrollAnchorState {
+                scroll_y: 0.0,
+                content_h: 0.0,
+                viewport_h: 0.0,
+                pinned_to_bottom: true,
+            },
+            thread_prev_scroll_top: 0.0,
+            thread_scroll_channel: String::new(),
+            thread_minimap_active: None,
+            thread_timeline_cache: std::cell::RefCell::new(
+                crate::views::thread::ThreadTimelineCache::default(),
+            ),
         };
         state.step_animations(0.016);
         state
@@ -1496,5 +1608,531 @@ impl AppState {
             _ => {}
         }
         self.step_animations(0.016);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P3-05 CLI workstream additions (append-only, workstream 6 'cli').
+// Consumes voxcell_core::cli (TS-parity engine) + voxcell_core::ui_config.
+// ---------------------------------------------------------------------------
+
+use voxcell_core::cli::{
+    ApprovalCard as CliApprovalCard, ApprovalStatus as CliApprovalStatus, CliCapabilities,
+    CliCapabilityFeatures, CliContext, CliCronJob, CliExecutionResult, CliHandledResult,
+    CliProfileMode, CliProfileSummary, CliSkill, CliToolset, CliTransportMode, CliUiPatch,
+    execute_cli_input,
+};
+use voxcell_core::ui_config::{UiCustomizationPatch, curated_ui_presets};
+use voxcell_core::{AccentPreset, CornerRadius, DensityMode, FontPreset, SidebarPosition};
+
+/// One autocomplete row for the CLI slash palette (P3-05).
+#[derive(Clone, Debug, PartialEq)]
+pub struct CliSuggestion {
+    /// Text placed into the CLI input when the row is accepted.
+    pub insert: String,
+    /// Primary label (command usage or @profile slug).
+    pub label: String,
+    /// Secondary description line.
+    pub detail: String,
+}
+
+impl AppState {
+    /// Profile slugs offered as `/profile` subcommands (registry + capabilities).
+    pub fn cli_profile_slugs(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for p in &self.gateway_profiles {
+            if !p.name.is_empty() && !out.contains(&p.name) {
+                out.push(p.name.clone());
+            }
+        }
+        for slug in &self.gateway.capabilities.profiles {
+            if !slug.is_empty() && !out.contains(slug) {
+                out.push(slug.clone());
+            }
+        }
+        out
+    }
+
+    /// Autocomplete rows for the current CLI input: slash-set filtering from
+    /// core::cli, plus `/profile` slug, `/resume` session and `/ui` preset
+    /// subcommands. Empty when the input is not a slash prefix or was dismissed.
+    pub fn cli_suggestions(&self) -> Vec<CliSuggestion> {
+        if self.cli_suggestions_dismissed {
+            return Vec::new();
+        }
+        // While browsing history the palette stays closed so Up/Down keep
+        // walking history; typing again re-opens it.
+        if self.cli_history_cursor.is_some() {
+            return Vec::new();
+        }
+        let text = self.cli_edit.text.trim_start();
+        if !text.starts_with('/') {
+            return Vec::new();
+        }
+        let lower = text.to_ascii_lowercase();
+        let has_arg_sep = lower.contains(char::is_whitespace);
+        let mut parts = lower.splitn(2, char::is_whitespace);
+        let cmd = parts.next().unwrap_or("");
+        let arg = parts.next().unwrap_or("").trim();
+        if has_arg_sep {
+            match cmd {
+                "/profile" | "/profiles" | "/p" => {
+                    return self
+                        .cli_profile_slugs()
+                        .into_iter()
+                        .filter(|slug| slug.starts_with(arg))
+                        .map(|slug| CliSuggestion {
+                            insert: format!("/profile {slug}"),
+                            label: format!("@{slug}"),
+                            detail: "Set default profile for new sessions".to_string(),
+                        })
+                        .collect();
+                }
+                "/resume" | "/switch" => {
+                    return self
+                        .channels
+                        .iter()
+                        .filter(|c| {
+                            arg.is_empty()
+                                || c.id.to_ascii_lowercase().contains(arg)
+                                || c.name.to_ascii_lowercase().contains(arg)
+                        })
+                        .map(|c| CliSuggestion {
+                            insert: format!("/resume {}", c.id),
+                            label: c.name.clone(),
+                            detail: format!("#{}", c.id),
+                        })
+                        .collect();
+                }
+                "/ui" | "/theme" => {
+                    let mut out: Vec<CliSuggestion> = curated_ui_presets()
+                        .iter()
+                        .filter(|p| p.id.starts_with(arg))
+                        .map(|p| CliSuggestion {
+                            insert: format!("/ui {}", p.id),
+                            label: p.id.to_string(),
+                            detail: format!("{} — {}", p.name, p.subtitle),
+                        })
+                        .collect();
+                    for extra in ["reset", "studio"] {
+                        if extra.starts_with(arg) {
+                            out.push(CliSuggestion {
+                                insert: format!("/ui {extra}"),
+                                label: extra.to_string(),
+                                detail: if extra == "reset" {
+                                    "Restore default Slate Monochrome".to_string()
+                                } else {
+                                    "Open the UI customization studio".to_string()
+                                },
+                            });
+                        }
+                    }
+                    return out;
+                }
+                _ => return Vec::new(),
+            }
+        }
+        voxcell_core::cli::autocomplete_slash_commands(&lower)
+            .into_iter()
+            .map(|spec| CliSuggestion {
+                insert: format!("{} ", spec.name),
+                label: spec.usage.to_string(),
+                detail: spec.description.to_string(),
+            })
+            .collect()
+    }
+
+    /// Move the autocomplete highlight (wraps like the web palette).
+    pub fn cli_suggestion_move(&mut self, delta: i32) {
+        let n = self.cli_suggestions().len();
+        if n == 0 {
+            self.cli_suggestion_selected = 0;
+            return;
+        }
+        let cur = self.cli_suggestion_selected.min(n - 1) as i32;
+        self.cli_suggestion_selected = (cur + delta).rem_euclid(n as i32) as usize;
+    }
+
+    /// Accept suggestion `idx` into the CLI input. Returns false when absent.
+    pub fn cli_accept_suggestion(&mut self, idx: usize) -> bool {
+        let items = self.cli_suggestions();
+        let Some(item) = items.get(idx) else {
+            return false;
+        };
+        let insert = item.insert.clone();
+        self.cli_edit.replace_text(insert);
+        self.cli_suggestion_selected = 0;
+        true
+    }
+
+    /// Record a submitted line in history (dedup consecutive, cap 200).
+    pub fn cli_push_history(&mut self, line: &str) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        if self.cli_history.last().map(String::as_str) != Some(trimmed) {
+            self.cli_history.push(trimmed.to_string());
+            if self.cli_history.len() > 200 {
+                self.cli_history.remove(0);
+            }
+        }
+        self.cli_history_cursor = None;
+        self.cli_history_draft.clear();
+    }
+
+    /// Up-arrow: recall older history, stashing the live draft on first step.
+    pub fn cli_history_prev(&mut self) -> bool {
+        if self.cli_history.is_empty() {
+            return false;
+        }
+        let next = match self.cli_history_cursor {
+            None => {
+                self.cli_history_draft = self.cli_edit.text.clone();
+                self.cli_history.len() - 1
+            }
+            Some(0) => return true,
+            Some(i) => i - 1,
+        };
+        self.cli_history_cursor = Some(next);
+        let line = self.cli_history[next].clone();
+        self.cli_edit.replace_text(line);
+        self.cli_suggestion_selected = 0;
+        true
+    }
+
+    /// Down-arrow: newer history, restoring the stashed draft past the end.
+    pub fn cli_history_next(&mut self) -> bool {
+        let Some(i) = self.cli_history_cursor else {
+            return false;
+        };
+        if i + 1 < self.cli_history.len() {
+            self.cli_history_cursor = Some(i + 1);
+            let line = self.cli_history[i + 1].clone();
+            self.cli_edit.replace_text(line);
+        } else {
+            self.cli_history_cursor = None;
+            let draft = self.cli_history_draft.clone();
+            self.cli_edit.replace_text(draft);
+        }
+        self.cli_suggestion_selected = 0;
+        true
+    }
+
+    /// Build the TS-parity executor context from live desktop state.
+    pub fn cli_context(&self) -> CliContext {
+        let approvals = self
+            .approvals
+            .iter()
+            .map(|a| CliApprovalCard {
+                id: a.id.clone(),
+                channel_id: a.channel_id.clone(),
+                title: a.title.clone(),
+                action_type: "approval".to_string(),
+                mcp_tool: a.tool_name.clone(),
+                run_id: a.run_id.clone(),
+                request_id: Some(a.request_id.clone()),
+                execution_generation: Some(a.execution_generation),
+                kind: Some(
+                    if a.kind == ApprovalKind::Clarify { "clarify" } else { "approval" }
+                        .to_string(),
+                ),
+                choices: a.choices.clone(),
+                command: Some(a.command.clone()),
+                destination: a.destination.clone(),
+                summary: a.summary.clone(),
+                draft: a.command.clone(),
+                status: if a.resolved {
+                    if a.resolution.as_deref() == Some("deny") {
+                        CliApprovalStatus::Rejected
+                    } else {
+                        CliApprovalStatus::Approved
+                    }
+                } else {
+                    CliApprovalStatus::Pending
+                },
+                created_at: a.created_at.clone(),
+            })
+            .collect();
+        let skills = self
+            .skills
+            .iter()
+            .map(|s| CliSkill {
+                name: s.name.clone(),
+                source: s.category.clone().unwrap_or_else(|| "gateway".to_string()),
+                summary: Some(s.description.clone()),
+                enabled: s.enabled,
+            })
+            .collect();
+        let toolsets = self
+            .toolsets
+            .iter()
+            .map(|t| CliToolset {
+                name: t.name.clone(),
+                label: t.name.clone(),
+                description: t.description.clone(),
+                enabled: t.enabled,
+                configured: Some(true),
+                tools: t.tools.clone(),
+            })
+            .collect();
+        let cron_jobs = self
+            .cron_jobs
+            .iter()
+            .map(|c| CliCronJob {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                schedule: c.schedule.clone(),
+                mode: if c.enabled { "agent" } else { "paused" }.to_string(),
+                status: c.last_status.clone(),
+                summary: c.prompt.clone(),
+                channel_id: c.channel_id.clone(),
+            })
+            .collect();
+        let profiles = self
+            .gateway_profiles
+            .iter()
+            .map(|p| {
+                let multiplexed = p.source == "profile";
+                CliProfileSummary {
+                    id: p.name.clone(),
+                    label: p.name.clone(),
+                    mode: if multiplexed {
+                        CliProfileMode::Multiplexed
+                    } else {
+                        CliProfileMode::Standalone
+                    },
+                    base_url: p.base_url.clone(),
+                    route_prefix: if multiplexed {
+                        format!("/p/{}", p.name)
+                    } else {
+                        String::new()
+                    },
+                    connected: p.online,
+                }
+            })
+            .collect();
+        let caps = &self.gateway.capabilities;
+        CliContext {
+            active_channel: self.active_channel_id.clone(),
+            available_channels: self
+                .channels
+                .iter()
+                .map(|c| c.id.to_ascii_lowercase())
+                .collect(),
+            approvals,
+            tasks: self.tasks.clone(),
+            brief: Vec::new(),
+            is_muted: self.voice.muted,
+            skills,
+            toolsets,
+            cron_jobs,
+            gateway_connected: self.gateway.online,
+            gateway_url: Some(self.gateway_base_url.clone()),
+            active_model: self.selected_model.clone(),
+            gateway_profile: Some(self.gateway.active_profile.clone()),
+            profiles,
+            draft_profile: Some(self.gateway.active_profile.clone()),
+            route_prefix: Some(String::new()),
+            health_status: if self.gateway.online {
+                Some("ok".to_string())
+            } else {
+                None
+            },
+            session_key_header: Some("X-Hermes-Session-Key".to_string()),
+            capabilities: Some(CliCapabilities {
+                session_key_header: Some("X-Hermes-Session-Key".to_string()),
+                features: CliCapabilityFeatures {
+                    chat_completions: caps.chat_completions,
+                    reasoning_streaming: caps.runs,
+                    run_submission: caps.runs,
+                    run_events_sse: caps.runs,
+                    run_approval: caps.approvals,
+                    session_chat_stream: caps.session_stream,
+                },
+            }),
+            transport_mode: Some(match self.gateway.active_transport {
+                GatewayTransport::Runs => CliTransportMode::Runs,
+                GatewayTransport::SessionStream => CliTransportMode::SessionStream,
+                GatewayTransport::ChatCompletions => CliTransportMode::ChatCompletions,
+            }),
+            resolved_transport: Some(
+                match self.gateway.active_transport {
+                    GatewayTransport::Runs => "runs",
+                    GatewayTransport::SessionStream => "session_stream",
+                    GatewayTransport::ChatCompletions => "chat_completions",
+                }
+                .to_string(),
+            ),
+            gateway_error: self.gateway.last_error.clone(),
+        }
+    }
+
+    /// P3-05 submit path: history + echo, then dispatch through the core
+    /// TS-parity CLI engine (`execute_cli_input`). Desktop-only surfaces
+    /// (view switching, avatar mode, voice/tts, phone, reset, model) and
+    /// arg-bearing `/gateway <url>` / `/cron <action> <id>` mutations keep the
+    /// existing draft handler so no desktop capability is lost.
+    pub fn cli_submit_line(&mut self, raw: &str) {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        self.cli_push_history(trimmed);
+        self.cli_suggestions_dismissed = false;
+        self.cli_suggestion_selected = 0;
+
+        let cmd_token = trimmed
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let has_arg = trimmed
+            .splitn(2, char::is_whitespace)
+            .nth(1)
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        let action = parse_cli_input(trimmed);
+        let desktop_only = matches!(
+            action,
+            CliAction::ResetActiveSession
+                | CliAction::SetModel(_)
+                | CliAction::SwitchView(_)
+                | CliAction::SetAvatarMode(_)
+                | CliAction::VoiceControl(_)
+                | CliAction::TtsControl(_)
+                | CliAction::TogglePhoneWidget(_)
+        );
+        let desktop_mutating =
+            has_arg && matches!(cmd_token.as_str(), "/gateway" | "/gw" | "/cron" | "/jobs");
+        if desktop_only || desktop_mutating {
+            self.execute_cli_line(trimmed);
+            return;
+        }
+
+        self.cli_log.push(format!("> {trimmed}"));
+        // `/theme` aliases `/ui` in the desktop slash set; the TS-parity
+        // engine only knows `/ui`, so normalize before dispatch.
+        let engine_input = if cmd_token == "/theme" {
+            format!("/ui{}", &trimmed["/theme".len()..])
+        } else {
+            trimmed.to_string()
+        };
+        let ctx = self.cli_context();
+        match execute_cli_input(&engine_input, &ctx) {
+            CliExecutionResult::Chat(prompt) => self.dispatch_user_prompt(&prompt, false),
+            CliExecutionResult::Handled(res) => self.cli_apply_handled(res),
+        }
+    }
+
+    /// Apply a TS-parity `CliHandledResult` to desktop state + terminal log.
+    pub fn cli_apply_handled(&mut self, res: CliHandledResult) {
+        if res.clear_terminal {
+            self.cli_log.clear();
+        } else {
+            for line in res.output.lines() {
+                self.cli_log.push(line.to_string());
+            }
+        }
+        if let Some(channel) = res.switch_channel {
+            if let Some(found) = self
+                .channels
+                .iter()
+                .find(|c| c.id.eq_ignore_ascii_case(&channel))
+            {
+                self.active_channel_id = found.id.clone();
+                self.active_view = ActiveView::Thread;
+            }
+        }
+        if let Some(profile) = res.switch_profile {
+            self.gateway.active_profile = profile.clone();
+            self.pending_commands
+                .push(UiCommand::SwitchProfile { profile });
+        }
+        if res.start_new_session {
+            self.create_new_workspace_session(res.new_session_prompt.as_deref());
+            if let Some(prompt) = res.new_session_prompt {
+                self.dispatch_user_prompt(&prompt, false);
+            }
+        }
+        if let Some(card_id) = res.approve_card_id {
+            let choice = res.approve_choice.map(|c| c.as_str()).unwrap_or("once");
+            self.resolve_approval(&card_id, choice);
+        }
+        if let Some(card_id) = res.reject_card_id {
+            self.resolve_approval(&card_id, "deny");
+        }
+        if res.cancel_active_run {
+            let ch_id = self.active_channel_id.clone();
+            if let Some(run_id) = self.active_run_ids.get(&ch_id).cloned() {
+                self.pending_commands.push(UiCommand::StopRun {
+                    run_id,
+                    channel_id: ch_id.clone(),
+                });
+            }
+            self.thinking_by_channel.insert(ch_id, false);
+        }
+        if let Some(mode) = res.set_transport_mode {
+            self.gateway.active_transport = match mode {
+                CliTransportMode::Runs => GatewayTransport::Runs,
+                CliTransportMode::SessionStream => GatewayTransport::SessionStream,
+                CliTransportMode::ChatCompletions | CliTransportMode::Auto => {
+                    GatewayTransport::ChatCompletions
+                }
+            };
+        }
+        if res.toggle_mute {
+            self.voice.muted = !self.voice.muted;
+            self.pending_commands
+                .push(UiCommand::ToggleMute(self.voice.muted));
+        }
+        if let Some(mood) = res.set_mood {
+            self.stage_mood = mood;
+        }
+        if let Some(shader) = res.set_shader {
+            self.shader_mode = shader;
+        }
+        if let Some(patch) = res.ui_patch {
+            self.cli_apply_ui_patch(patch);
+        }
+        self.step_animations(0.016);
+    }
+
+    /// Route a CLI `/ui` / `/theme` patch through `ui_config` (P1-03) so the
+    /// whole workspace theme reacts, then persist.
+    pub fn cli_apply_ui_patch(&mut self, patch: CliUiPatch) {
+        let mut p = UiCustomizationPatch::default();
+        if patch.open_customizer {
+            p.open_customizer = Some(true);
+            self.settings_open = true;
+        }
+        p.reset_all = patch.reset_all;
+        p.preset_id = patch.preset_id.clone();
+        p.accent_preset = patch.accent_preset.as_deref().and_then(AccentPreset::from_id);
+        p.accent_hex = patch.accent_hex.clone();
+        p.portrait_tint_hex = patch.portrait_tint_hex.clone().map(Some);
+        p.background_preset_id = patch.background_preset_id.clone();
+        p.sidebar_visible = patch.sidebar_visible;
+        p.sidebar_position = patch.sidebar_position.as_deref().map(|s| {
+            if s == "right" {
+                SidebarPosition::Right
+            } else {
+                SidebarPosition::Left
+            }
+        });
+        p.corner_radius = patch
+            .corner_radius
+            .as_deref()
+            .and_then(CornerRadius::from_id);
+        p.density = patch.density.as_deref().and_then(|s| match s {
+            "compact" => Some(DensityMode::Compact),
+            "airy" => Some(DensityMode::Airy),
+            "comfortable" => Some(DensityMode::Comfortable),
+            _ => None,
+        });
+        p.font_preset = patch.font_preset.as_deref().and_then(FontPreset::from_id);
+        p.reduced_motion = patch.reduced_motion;
+        apply_ui_customization_patch(&mut self.ui_config, &p);
+        self.pending_commands.push(UiCommand::PersistUiConfig);
     }
 }
