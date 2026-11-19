@@ -226,6 +226,75 @@ pub struct AppState {
     pub queue_steer_run: Option<String>,
     /// P3-05 queue: steer composer draft text.
     pub queue_steer_edit: TextEdit,
+
+    /// P3-03 home: measured rect `[x, y, w, h]` of the Home view root, reported
+    /// by `El::on_layout`; feeds responsive stage/composer clamping and the
+    /// stage-header tier resolution (`core::layout::resolve_stage_header_size`).
+    pub home_stage_rect: Option<[f32; 4]>,
+    /// P3-03 home: true when the app attached `views::home::HomeHalftoneCompositor`
+    /// (feature `gpu-halftone`) and the portrait should render through the GPU
+    /// effect slot instead of the CPU `pixels_fit` surface. Default false keeps
+    /// headless tests and GPU-less machines on the fallback path.
+    pub home_gpu_halftone: bool,
+
+    /// P3-06 settings: last UI studio patch summary (`UiPatchOutcome.summary`).
+    pub ui_studio_feedback: Option<String>,
+    /// P3-06 settings: Preferences Vault restore points, newest first (rolling
+    /// 12 — mirrors `voxcell_store::vault::PreferencesVault::list_backups`).
+    pub vault_backups: Vec<VaultBackupEntry>,
+    /// P3-06 settings: vault storage label (`PreferencesVault::storage_label`).
+    pub vault_storage_label: String,
+    /// P3-06 settings: last vault sync/write timestamp in ms.
+    pub vault_last_synced_ms: Option<i64>,
+    /// P3-06 settings: a backup/restore/import roundtrip is in flight.
+    pub vault_busy: bool,
+    /// P3-06 settings: transient vault feedback (import/export result line).
+    pub vault_feedback: Option<String>,
+    /// P3-06 settings: paste-JSON import buffer (native file picker is a bridge seam).
+    pub vault_import_edit: TextEdit,
+    /// P3-06 settings: updater probe status (`voxcell_store::updater::AppUpdateStatus` mirror).
+    pub update_status: Option<UpdaterStatus>,
+    /// P3-06 settings: updater probe in flight.
+    pub update_checking: bool,
+    /// P3-06 settings: updater apply in flight.
+    pub update_applying: bool,
+    /// P3-06 settings: apply step results (`UpdateStepResult` mirror).
+    pub update_steps: Vec<UpdaterStep>,
+    /// P3-06 settings: last probe/apply error banner text.
+    pub update_error: Option<String>,
+    /// P3-06 settings: pending vault/updater actions for app/bridge.rs to drain
+    /// through `voxcell_store::{vault, updater}`. Kept off `UiCommand` because
+    /// bridge.rs matches it exhaustively (foreign file, phone-tray owns).
+    pub settings_outbox: Vec<SettingsAction>,
+
+    /// P4-01 canvas: GPU pan/zoom viewport (TS `viewport` parity, core::canvas).
+    pub canvas_viewport: voxcell_core::canvas::CanvasViewport,
+    /// P4-01 canvas: laid-out field rect [x,y,w,h] reported by `El::on_layout`.
+    pub canvas_field_rect: Option<[f32; 4]>,
+    /// P4-01 canvas: dot id whose edge-clamped popover is open (None = closed).
+    pub canvas_popover_dot: Option<String>,
+    /// P4-01 canvas: TS-parity percentage-space sessions (`duet.canvasSessions.v2`).
+    pub canvas_sessions: Vec<voxcell_core::canvas::CanvasSession>,
+    /// P4-01 canvas: spatial context pins (`duet.canvasPins.v1`).
+    pub canvas_pins: Vec<voxcell_core::canvas::CanvasPin>,
+    /// P4-01 canvas: spring layout transition record (rune-motion springs),
+    /// sampled as a pure function of `time_s` — headless-deterministic.
+    pub canvas_layout_anim: Option<CanvasLayoutAnim>,
+    /// P4-01 canvas: true once the app attaches the GPU dot compositor;
+    /// false (default) renders the headless-safe `pixels_fit` fallback.
+    pub canvas_gpu_dots: bool,
+    /// P4-01 canvas: toolbar pin composer visibility.
+    pub canvas_pin_composer_open: bool,
+    /// P4-01 canvas: pin composer title draft.
+    pub canvas_pin_title_edit: TextEdit,
+    /// P4-01 canvas: pin composer selected kind.
+    pub canvas_pin_kind: voxcell_core::canvas::CanvasPinKind,
+    /// P4-01 canvas: background stage-pan gesture anchor (TS panMetaRef).
+    pub canvas_pan_drag: Option<CanvasPanDrag>,
+    /// P4-01 canvas: dot currently being dragged (pan guard + sprite lift).
+    pub canvas_dragging_dot: Option<String>,
+    /// P4-01 canvas: dragged dot's design-space origin at gesture start.
+    pub canvas_drag_origin: Option<(f32, f32)>,
 }
 
 impl Default for AppState {
@@ -422,6 +491,34 @@ impl AppState {
             queue_clarify_edits: HashMap::new(),
             queue_steer_run: None,
             queue_steer_edit: TextEdit::default(),
+            home_stage_rect: None,
+            home_gpu_halftone: false,
+            ui_studio_feedback: None,
+            vault_backups: Vec::new(),
+            vault_storage_label: String::new(),
+            vault_last_synced_ms: None,
+            vault_busy: false,
+            vault_feedback: None,
+            vault_import_edit: TextEdit::default(),
+            update_status: None,
+            update_checking: false,
+            update_applying: false,
+            update_steps: Vec::new(),
+            update_error: None,
+            settings_outbox: Vec::new(),
+            canvas_viewport: voxcell_core::canvas::DEFAULT_CANVAS_VIEWPORT,
+            canvas_field_rect: None,
+            canvas_popover_dot: None,
+            canvas_sessions: Vec::new(),
+            canvas_pins: Vec::new(),
+            canvas_layout_anim: None,
+            canvas_gpu_dots: false,
+            canvas_pin_composer_open: false,
+            canvas_pin_title_edit: TextEdit::default(),
+            canvas_pin_kind: voxcell_core::canvas::CanvasPinKind::Note,
+            canvas_pan_drag: None,
+            canvas_dragging_dot: None,
+            canvas_drag_origin: None,
         };
         state.step_animations(0.016);
         state
@@ -2282,5 +2379,691 @@ impl AppState {
         }
         self.resolve_approval(approval_id, &answer);
         self.queue_clarify_edits.remove(approval_id);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P3-06 Settings workstream additions (append-only, workstream 7 'settings').
+// Data mirrors of the voxcell_store::{vault, updater} contracts — voxcell-ui
+// has no voxcell-store dependency (ui/Cargo.toml is theme-chrome-owned), so
+// field names/semantics match the store types 1:1 and app/bridge.rs can map
+// them directly when it drains `settings_outbox`.
+// ---------------------------------------------------------------------------
+
+/// Mirrors `voxcell_store::vault::PreferenceBackupSummary` (camelCase contract).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct VaultBackupEntry {
+    pub id: String,
+    pub created_at: i64,
+    /// "manual" | "pre-update" (TS `createBackup` reason union).
+    pub reason: String,
+    pub app_version: String,
+    pub accent_hex: String,
+    pub accent_preset: String,
+    pub background_id: String,
+    pub custom_slot_count: usize,
+    pub workspace_title: String,
+}
+
+/// Mirrors `voxcell_store::vault::UpdateReceipt`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct VaultUpdateReceipt {
+    pub updated_at: i64,
+    pub previous_version: String,
+    pub new_version: String,
+    pub previous_commit: Option<String>,
+    pub new_commit: Option<String>,
+    pub backup_id: String,
+    /// "git-pull" | "managed-refresh".
+    pub mode: String,
+    pub preserved_categories: Vec<String>,
+}
+
+/// Mirrors `voxcell_store::updater::UpdateStepResult` (status as TS string union).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UpdaterStep {
+    pub id: String,
+    pub label: String,
+    /// "ok" | "skipped" | "failed".
+    pub status: String,
+    pub detail: Option<String>,
+}
+
+/// Mirrors `voxcell_store::updater::AppUpdateStatus`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UpdaterStatus {
+    pub current_version: String,
+    pub current_commit: Option<String>,
+    pub branch: Option<String>,
+    pub latest_version: Option<String>,
+    pub latest_commit: Option<String>,
+    pub update_available: bool,
+    /// "git-pull" | "managed-refresh".
+    pub update_mode: String,
+    pub can_self_update: bool,
+    pub dirty_worktree: bool,
+    pub dirty_reason: Option<String>,
+    pub release_title: Option<String>,
+    pub release_notes: Option<String>,
+    pub release_url: Option<String>,
+    pub checked_at: i64,
+    pub upstream_error: Option<String>,
+    pub pending_receipt: Option<VaultUpdateReceipt>,
+}
+
+impl Default for UpdaterStatus {
+    fn default() -> Self {
+        Self {
+            current_version: "0.1.0".to_string(),
+            current_commit: None,
+            branch: None,
+            latest_version: None,
+            latest_commit: None,
+            update_available: false,
+            update_mode: "git-pull".to_string(),
+            can_self_update: false,
+            dirty_worktree: false,
+            dirty_reason: None,
+            release_title: None,
+            release_notes: None,
+            release_url: None,
+            checked_at: 0,
+            upstream_error: None,
+            pending_receipt: None,
+        }
+    }
+}
+
+/// P3-06 vault/updater dispatch. Deliberately NOT `UiCommand` variants:
+/// app/bridge.rs matches `UiCommand` exhaustively and is phone-tray-owned, so
+/// new variants would break the app build until arms land there. The bridge
+/// drains this outbox through `voxcell_store::{vault, updater}` instead.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SettingsAction {
+    /// `PreferencesVault::create_backup` — reason "manual" | "pre-update".
+    VaultCreateBackup { reason: String },
+    /// `PreferencesVault::restore_backup`.
+    VaultRestore { backup_id: String },
+    /// Export the current snapshot JSON (web download parity).
+    VaultExport,
+    /// `PreferencesVault::write_vault` with reason "import".
+    VaultImport { json: String },
+    /// `updater::build_app_update_status` probe (GitHub release/commit).
+    UpdaterProbe,
+    /// `updater::apply_update_with_snapshot` (pre-update backup hook inside).
+    UpdaterApply,
+    /// `updater::acknowledge_update_receipt`.
+    UpdaterDismissReceipt,
+}
+
+impl AppState {
+    /// P3-06: apply a raw web-contract JSON patch through
+    /// `core::ui_config::apply_ui_patch` (sanitize + apply), then bridge the
+    /// non-config side effects (backdrop, mood, voice, view) onto desktop
+    /// state like App.tsx does. Returns the outcome summary.
+    pub fn settings_apply_json_patch(&mut self, raw: &serde_json::Value) -> String {
+        let outcome = voxcell_core::ui_config::apply_ui_patch(&self.ui_config, raw);
+        self.ui_config = outcome.next;
+        self.settings_bridge_patch_side_effects(&outcome.sanitized);
+        self.pending_commands.push(UiCommand::PersistUiConfig);
+        self.step_animations(0.016);
+        outcome.summary
+    }
+
+    /// P3-06: natural-language UI intent (web `parseNaturalUiIntent` parity).
+    /// Returns false when no intent was recognized.
+    pub fn settings_apply_intent(&mut self, text: &str) -> bool {
+        use voxcell_core::ui_config::{apply_sanitized_patch, parse_natural_ui_intent};
+        match parse_natural_ui_intent(text, &self.ui_config) {
+            Some(patch) => {
+                let outcome = apply_sanitized_patch(&self.ui_config, &patch);
+                self.ui_config = outcome.next;
+                self.settings_bridge_patch_side_effects(&outcome.sanitized);
+                self.ui_studio_feedback = Some(outcome.summary);
+                self.pending_commands.push(UiCommand::PersistUiConfig);
+                self.step_animations(0.016);
+                true
+            }
+            None => {
+                self.ui_studio_feedback = Some(
+                    "No UI intent recognized — try \"solaris-amber\", \"zen-mono\" or \"move sidebar to the right\"."
+                        .to_string(),
+                );
+                false
+            }
+        }
+    }
+
+    /// P3-06: accent swatch apply (8 web swatches) via the sanitize/apply pipeline.
+    pub fn settings_apply_swatch(&mut self, id: &str) -> bool {
+        let Some(sw) = voxcell_core::ui_config::get_accent_swatch(id) else {
+            return false;
+        };
+        let raw = serde_json::json!({
+            "accentPreset": sw.id,
+            "accentHex": sw.accent_hex,
+            "accentSoftHex": sw.accent_soft_hex,
+            "accentBrightHex": sw.accent_bright_hex,
+            "surfaceHex": sw.surface_hex,
+        });
+        self.ui_studio_feedback = Some(self.settings_apply_json_patch(&raw));
+        true
+    }
+
+    /// P3-06: curated preset apply (7 web presets) — config + backdrop + mood.
+    pub fn settings_apply_curated_preset(&mut self, id: &str) -> bool {
+        if voxcell_core::ui_config::get_curated_preset(id).is_none() {
+            return false;
+        }
+        let raw = serde_json::json!({ "presetId": id });
+        self.ui_studio_feedback = Some(self.settings_apply_json_patch(&raw));
+        true
+    }
+
+    /// P3-06: bridge sanitized-patch side effects that live outside ui_config.
+    fn settings_bridge_patch_side_effects(
+        &mut self,
+        p: &voxcell_core::ui_config::UiCustomizationPatch,
+    ) {
+        let mut bg_changed = false;
+        if let Some(bg) = &p.background_preset_id {
+            if let Some(id) = voxcell_core::BackgroundPresetId::from_web_id(bg) {
+                self.bg_settings.preset = id;
+                self.bg_settings.active_id = bg.clone();
+                bg_changed = true;
+            } else if bg.starts_with("custom-") {
+                self.bg_settings.active_id = bg.clone();
+                bg_changed = true;
+            }
+        }
+        if let Some(op) = p.background_opacity {
+            self.bg_settings.opacity = op;
+            bg_changed = true;
+        }
+        if let Some(blur) = p.glass_blur_px {
+            self.bg_settings.blur_px = blur;
+            bg_changed = true;
+        }
+        if bg_changed {
+            self.pending_commands
+                .push(UiCommand::PersistBackgroundSettings);
+        }
+        if let Some(mood) = &p.mood {
+            if let Some(m) = settings_mood_from_id(mood) {
+                self.stage_mood = m;
+            }
+        }
+        if let Some(muted) = p.voice_muted {
+            self.voice.muted = muted;
+            self.pending_commands.push(UiCommand::ToggleMute(muted));
+        }
+        if let Some(view) = &p.active_view {
+            if let Some(v) = settings_view_from_id(view) {
+                self.active_view = v;
+            }
+        }
+        if p.open_customizer == Some(true) {
+            self.settings_open = true;
+        }
+        if p.close_customizer == Some(true) {
+            self.settings_open = false;
+        }
+    }
+}
+
+/// P3-06: web mood id -> desktop ExpressionMood (best-effort TS parity).
+pub fn settings_mood_from_id(id: &str) -> Option<ExpressionMood> {
+    match id.trim().to_ascii_lowercase().as_str() {
+        "calm" => Some(ExpressionMood::Calm),
+        "focused" => Some(ExpressionMood::Focused),
+        "listening" => Some(ExpressionMood::Listening),
+        "thinking" => Some(ExpressionMood::Thinking),
+        "speaking" => Some(ExpressionMood::Speaking),
+        "happy" | "ecstatic" => Some(ExpressionMood::Happy),
+        "alert" => Some(ExpressionMood::Alert),
+        _ => None,
+    }
+}
+
+/// P3-06: web view id -> desktop ActiveView.
+pub fn settings_view_from_id(id: &str) -> Option<ActiveView> {
+    match id.trim().to_ascii_lowercase().as_str() {
+        "home" => Some(ActiveView::Home),
+        "canvas" => Some(ActiveView::Canvas),
+        "thread" => Some(ActiveView::Thread),
+        "queue" => Some(ActiveView::Queue),
+        "cli" => Some(ActiveView::Cli),
+        _ => None,
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// P4-01 Canvas workstream additions (append-only, workstream 8 'canvas').
+// Consumes voxcell_core::canvas (duet.canvasSessions.v2 / canvasPins.v1 parity),
+// voxcell_core::layout::compute_canvas_popover_alignment, voxcell_core::motion
+// stagger math and rune-motion springs for Constellation/Orbit/Grid transitions.
+// No new UiCommand variants: persistence rides the existing PersistDots, voice
+// rides ToggleMic, prompts ride dispatch_user_prompt -> SendPrompt.
+// ---------------------------------------------------------------------------
+
+use voxcell_core::canvas::{
+    BRAILLE_SHAPE_CATALOG, BrailleShapeKind, CanvasDotOrigin, CanvasMood, CanvasPin,
+    CanvasPinKind, CanvasSession, CanvasViewport, DEFAULT_CANVAS_VIEWPORT, CANVAS_ZOOM_STEP,
+    DotAutonomyMode, DotSandboxEnv, arrange_sessions_formation, clamp_canvas_pan,
+    clamp_canvas_position, create_hermes_session_id, find_open_pin_spot, get_shape_meta,
+    load_canvas_pins_from_json, load_canvas_sessions_from_json, save_canvas_pins_json,
+    save_canvas_sessions_json, zoom_viewport_around_point,
+};
+use voxcell_core::layout::{CanvasPopoverAlign, compute_canvas_popover_alignment};
+use voxcell_core::motion::{StaggerOptions, compute_stagger_delay_ms};
+
+/// Design-space size of the drafted dot field. Percentage space (TS parity)
+/// maps onto it: `x_pct = x / 860 * 100`, `y_pct = y / 520 * 100`.
+pub const CANVAS_DESIGN_W: f32 = 860.0;
+pub const CANVAS_DESIGN_H: f32 = 520.0;
+
+/// Spring layout transition record: `dots[i].x/y` already hold the TARGET;
+/// `from` keeps the pre-transition positions so the view samples rune-motion
+/// springs as a pure function of `time_s` (no per-frame integration needed).
+/// Per-dot delays come from `core::motion::compute_stagger_delay_ms`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CanvasLayoutAnim {
+    pub start_s: f32,
+    pub from: Vec<(f32, f32)>,
+    pub delays_ms: Vec<f64>,
+}
+
+/// Stage-pan gesture anchor (background drag): original clamped pan plus the
+/// TS 4px move-threshold flag (`panMetaRef`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CanvasPanDrag {
+    pub orig_x: f32,
+    pub orig_y: f32,
+    pub moved: bool,
+}
+
+impl AppState {
+    /// Live telemetry for a dot's channel: thinking flag or a running task.
+    pub fn canvas_dot_busy(&self, channel_id: &str) -> bool {
+        self.thinking_by_channel.get(channel_id).copied().unwrap_or(false)
+            || self.tasks.iter().any(|t| {
+                t.channel_id == channel_id && t.status == TaskLifecycleStatus::Running
+            })
+    }
+
+    /// Desktop SDF engine kind -> TS braille vault kind (catalog-index parity;
+    /// both catalogs hold 9 shapes — documented mapping assumption).
+    pub fn canvas_shape_to_braille(shape: CanvasShapeKind) -> BrailleShapeKind {
+        let idx = CanvasShapeKind::all().iter().position(|s| *s == shape).unwrap_or(0);
+        BRAILLE_SHAPE_CATALOG[idx % BRAILLE_SHAPE_CATALOG.len()].kind
+    }
+
+    /// TS braille vault kind -> desktop SDF engine kind (inverse mapping).
+    pub fn canvas_braille_to_shape(kind: BrailleShapeKind) -> CanvasShapeKind {
+        let idx = BRAILLE_SHAPE_CATALOG.iter().position(|m| m.kind == kind).unwrap_or(0);
+        CanvasShapeKind::all()[idx % CanvasShapeKind::all().len()]
+    }
+
+    fn canvas_session_from_dot(&self, dot: &CanvasDotData) -> CanvasSession {
+        let (x_pct, y_pct) = clamp_canvas_position(
+            dot.x / CANVAS_DESIGN_W * 100.0,
+            dot.y / CANVAS_DESIGN_H * 100.0,
+        );
+        let shape = Self::canvas_shape_to_braille(dot.shape);
+        let meta = get_shape_meta(shape);
+        let busy = self.canvas_dot_busy(&dot.channel_id);
+        CanvasSession {
+            id: format!("session-{}", dot.channel_id),
+            channel_id: dot.channel_id.clone(),
+            hermes_session_id: create_hermes_session_id(&dot.channel_id),
+            profile: self
+                .session_profiles
+                .get(&dot.channel_id)
+                .cloned()
+                .filter(|p| !p.is_empty() && p != "default"),
+            agent_persona: meta.default_agent_persona.to_string(),
+            name: dot.label.clone(),
+            topic: format!("{} spatial node", dot.label),
+            shape,
+            tint: meta.default_tint,
+            x_pct,
+            y_pct,
+            mood: if busy { CanvasMood::Thinking } else { CanvasMood::Neutral },
+            eye_style: meta.default_eye_style,
+            is_core: Some(false),
+            origin: Some(CanvasDotOrigin::Workspace),
+            autonomy_mode: DotAutonomyMode::Manual,
+            schedule_label: "On-demand".to_string(),
+            autonomy_paused: Some(false),
+            sandbox_env: DotSandboxEnv::CloudSandbox,
+            workspace_dir: format!("~/hermes/dots/{}", dot.channel_id),
+            skills: vec!["files".to_string(), "browser".to_string()],
+            connected_to: None,
+        }
+    }
+
+    /// Rebuild the TS-parity session mirror from the live dot list, preserving
+    /// richer metadata (persona/autonomy/skills/tint) of already-known channels.
+    pub fn canvas_sync_sessions(&mut self) {
+        let mut next = Vec::with_capacity(self.dots.len());
+        for dot in &self.dots {
+            let mut s = self.canvas_session_from_dot(dot);
+            if let Some(old) = self.canvas_sessions.iter().find(|o| o.channel_id == dot.channel_id) {
+                s.agent_persona = old.agent_persona.clone();
+                s.topic = old.topic.clone();
+                s.tint = old.tint;
+                s.eye_style = old.eye_style;
+                s.autonomy_mode = old.autonomy_mode;
+                s.schedule_label = old.schedule_label.clone();
+                s.autonomy_paused = old.autonomy_paused;
+                s.sandbox_env = old.sandbox_env;
+                s.workspace_dir = old.workspace_dir.clone();
+                s.skills = old.skills.clone();
+                s.connected_to = old.connected_to.clone();
+                s.profile = old.profile.clone().or(s.profile);
+            }
+            next.push(s);
+        }
+        self.canvas_sessions = next;
+    }
+
+    /// `duet.canvasSessions.v2` payload for the current dots (syncs first).
+    pub fn canvas_sessions_json(&mut self) -> String {
+        self.canvas_sync_sessions();
+        save_canvas_sessions_json(&self.canvas_sessions)
+    }
+
+    /// `duet.canvasPins.v1` payload for the current pins.
+    pub fn canvas_pins_json(&self) -> String {
+        save_canvas_pins_json(&self.canvas_pins)
+    }
+
+    /// Hydrate sessions + dots from a `duet.canvasSessions.v2` payload
+    /// (core normalize + prune/migrate). Returns the hydrated session count.
+    pub fn canvas_hydrate_sessions_json(&mut self, raw: &str) -> usize {
+        let sessions = load_canvas_sessions_from_json(raw);
+        let count = sessions.len();
+        self.dots = sessions
+            .iter()
+            .map(|s| CanvasDotData {
+                id: format!("dot-{}", s.channel_id),
+                channel_id: s.channel_id.clone(),
+                label: s.name.clone(),
+                shape: Self::canvas_braille_to_shape(s.shape),
+                x: s.x_pct / 100.0 * CANVAS_DESIGN_W,
+                y: s.y_pct / 100.0 * CANVAS_DESIGN_H,
+                pinned: true,
+                color_hex: self.ui_config.accent_hex.clone(),
+            })
+            .collect();
+        self.canvas_sessions = sessions;
+        self.canvas_layout_anim = None;
+        count
+    }
+
+    /// Hydrate pins from a `duet.canvasPins.v1` payload. Returns the count.
+    pub fn canvas_hydrate_pins_json(&mut self, raw: &str) -> usize {
+        self.canvas_pins = load_canvas_pins_from_json(raw);
+        self.canvas_pins.len()
+    }
+
+    /// Switch formation with a rune-motion spring transition: sessions are
+    /// re-arranged in percentage space (TS `arrangeSessionsFormation`), dots
+    /// snap to the TARGET immediately (persistence saves targets) and the
+    /// view samples springs from `from` -> target until settled.
+    pub fn canvas_set_formation(&mut self, formation: CanvasFormation) {
+        self.canvas_sync_sessions();
+        let arranged = arrange_sessions_formation(&self.canvas_sessions, formation);
+        let from: Vec<(f32, f32)> = self.dots.iter().map(|d| (d.x, d.y)).collect();
+        let delays_ms: Vec<f64> = (0..self.dots.len())
+            .map(|i| {
+                compute_stagger_delay_ms(
+                    i as f64,
+                    StaggerOptions {
+                        reduced_motion: Some(self.ui_config.reduced_motion),
+                        ..StaggerOptions::default()
+                    },
+                )
+            })
+            .collect();
+        for (dot, s) in self.dots.iter_mut().zip(arranged.iter()) {
+            dot.x = s.x_pct / 100.0 * CANVAS_DESIGN_W;
+            dot.y = s.y_pct / 100.0 * CANVAS_DESIGN_H;
+        }
+        self.canvas_sessions = arranged;
+        self.canvas_formation = formation;
+        self.canvas_layout_anim = if self.ui_config.reduced_motion || from.is_empty() {
+            None
+        } else {
+            Some(CanvasLayoutAnim { start_s: self.time_s, from, delays_ms })
+        };
+        self.pending_commands.push(UiCommand::PersistDots);
+    }
+
+    /// Display position (design space) of dot `index`: spring-sampled while a
+    /// layout transition is in flight, target once settled. Pure over state.
+    pub fn canvas_layout_display_pos(&self, index: usize) -> (f32, f32) {
+        let Some(dot) = self.dots.get(index) else { return (0.0, 0.0); };
+        let target = (dot.x, dot.y);
+        let Some(anim) = &self.canvas_layout_anim else { return target; };
+        let Some(&from) = anim.from.get(index) else { return target; };
+        let delay_s = anim.delays_ms.get(index).copied().unwrap_or(0.0) as f32 / 1000.0;
+        let t = self.time_s - anim.start_s - delay_s;
+        if t <= 0.0 {
+            return from;
+        }
+        let spring = rune_motion::Spring::SMOOTH;
+        if t >= spring.settling_duration(0.5) {
+            return target;
+        }
+        let (x, _) = spring.sample(from.0, 0.0, target.0, t);
+        let (y, _) = spring.sample(from.1, 0.0, target.1, t);
+        (x, y)
+    }
+
+    /// True when no layout transition is in flight (all springs settled).
+    pub fn canvas_layout_settled(&self) -> bool {
+        match &self.canvas_layout_anim {
+            None => true,
+            Some(a) => {
+                let max_delay = a.delays_ms.iter().cloned().fold(0.0_f64, f64::max) as f32 / 1000.0;
+                self.time_s - a.start_s
+                    >= max_delay + rune_motion::Spring::SMOOTH.settling_duration(0.5)
+            }
+        }
+    }
+
+    /// Measured stage size (field rect) with design-space fallback.
+    pub fn canvas_stage_size(&self) -> (f32, f32) {
+        match self.canvas_field_rect {
+            Some(r) if r[2] > 0.0 && r[3] > 0.0 => (r[2], r[3]),
+            _ => (CANVAS_DESIGN_W, CANVAS_DESIGN_H),
+        }
+    }
+
+    /// Pan by a screen-px delta, clamped like TS `clampCanvasPan`.
+    pub fn canvas_pan_by(&mut self, dx: f32, dy: f32) {
+        let v = self.canvas_viewport;
+        let (pan_x, pan_y) = clamp_canvas_pan(v.pan_x + dx, v.pan_y + dy, v.zoom);
+        self.canvas_viewport = CanvasViewport { pan_x, pan_y, zoom: v.zoom };
+    }
+
+    /// Zoom around a field-local cursor point (TS `zoomViewportAroundPoint`).
+    pub fn canvas_zoom_at(&mut self, next_zoom: f32, cursor_local_x: f32, cursor_local_y: f32) {
+        let (w, h) = self.canvas_stage_size();
+        self.canvas_viewport = zoom_viewport_around_point(
+            self.canvas_viewport, next_zoom, cursor_local_x, cursor_local_y, w, h,
+        );
+    }
+
+    /// Toolbar +/- zoom step around the stage center.
+    pub fn canvas_zoom_step(&mut self, direction: i32) {
+        let (w, h) = self.canvas_stage_size();
+        let next = self.canvas_viewport.zoom + direction as f32 * CANVAS_ZOOM_STEP;
+        self.canvas_zoom_at(next, w * 0.5, h * 0.5);
+    }
+
+    /// Reset pan/zoom to the TS default viewport.
+    pub fn canvas_reset_viewport(&mut self) {
+        self.canvas_viewport = DEFAULT_CANVAS_VIEWPORT;
+    }
+
+    /// TS `viewportActive`: zoom/pan deviates enough to show the reset chip.
+    pub fn canvas_viewport_active(&self) -> bool {
+        (self.canvas_viewport.zoom - 1.0).abs() > 0.01
+            || self.canvas_viewport.pan_x.abs() > 2.0
+            || self.canvas_viewport.pan_y.abs() > 2.0
+    }
+
+    /// Design-space point -> field-local screen px under the current viewport
+    /// (zoom about the stage center + pan, matching the TS CSS transform).
+    pub fn canvas_world_to_screen(&self, x: f32, y: f32) -> (f32, f32) {
+        let (w, h) = self.canvas_stage_size();
+        let v = self.canvas_viewport;
+        let wx = x / CANVAS_DESIGN_W * w;
+        let wy = y / CANVAS_DESIGN_H * h;
+        (
+            wx * v.zoom + v.pan_x + w * 0.5 * (1.0 - v.zoom),
+            wy * v.zoom + v.pan_y + h * 0.5 * (1.0 - v.zoom),
+        )
+    }
+
+    /// Field-local screen px -> design-space point (inverse of the above).
+    pub fn canvas_screen_to_world(&self, sx: f32, sy: f32) -> (f32, f32) {
+        let (w, h) = self.canvas_stage_size();
+        let v = self.canvas_viewport;
+        let wx = (sx - v.pan_x - w * 0.5 * (1.0 - v.zoom)) / v.zoom.max(0.001);
+        let wy = (sy - v.pan_y - h * 0.5 * (1.0 - v.zoom)) / v.zoom.max(0.001);
+        (wx / w.max(0.001) * CANVAS_DESIGN_W, wy / h.max(0.001) * CANVAS_DESIGN_H)
+    }
+
+    /// Edge-clamped popover alignment for a dot (TS computeCanvasPopoverAlignment:
+    /// left <24%, right >76%, center otherwise).
+    pub fn canvas_popover_align(&self, dot_id: &str) -> CanvasPopoverAlign {
+        match self.dots.iter().find(|d| d.id == dot_id) {
+            Some(d) => compute_canvas_popover_alignment((d.x / CANVAS_DESIGN_W * 100.0) as f64),
+            None => CanvasPopoverAlign::Center,
+        }
+    }
+
+    /// Open a dot's popover: select it and focus its channel.
+    pub fn canvas_open_popover(&mut self, dot_id: &str) {
+        self.selected_dot_id = Some(dot_id.to_string());
+        self.canvas_popover_dot = Some(dot_id.to_string());
+        if let Some(d) = self.dots.iter().find(|d| d.id == dot_id) {
+            self.active_channel_id = d.channel_id.clone();
+        }
+    }
+
+    pub fn canvas_close_popover(&mut self) {
+        self.canvas_popover_dot = None;
+    }
+
+    /// Submit the inline dot prompt draft to the popover/selected dot.
+    pub fn canvas_submit_prompt_edit(&mut self) {
+        let target = self.canvas_popover_dot.clone().or_else(|| self.selected_dot_id.clone());
+        let Some(dot_id) = target else { return; };
+        let text = self.canvas_prompt_edit.text.trim().to_string();
+        if text.is_empty() {
+            return;
+        }
+        self.canvas_prompt_edit.clear();
+        self.canvas_dispatch_dot_prompt(&dot_id, &text);
+    }
+
+    /// Dispatch a prompt to a specific dot's channel (no view switch — the
+    /// canvas stays put; SendPrompt rides the existing bridge path).
+    pub fn canvas_dispatch_dot_prompt(&mut self, dot_id: &str, text: &str) {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        let Some(dot) = self.dots.iter().find(|d| d.id == dot_id) else { return; };
+        self.active_channel_id = dot.channel_id.clone();
+        self.dispatch_user_prompt(trimmed, false);
+    }
+
+    /// Inline voice bar: toggle hands-free VAD through the existing ToggleMic.
+    pub fn canvas_toggle_voice(&mut self) {
+        let next = !self.voice.hands_free_vad;
+        self.voice.hands_free_vad = next;
+        self.pending_commands.push(UiCommand::ToggleMic(next));
+    }
+
+    /// Add a spatial pin at the TS open-spot finder position; returns its id.
+    pub fn canvas_add_pin(&mut self, kind: CanvasPinKind, title: &str, detail: &str) -> String {
+        self.canvas_sync_sessions();
+        let sess: Vec<(f32, f32)> = self.canvas_sessions.iter().map(|s| (s.x_pct, s.y_pct)).collect();
+        let pins: Vec<(f32, f32)> = self.canvas_pins.iter().map(|p| (p.x_pct, p.y_pct)).collect();
+        let (x_pct, y_pct) = find_open_pin_spot(&sess, &pins);
+        self.now_ms += 1;
+        let id = format!("pin-{}", self.now_ms);
+        let clean_title: String = if title.trim().is_empty() {
+            "Workspace Note".to_string()
+        } else {
+            title.trim().chars().take(48).collect()
+        };
+        self.canvas_pins.push(CanvasPin {
+            id: id.clone(),
+            kind,
+            title: clean_title,
+            detail: detail.trim().chars().take(180).collect(),
+            meta: "Canvas pin".to_string(),
+            x_pct,
+            y_pct,
+            linked_channel_id: None,
+        });
+        self.canvas_pin_composer_open = false;
+        self.canvas_pin_title_edit.clear();
+        self.pending_commands.push(UiCommand::PersistDots);
+        id
+    }
+
+    pub fn canvas_remove_pin(&mut self, pin_id: &str) {
+        self.canvas_pins.retain(|p| p.id != pin_id);
+        self.pending_commands.push(UiCommand::PersistDots);
+    }
+
+    /// Dot drag start: snap any in-flight layout spring, anchor the origin.
+    pub fn canvas_begin_dot_drag(&mut self, dot_id: &str) {
+        self.canvas_layout_anim = None;
+        self.canvas_dragging_dot = Some(dot_id.to_string());
+        if let Some(d) = self.dots.iter().find(|d| d.id == dot_id) {
+            self.canvas_drag_origin = Some((d.x, d.y));
+        }
+    }
+
+    /// Dot drag move: screen-px delta -> design space (undo zoom/pan scale),
+    /// clamped to the TS canvas bounds in percentage space.
+    pub fn canvas_move_dot_drag(&mut self, dot_id: &str, dx_screen: f32, dy_screen: f32) {
+        let Some((ox, oy)) = self.canvas_drag_origin else { return; };
+        let (w, h) = self.canvas_stage_size();
+        let scale_x = (self.canvas_viewport.zoom * (w / CANVAS_DESIGN_W)).max(0.001);
+        let scale_y = (self.canvas_viewport.zoom * (h / CANVAS_DESIGN_H)).max(0.001);
+        let nx = ox + dx_screen / scale_x;
+        let ny = oy + dy_screen / scale_y;
+        let (x_pct, y_pct) = clamp_canvas_position(
+            nx / CANVAS_DESIGN_W * 100.0,
+            ny / CANVAS_DESIGN_H * 100.0,
+        );
+        let channel_id = {
+            let Some(d) = self.dots.iter_mut().find(|d| d.id == dot_id) else { return; };
+            d.x = x_pct / 100.0 * CANVAS_DESIGN_W;
+            d.y = y_pct / 100.0 * CANVAS_DESIGN_H;
+            d.channel_id.clone()
+        };
+        if let Some(s) = self.canvas_sessions.iter_mut().find(|s| s.channel_id == channel_id) {
+            s.x_pct = x_pct;
+            s.y_pct = y_pct;
+        }
+    }
+
+    /// Dot drag end: sync the session mirror and persist.
+    pub fn canvas_end_dot_drag(&mut self) {
+        self.canvas_dragging_dot = None;
+        self.canvas_drag_origin = None;
+        self.canvas_sync_sessions();
+        self.pending_commands.push(UiCommand::PersistDots);
     }
 }
