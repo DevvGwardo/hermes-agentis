@@ -1,7 +1,36 @@
+//! voxcell-store — SQLite persistence, durable preferences vault, OS-keychain
+//! secrets, and the desktop self-updater (spec §7.4, tickets P1-03 / P1-04).
+//!
+//! * [`VoxcellStore`] — SQLite KV store for UI config, canvas dots, window
+//!   prefs, and secrets (keychain-backed since drift #5 was fixed).
+//! * [`vault::PreferencesVault`] — atomic JSON preferences vault + SQLite sync,
+//!   rolling 12-backup history, restore, and `UpdateReceipt` persistence.
+//! * [`updater`] — local build metadata, GitHub release/commit probe,
+//!   `compare_semver`, pre-update backup hook, atomic apply + SHA-256 asset
+//!   verification for desktop binaries.
+//! * [`secrets::SecretStore`] — Windows Credential Manager / macOS Keychain /
+//!   Linux Secret Service via `keyring`, with an explicit-warning restricted
+//!   file fallback.
+
+pub mod secrets;
+pub mod updater;
+pub mod vault;
+
+pub use secrets::{SecretBackendKind, SecretStore};
+pub use updater::{
+    AppUpdateStatus, ApplyUpdateOutcome, LocalBuildMetadata, UpdateMode, UpdateStepResult,
+    UpstreamReleaseInfo,
+};
+pub use vault::{
+    BackupReason, PreferenceBackupSummary, PreferencesVault, PreservedCategorySummary,
+    UpdateReceipt,
+};
+
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use voxcell_core::{
     BackgroundSettings, UiCustomizationConfig, VoiceSettings, canvas::CanvasDotData,
 };
@@ -29,7 +58,7 @@ impl Default for WindowPrefs {
 
 pub struct VoxcellStore {
     conn: Connection,
-    secrets_dir: PathBuf,
+    secrets: Mutex<SecretStore>,
 }
 
 impl VoxcellStore {
@@ -44,10 +73,18 @@ impl VoxcellStore {
         Self::open_at(&db_path, secrets_dir)
     }
 
+    /// Open with OS-keychain-preferred secrets (restricted-file fallback).
     pub fn open_at(db_path: &Path, secrets_dir: PathBuf) -> Result<Self, String> {
-        std::fs::create_dir_all(&secrets_dir).map_err(|e| format!("create secrets dir: {e}"))?;
+        Self::open_at_with_secrets(db_path, SecretStore::new(secrets_dir))
+    }
+
+    /// Open with an explicit secret backend (tests use
+    /// [`SecretStore::file_only`] to stay off the real OS keychain).
+    pub fn open_at_with_secrets(db_path: &Path, secrets: SecretStore) -> Result<Self, String> {
+        std::fs::create_dir_all(secrets.fallback_dir())
+            .map_err(|e| format!("create secrets dir: {e}"))?;
         let conn = Connection::open(db_path).map_err(|e| format!("open sqlite: {e}"))?;
-        let store = Self { conn, secrets_dir };
+        let store = Self { conn, secrets: Mutex::new(secrets) };
         store.init_schema()?;
         Ok(store)
     }
@@ -192,44 +229,32 @@ impl VoxcellStore {
         Ok(())
     }
 
+    /// Store a secret in the OS keychain (restricted-file fallback with an
+    /// explicit warning when no keychain is reachable). Blank values delete.
     pub fn set_secret(&self, key_name: &str, secret: &str) -> Result<(), String> {
-        let clean_name: String = key_name
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-            .collect();
-        if clean_name.is_empty() {
-            return Err("invalid secret key name".into());
-        }
-        let path = self.secrets_dir.join(format!("{clean_name}.key"));
-        if secret.trim().is_empty() {
-            let _ = std::fs::remove_file(&path);
-            return Ok(());
-        }
-        std::fs::write(&path, secret.trim()).map_err(|e| format!("write secret: {e}"))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
-        }
-        Ok(())
+        let mut secrets = self.secrets.lock().map_err(|e| format!("secrets lock: {e}"))?;
+        secrets.set_secret(key_name, secret)
     }
 
+    /// Environment override first, then OS keychain, then restricted file.
     pub fn get_secret(&self, key_name: &str) -> Option<String> {
-        if let Ok(env_val) = std::env::var(key_name) {
-            let t = env_val.trim();
-            if !t.is_empty() {
-                return Some(t.to_string());
-            }
-        }
-        let clean_name: String = key_name
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-            .collect();
-        let path = self.secrets_dir.join(format!("{clean_name}.key"));
-        std::fs::read_to_string(path)
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
+        let mut secrets = self.secrets.lock().ok()?;
+        secrets.get_secret(key_name)
+    }
+
+    pub fn delete_secret(&self, key_name: &str) -> Result<(), String> {
+        let mut secrets = self.secrets.lock().map_err(|e| format!("secrets lock: {e}"))?;
+        secrets.delete_secret(key_name)
+    }
+
+    /// Which secret backend is active (for the settings UI badge).
+    pub fn secret_backend(&self) -> SecretBackendKind {
+        self.secrets.lock().map(|s| s.backend()).unwrap_or(SecretBackendKind::RestrictedFile)
+    }
+
+    /// Explicit warning to surface when secrets fell back to restricted files.
+    pub fn secret_warning(&self) -> Option<String> {
+        self.secrets.lock().ok().and_then(|s| s.warning().map(|w| w.to_string()))
     }
 
     fn get_json<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Option<T> {
@@ -268,7 +293,10 @@ mod tests {
         let db = dir.join("test.db");
         let secrets = dir.join("secrets");
 
-        let mut store = VoxcellStore::open_at(&db, secrets.clone()).unwrap();
+        // File-only secret backend keeps unit tests off the real OS keychain
+        // (assertions unchanged from the original scaffold test).
+        let mut store =
+            VoxcellStore::open_at_with_secrets(&db, SecretStore::file_only(secrets.clone())).unwrap();
         let mut ui = UiCustomizationConfig::default();
         ui.accent_hex = "#22D3EE".into();
         ui.bloom = 0.61;
@@ -288,7 +316,8 @@ mod tests {
         store.set_secret("HERMES_API_KEY", "tok-123").unwrap();
         drop(store);
 
-        let reopened = VoxcellStore::open_at(&db, secrets).unwrap();
+        let reopened =
+            VoxcellStore::open_at_with_secrets(&db, SecretStore::file_only(secrets)).unwrap();
         let loaded_ui = reopened.load_ui_config();
         assert_eq!(loaded_ui.accent_hex, "#22D3EE");
         assert!((loaded_ui.bloom - 0.61).abs() < 1e-4);
@@ -298,6 +327,31 @@ mod tests {
         assert_eq!(loaded_dots[0].shape, CanvasShapeKind::FoxSpirit);
         assert_eq!(reopened.get_secret("HERMES_API_KEY"), Some("tok-123".into()));
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn store_secret_surface_reports_backend_and_warning() {
+        let dir = std::env::temp_dir().join(format!(
+            "voxcell-store-backend-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = VoxcellStore::open_at_with_secrets(
+            &dir.join("test.db"),
+            SecretStore::file_only(dir.join("secrets")),
+        )
+        .unwrap();
+        assert_eq!(store.secret_backend(), SecretBackendKind::RestrictedFile);
+        assert!(store.secret_warning().is_none());
+        store.set_secret("DEEPGRAM_API_KEY", "fake-store-key").unwrap();
+        assert_eq!(store.get_secret("DEEPGRAM_API_KEY").as_deref(), Some("fake-store-key"));
+        store.delete_secret("DEEPGRAM_API_KEY").unwrap();
+        assert_eq!(store.get_secret("DEEPGRAM_API_KEY"), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
