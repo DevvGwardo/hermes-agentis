@@ -1252,7 +1252,7 @@ mod tests {
 
     #[test]
     fn ts_coalesce_merges_identical_steps_and_preserves_reasoning() {
-        let mut mk = |id: &str, text: &str, ts: &str| {
+        let mk = |id: &str, text: &str, ts: &str| {
             let mut e = make_entry(id, EntryRole::Activity, text, ts);
             e.activity_kind = Some(ActivityKind::Tool);
             e
