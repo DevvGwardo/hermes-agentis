@@ -8,8 +8,10 @@ license.workspace = true
 voxcell-core = { path = "../voxcell-core" }
 voxcell-ui = { path = "../voxcell-ui" }
 voxcell-hermes = { path = "../voxcell-hermes" }
+voxcell-halftone = { path = "../voxcell-halftone" }
 rune.workspace = true
 rune-kit.workspace = true
+rune-perf = { path = "../../../third_party/rune/crates/rune-perf" }
 serde_json.workspace = true
 tokio.workspace = true
 axum.workspace = true

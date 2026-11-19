@@ -3107,6 +3107,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "procwatch"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3686,6 +3693,14 @@ dependencies = [
  "windows 0.62.2",
  "windows-core 0.62.2",
  "windows-registry",
+]
+
+[[package]]
+name = "rune-perf"
+version = "0.1.0"
+dependencies = [
+ "procwatch",
+ "serde_json",
 ]
 
 [[package]]
@@ -4925,6 +4940,7 @@ dependencies = [
 name = "voxcell-ui"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "rune",
  "rune-fx",
  "rune-kit",
@@ -4934,6 +4950,7 @@ dependencies = [
  "voxcell-core",
  "voxcell-halftone",
  "voxcell-hermes",
+ "wgpu",
 ]
 
 [[package]]
@@ -4943,9 +4960,11 @@ dependencies = [
  "axum",
  "rune",
  "rune-kit",
+ "rune-perf",
  "serde_json",
  "tokio",
  "voxcell-core",
+ "voxcell-halftone",
  "voxcell-hermes",
  "voxcell-ui",
 ]
