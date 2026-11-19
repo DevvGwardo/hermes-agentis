@@ -198,6 +198,9 @@ fn main() {
         ..AppSpec::new("Hermes Duet // Voxcell", win_size, init_state, render_root)
     };
 
+    // P4-05 (fonts-assets handoff): register bundled fonts before the app boots.
+    voxcell_ui::fonts::register_fonts();
+
     // P4-03 (phone-tray handoff): register the global PTT hotkey at startup.
     // rune reports/retains registration errors (headless registers virtually);
     // the bridge classifies failures into a StatusNote and the focused-window
