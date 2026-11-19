@@ -17,7 +17,18 @@ use voxcell_hermes::{
     ProfileGatewayConfig, StreamSignal,
 };
 use voxcell_store::VoxcellStore;
+use voxcell_store::updater::{
+    self, AppUpdateStatus, GitRunner, LocalBuildMetadata, StepStatus, SystemRunner,
+    UpdateStepResult, UpstreamReleaseInfo,
+};
+use voxcell_store::vault::{BackupReason, PreferenceBackupSummary, PreferencesVault, UpdateReceipt};
+use voxcell_ui::state::{
+    SettingsAction, UpdaterStatus, UpdaterStep, VaultBackupEntry, VaultUpdateReceipt,
+    settings_mood_from_id,
+};
 use voxcell_ui::{AppState, UiCommand, VoxcellTheme};
+use serde_json::{Value, json};
+use std::path::{Path, PathBuf};
 
 pub enum BridgeEvent {
     GatewayProbe {
@@ -33,6 +44,8 @@ pub enum BridgeEvent {
     StatusNote(String),
     /// P4-03: OS integration events (tray menu, global PTT hotkey, notification clicks).
     Os(OsAction),
+    /// P3-06: async upstream release probe result for the settings updater.
+    SettingsProbe(UpstreamReleaseInfo),
 }
 
 /// P4-03: actions originating outside the view tree (tray, hotkey, toasts).
@@ -63,6 +76,10 @@ pub struct DesktopBridge {
     tray: Mutex<TraySlot>,
     /// P4-02 detached phone window / companion subprocess lifecycle.
     phone: Mutex<PhoneSlot>,
+    /// P3-06 preferences vault (web-contract snapshots, backups, receipts).
+    vault: Mutex<Option<PreferencesVault>>,
+    /// P3-06 updater app root (package.json / .git location; TS process.cwd parity).
+    app_root: PathBuf,
 }
 
 static BRIDGE: OnceLock<DesktopBridge> = OnceLock::new();
@@ -890,6 +907,26 @@ pub fn init_bridge(state: &mut AppState, waker: Waker) {
         state.has_deepgram_key = true;
     }
 
+    // P3-06: preferences vault + updater app root. The vault lives in the
+    // TS-parity data dir (VOXCELL_DATA_DIR / ~/.voxcell / app-root fallback);
+    // failures degrade to "vault unavailable" feedback, never a panic.
+    let app_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let vault = updater::resolve_voxcell_data_dir(&app_root)
+        .ok()
+        .and_then(|dir| PreferencesVault::open(dir).ok());
+    if let Some(ref v) = vault {
+        state.vault_backups = v.list_backups().iter().map(vault_backup_entry).collect();
+        state.vault_storage_label = v.storage_label();
+        // Post-update receipt surfaces on next launch (TS parity) without
+        // waiting for the first manual probe.
+        if let Some(receipt) = v.read_receipt() {
+            let local = updater::read_local_build_metadata(&app_root);
+            let status =
+                updater::build_app_update_status(&local, None, Some(receipt), None, None);
+            state.update_status = Some(updater_status_mirror(&status));
+        }
+    }
+
     let tokio = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
@@ -913,6 +950,8 @@ pub fn init_bridge(state: &mut AppState, waker: Waker) {
         deepgram_key: Mutex::new(deepgram_key),
         tray: Mutex::new(TraySlot::default()),
         phone: Mutex::new(PhoneSlot::default()),
+        vault: Mutex::new(vault),
+        app_root,
     };
 
     let _ = BRIDGE.set(bridge);
@@ -978,6 +1017,15 @@ pub fn poll_bridge(state: &mut AppState, dt: f32) -> bool {
         handle_command(b, state, cmd);
     }
 
+    // 1.5 P3-06: drain the settings vault/updater outbox. The settings view
+    //     dispatches through state.settings_outbox (no new UiCommand variants
+    //     — see the P3-06 coordination note); vault ops run synchronously on
+    //     the UI thread (local file IO), the updater probe fetches upstream
+    //     async and finalizes via BridgeEvent::SettingsProbe.
+    if poll_settings_outbox(b, state) {
+        changed = true;
+    }
+
     // 2. Step audio FFT engine
     AUDIO.with(|cell| {
         if let Some(audio) = cell.borrow().as_ref() {
@@ -1032,6 +1080,17 @@ pub fn poll_bridge(state: &mut AppState, dt: f32) -> bool {
                 }
                 BridgeEvent::Os(action) => {
                     handle_os_action(state, action);
+                }
+                BridgeEvent::SettingsProbe(upstream) => {
+                    let guard = b.vault.lock().unwrap();
+                    let ctx = SettingsContext {
+                        vault: guard.as_ref(),
+                        app_root: &b.app_root,
+                        runner: &SystemRunner,
+                        upstream: Some(&upstream),
+                        export_path: None,
+                    };
+                    finish_update_probe(state, &ctx);
                 }
             }
         }
@@ -1325,7 +1384,405 @@ fn handle_command(b: &DesktopBridge, state: &AppState, cmd: UiCommand) {
                 }
             }
         }
+        // P3-06 integration: wildcard fallback so future UiCommand variants
+        // never break the app build. Settings vault/updater dispatch rides
+        // state.settings_outbox (drained above), not new command variants.
+        #[allow(unreachable_patterns)] // deliberate future-proofing seam
+        _ => {}
     }
+}
+
+// ---------------------------------------------------------------------------
+// P3-06 settings integration: drain AppState::settings_outbox through
+// voxcell_store::{vault, updater}. The settings view deliberately dispatches
+// through the outbox (no new UiCommand variants — see the P3-06 coordination
+// note), so this is the single bridge seam for backup/restore/import/export
+// and the updater probe/apply/receipt lifecycle. All IO is injectable via
+// SettingsContext: headless tests run against a tempdir vault, a scripted
+// GitRunner and offline upstream info — no live network, no real git, no keys.
+// ---------------------------------------------------------------------------
+
+fn epoch_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+/// Injectable environment for one settings-outbox drain pass.
+pub struct SettingsContext<'a> {
+    pub vault: Option<&'a PreferencesVault>,
+    /// package.json / .git location for the updater (TS process.cwd parity).
+    pub app_root: &'a Path,
+    pub runner: &'a dyn GitRunner,
+    /// Pre-fetched upstream probe result; `None` = offline / not probed yet.
+    pub upstream: Option<&'a UpstreamReleaseInfo>,
+    /// File destination for VaultExport. RUNE's clipboard is Runtime-bound
+    /// (no bridge-level setter), so the export seam is an atomic-ish file
+    /// write + `vault_feedback` line — web "download snapshot" parity.
+    pub export_path: Option<&'a Path>,
+}
+
+fn vault_backup_entry(b: &PreferenceBackupSummary) -> VaultBackupEntry {
+    VaultBackupEntry {
+        id: b.id.clone(),
+        created_at: b.created_at,
+        reason: b.reason.clone(),
+        app_version: b.app_version.clone(),
+        accent_hex: b.accent_hex.clone(),
+        accent_preset: b.accent_preset.clone(),
+        background_id: b.background_id.clone(),
+        custom_slot_count: b.custom_slot_count,
+        workspace_title: b.workspace_title.clone(),
+    }
+}
+
+fn update_receipt_mirror(r: &UpdateReceipt) -> VaultUpdateReceipt {
+    VaultUpdateReceipt {
+        updated_at: r.updated_at,
+        previous_version: r.previous_version.clone(),
+        new_version: r.new_version.clone(),
+        previous_commit: r.previous_commit.clone(),
+        new_commit: r.new_commit.clone(),
+        backup_id: r.backup_id.clone(),
+        mode: r.mode.clone(),
+        preserved_categories: r.preserved_categories.clone(),
+    }
+}
+
+fn updater_step_mirror(s: &UpdateStepResult) -> UpdaterStep {
+    UpdaterStep {
+        id: s.id.clone(),
+        label: s.label.clone(),
+        status: match s.status {
+            StepStatus::Ok => "ok",
+            StepStatus::Skipped => "skipped",
+            StepStatus::Failed => "failed",
+        }
+        .to_string(),
+        detail: s.detail.clone(),
+    }
+}
+
+fn updater_status_mirror(s: &AppUpdateStatus) -> UpdaterStatus {
+    UpdaterStatus {
+        current_version: s.current_version.clone(),
+        current_commit: s.current_commit.clone(),
+        branch: s.branch.clone(),
+        latest_version: s.latest_version.clone(),
+        latest_commit: s.latest_commit.clone(),
+        update_available: s.update_available,
+        update_mode: s.update_mode.as_str().to_string(),
+        can_self_update: s.can_self_update,
+        dirty_worktree: s.dirty_worktree,
+        dirty_reason: s.dirty_reason.clone(),
+        release_title: s.release_title.clone(),
+        release_notes: s.release_notes.clone(),
+        release_url: s.release_url.clone(),
+        checked_at: s.checked_at,
+        upstream_error: s.upstream_error.clone(),
+        pending_receipt: s.pending_receipt.as_ref().map(update_receipt_mirror),
+    }
+}
+
+/// Inverse of `voxcell_ui::state::settings_mood_from_id` for snapshot export.
+fn settings_mood_id(mood: ExpressionMood) -> &'static str {
+    match mood {
+        ExpressionMood::Calm => "calm",
+        ExpressionMood::Focused => "focused",
+        ExpressionMood::Listening => "listening",
+        ExpressionMood::Thinking => "thinking",
+        ExpressionMood::Speaking => "speaking",
+        ExpressionMood::Happy => "happy",
+        ExpressionMood::Alert => "alert",
+        #[allow(unreachable_patterns)] // future ExpressionMood variants
+        _ => "happy",
+    }
+}
+
+/// Build the web camelCase snapshot contract from live desktop state
+/// (uiConfig / background / workspace / canvas). Serialized core types already
+/// use the web key set; unknown desktop-only fields are ignored on re-import
+/// by `core::snapshot::normalize_preferences_snapshot`.
+pub fn settings_snapshot_json(state: &AppState) -> Value {
+    json!({
+        "schemaVersion": 1,
+        "themeEpoch": "slate-v1",
+        "capturedAt": epoch_ms(),
+        "appVersion": env!("CARGO_PKG_VERSION"),
+        "reason": "sync",
+        "uiConfig": serde_json::to_value(&state.ui_config).unwrap_or_else(|_| json!({})),
+        "background": serde_json::to_value(&state.bg_settings).unwrap_or_else(|_| json!({})),
+        "workspace": json!({
+            "showThinking": true,
+            "voiceMuted": state.voice.muted,
+            "mood": settings_mood_id(state.stage_mood),
+            "draftProfile": state.gateway.active_profile,
+            "onboardingCompleted": false,
+        }),
+        "canvas": json!({
+            "sessions": serde_json::to_value(&state.canvas_sessions).unwrap_or_else(|_| json!([])),
+            "pins": serde_json::to_value(&state.canvas_pins).unwrap_or_else(|_| json!([])),
+            "dismissedIds": [],
+        }),
+    })
+}
+
+/// Reload ui/bg/voice prefs from a restored/imported vault snapshot. UI rides
+/// the settings_apply_json_patch helper (sanitize + side effects + persist);
+/// background/voice/mood come from the typed core normalizer. Persist commands
+/// keep the SQLite store in sync so the next launch hydrates the same values.
+fn hydrate_state_from_snapshot(state: &mut AppState, snapshot: &Value) -> bool {
+    let Some(typed) = voxcell_core::snapshot::normalize_preferences_snapshot(snapshot) else {
+        return false;
+    };
+    if let Some(ui) = snapshot.get("uiConfig") {
+        state.settings_apply_json_patch(ui);
+    }
+    state.bg_settings = typed.background;
+    state.pending_commands.push(UiCommand::PersistBackgroundSettings);
+    state.voice.muted = typed.workspace.voice_muted;
+    state.pending_commands.push(UiCommand::ToggleMute(state.voice.muted));
+    state.pending_commands.push(UiCommand::PersistVoiceSettings);
+    if let Some(mood) = settings_mood_from_id(typed.workspace.mood.as_str()) {
+        state.stage_mood = mood;
+    }
+    true
+}
+
+/// Post-vault-op refresh per the P3-06 note: backups list, storage label,
+/// last-synced stamp, and the busy flag always clears (success or failure).
+fn refresh_vault_state(state: &mut AppState, vault: Option<&PreferencesVault>) {
+    if let Some(v) = vault {
+        state.vault_backups = v.list_backups().iter().map(vault_backup_entry).collect();
+        state.vault_storage_label = v.storage_label();
+        let captured = v.preferences_captured_at();
+        state.vault_last_synced_ms = Some(if captured > 0 { captured } else { epoch_ms() });
+    }
+    state.vault_busy = false;
+}
+
+/// Ancestry check for the commit-divergence heuristic (only when both sides
+/// have commits and a git repo exists; the scripted runner answers in tests).
+fn upstream_ancestry(ctx: &SettingsContext, local: &LocalBuildMetadata) -> Option<bool> {
+    let upstream_commit = ctx.upstream.and_then(|u| u.latest_commit.as_deref())?;
+    if !local.has_git_repo || local.commit.is_none() {
+        return None;
+    }
+    updater::is_commit_ancestor_of_head_with(ctx.app_root, upstream_commit, ctx.runner)
+}
+
+/// Finalize an updater probe: local metadata + (optional) upstream info ->
+/// `build_app_update_status` -> state mirror; `update_checking` always clears.
+pub fn finish_update_probe(state: &mut AppState, ctx: &SettingsContext) {
+    let local = updater::read_local_build_metadata_with(ctx.app_root, ctx.runner);
+    let receipt = ctx.vault.and_then(|v| v.read_receipt());
+    let ancestry = upstream_ancestry(ctx, &local);
+    let status = updater::build_app_update_status(&local, ctx.upstream, receipt, None, ancestry);
+    state.update_error = status.upstream_error.clone();
+    state.update_status = Some(updater_status_mirror(&status));
+    state.update_checking = false;
+}
+
+/// Apply with the pre-update snapshot hook inside the store; map steps,
+/// status and receipt onto state; `update_applying` always clears.
+fn apply_update_action(state: &mut AppState, ctx: &SettingsContext) {
+    let Some(vault) = ctx.vault else {
+        state.update_error =
+            Some("Preferences vault unavailable — cannot snapshot settings before update.".into());
+        state.update_applying = false;
+        return;
+    };
+    let snapshot = settings_snapshot_json(state);
+    let local = updater::read_local_build_metadata_with(ctx.app_root, ctx.runner);
+    let ancestry = upstream_ancestry(ctx, &local);
+    let outcome = updater::apply_update_with_snapshot(
+        vault,
+        ctx.app_root,
+        Some(&snapshot),
+        ctx.upstream,
+        ancestry,
+        ctx.runner,
+    );
+    state.update_steps = outcome.steps.iter().map(updater_step_mirror).collect();
+    state.update_error = outcome.error.clone();
+    state.update_status = Some(updater_status_mirror(&outcome.status));
+    state.update_applying = false;
+    // The store took a pre-update backup internally — refresh the list.
+    refresh_vault_state(state, Some(vault));
+}
+
+/// Drain every queued SettingsAction synchronously against `ctx`. Returns
+/// false when the outbox was empty (no-op tick). Pure over state + injected
+/// IO so the whole settings contract is headless-testable.
+pub fn drain_settings_outbox(state: &mut AppState, ctx: &SettingsContext) -> bool {
+    let actions: Vec<SettingsAction> = state.settings_outbox.drain(..).collect();
+    if actions.is_empty() {
+        return false;
+    }
+    for action in actions {
+        match action {
+            SettingsAction::VaultCreateBackup { reason } => {
+                match ctx.vault {
+                    Some(v) => {
+                        let snapshot = settings_snapshot_json(state);
+                        let backup_reason = if reason == "pre-update" {
+                            BackupReason::PreUpdate
+                        } else {
+                            BackupReason::Manual
+                        };
+                        state.vault_feedback = Some(match v.create_backup(&snapshot, backup_reason) {
+                            Ok(outcome) => format!("Backup created ({})", outcome.backup.id),
+                            Err(e) => format!("Backup failed: {e}"),
+                        });
+                    }
+                    None => {
+                        state.vault_feedback =
+                            Some("Backup failed: preferences vault unavailable".to_string());
+                    }
+                }
+                refresh_vault_state(state, ctx.vault);
+            }
+            SettingsAction::VaultRestore { backup_id } => {
+                match ctx.vault.and_then(|v| v.restore_backup(&backup_id)) {
+                    Some(outcome) => {
+                        state.vault_feedback = Some(
+                            if hydrate_state_from_snapshot(state, &outcome.snapshot) {
+                                format!("Restored backup {backup_id}")
+                            } else {
+                                format!("Restore failed: unreadable snapshot in {backup_id}")
+                            },
+                        );
+                    }
+                    None => {
+                        state.vault_feedback =
+                            Some(format!("Restore failed: unknown backup {backup_id}"));
+                    }
+                }
+                refresh_vault_state(state, ctx.vault);
+            }
+            SettingsAction::VaultExport => {
+                let snapshot = settings_snapshot_json(state);
+                state.vault_feedback = Some(match (ctx.export_path, serde_json::to_string_pretty(&snapshot)) {
+                    (Some(path), Ok(pretty)) => {
+                        let written = path
+                            .parent()
+                            .map(std::fs::create_dir_all)
+                            .unwrap_or(Ok(()))
+                            .and_then(|_| std::fs::write(path, pretty));
+                        match written {
+                            Ok(()) => format!("Exported settings to {}", path.display()),
+                            Err(e) => format!("Export failed: {e}"),
+                        }
+                    }
+                    (None, _) => "Export failed: no destination available".to_string(),
+                    (_, Err(e)) => format!("Export failed: {e}"),
+                });
+                refresh_vault_state(state, ctx.vault);
+            }
+            SettingsAction::VaultImport { json: raw_json } => {
+                let parsed = serde_json::from_str::<Value>(&raw_json)
+                    .ok()
+                    .filter(|v| v.is_object());
+                state.vault_feedback = Some(match (ctx.vault, parsed) {
+                    (Some(v), Some(raw)) => match v.write_vault(&raw, Some("import")) {
+                        Ok(stored) => {
+                            if hydrate_state_from_snapshot(state, &stored) {
+                                "Imported settings backup".to_string()
+                            } else {
+                                "Import failed: snapshot rejected by normalizer".to_string()
+                            }
+                        }
+                        Err(e) => format!("Import failed: {e}"),
+                    },
+                    (None, Some(_)) => {
+                        "Import failed: preferences vault unavailable".to_string()
+                    }
+                    (_, None) => "Import failed: invalid settings JSON".to_string(),
+                });
+                refresh_vault_state(state, ctx.vault);
+            }
+            SettingsAction::UpdaterProbe => finish_update_probe(state, ctx),
+            SettingsAction::UpdaterApply => apply_update_action(state, ctx),
+            SettingsAction::UpdaterDismissReceipt => {
+                if let Some(v) = ctx.vault {
+                    updater::acknowledge_update_receipt(v);
+                }
+                if let Some(status) = state.update_status.as_mut() {
+                    status.pending_receipt = None;
+                }
+            }
+        }
+    }
+    true
+}
+
+/// Reconstruct the last probe's upstream info from the state mirror so a
+/// subsequent apply keeps release metadata without a second network roundtrip.
+fn upstream_from_status(status: Option<&UpdaterStatus>) -> Option<UpstreamReleaseInfo> {
+    let st = status?;
+    if st.latest_version.is_none()
+        && st.latest_commit.is_none()
+        && st.release_title.is_none()
+        && st.upstream_error.is_none()
+    {
+        return None;
+    }
+    Some(UpstreamReleaseInfo {
+        latest_version: st.latest_version.clone(),
+        latest_commit: st.latest_commit.clone(),
+        release_title: st.release_title.clone(),
+        release_notes: st.release_notes.clone(),
+        release_url: st.release_url.clone(),
+        error: st.upstream_error.clone(),
+    })
+}
+
+/// Production wiring on the bridge tick: vault ops + apply + receipt dismiss
+/// drain synchronously (local file IO); UpdaterProbe spawns the async GitHub
+/// fetch and finalizes through BridgeEvent::SettingsProbe (checking stays true
+/// until the result lands, matching the view's "Checking…" state).
+fn poll_settings_outbox(b: &DesktopBridge, state: &mut AppState) -> bool {
+    if state.settings_outbox.is_empty() {
+        return false;
+    }
+    let actions: Vec<SettingsAction> = state.settings_outbox.drain(..).collect();
+    let mut probe_requested = false;
+    let mut sync_actions = Vec::new();
+    for action in actions {
+        if matches!(action, SettingsAction::UpdaterProbe) {
+            probe_requested = true;
+        } else {
+            sync_actions.push(action);
+        }
+    }
+    if !sync_actions.is_empty() {
+        let guard = b.vault.lock().unwrap();
+        let export_path = guard
+            .as_ref()
+            .map(|v| v.data_dir().join(format!("preferences-export-{}.json", epoch_ms())));
+        let upstream = upstream_from_status(state.update_status.as_ref());
+        let ctx = SettingsContext {
+            vault: guard.as_ref(),
+            app_root: &b.app_root,
+            runner: &SystemRunner,
+            upstream: upstream.as_ref(),
+            export_path: export_path.as_deref(),
+        };
+        state.settings_outbox = sync_actions;
+        drain_settings_outbox(state, &ctx);
+    }
+    if probe_requested {
+        state.update_checking = true;
+        let tx = b.tx.clone();
+        let waker = b.waker.clone();
+        b.tokio.spawn(async move {
+            let upstream = updater::fetch_upstream_release_info_default().await;
+            let _ = tx.send(BridgeEvent::SettingsProbe(upstream));
+            (waker)();
+        });
+    }
+    true
 }
 
 #[cfg(test)]
@@ -1716,5 +2173,462 @@ mod tests {
         assert_eq!(label(&active, "phone"), "Close Phone HUD");
         assert_eq!(label(&idle, "quit"), "Quit");
         assert!(idle.iter().any(|it| matches!(it, TrayItem::Separator)));
+    }
+
+    // ---- P3-06 settings outbox drain (headless: tempdir vault, scripted
+    // runner, offline upstream info — no network, no real git, no keys) ----
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TMP_SEQ: AtomicUsize = AtomicUsize::new(0);
+
+    /// Unique tempdir with best-effort cleanup (crate has no tempfile dev-dep).
+    /// Declare BEFORE the vault so the SQLite connection drops first.
+    struct TempRoot(PathBuf);
+    impl TempRoot {
+        fn new(tag: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "voxcell-p306-{tag}-{}-{}",
+                std::process::id(),
+                TMP_SEQ.fetch_add(1, Ordering::SeqCst)
+            ));
+            std::fs::create_dir_all(&dir).expect("create test tempdir");
+            TempRoot(dir)
+        }
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Offline GitRunner: answers from a script, unknown commands fail. Never
+    /// spawns a real process, so updater tests cannot touch network or git.
+    struct ScriptedRunner {
+        responses: std::collections::HashMap<String, Result<String, updater::RunError>>,
+    }
+    impl ScriptedRunner {
+        fn new() -> Self {
+            Self { responses: std::collections::HashMap::new() }
+        }
+        fn ok(mut self, program: &str, args: &[&str], out: &str) -> Self {
+            self.responses
+                .insert(format!("{program} {}", args.join(" ")), Ok(out.to_string()));
+            self
+        }
+        fn fail(mut self, program: &str, args: &[&str], msg: &str, code: Option<i32>) -> Self {
+            self.responses.insert(
+                format!("{program} {}", args.join(" ")),
+                Err(updater::RunError { message: msg.to_string(), exit_code: code }),
+            );
+            self
+        }
+        fn clean_git(self, commit: &str) -> Self {
+            self.ok("git", &["rev-parse", "--short", "HEAD"], commit)
+                .ok("git", &["rev-parse", "--abbrev-ref", "HEAD"], "main")
+                .ok("git", &["status", "--porcelain"], "")
+        }
+    }
+    impl GitRunner for ScriptedRunner {
+        fn run(
+            &self,
+            program: &str,
+            args: &[&str],
+            _cwd: &Path,
+            _timeout_ms: u64,
+        ) -> Result<String, updater::RunError> {
+            let key = format!("{program} {}", args.join(" "));
+            self.responses.get(&key).cloned().unwrap_or_else(|| {
+                Err(updater::RunError {
+                    message: format!("scripted runner: unexpected command {key}"),
+                    exit_code: None,
+                })
+            })
+        }
+    }
+
+    fn write_package_json(root: &Path, version: &str) {
+        std::fs::write(root.join("package.json"), json!({ "version": version }).to_string())
+            .expect("write package.json");
+    }
+
+    fn settings_ctx<'a>(
+        vault: Option<&'a PreferencesVault>,
+        app_root: &'a Path,
+        runner: &'a dyn GitRunner,
+        upstream: Option<&'a UpstreamReleaseInfo>,
+        export_path: Option<&'a Path>,
+    ) -> SettingsContext<'a> {
+        SettingsContext { vault, app_root, runner, upstream, export_path }
+    }
+
+    fn feedback(state: &AppState) -> String {
+        state.vault_feedback.clone().unwrap_or_default()
+    }
+
+    #[test]
+    fn settings_outbox_empty_drain_is_noop() {
+        let tmp = TempRoot::new("noop");
+        let vault = PreferencesVault::open(tmp.path()).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        state.vault_busy = true;
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, None);
+        assert!(!drain_settings_outbox(&mut state, &ctx));
+        // No-op tick must not touch the busy flag or feedback.
+        assert!(state.vault_busy);
+        assert!(state.vault_feedback.is_none());
+    }
+
+    #[test]
+    fn vault_create_backup_drain_refreshes_backups_label_and_busy() {
+        let tmp = TempRoot::new("create");
+        let vault = PreferencesVault::open(tmp.path()).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        state.settings_apply_json_patch(&json!({ "accentHex": "#F59E0B" }));
+        assert_eq!(state.ui_config.accent_hex, "#F59E0B");
+
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultCreateBackup { reason: "manual".into() });
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(state.settings_outbox.is_empty());
+        assert!(!state.vault_busy);
+        assert!(feedback(&state).contains("Backup created"));
+        assert_eq!(state.vault_backups.len(), 1);
+        assert_eq!(state.vault_backups[0].reason, "manual");
+        assert_eq!(state.vault_backups[0].accent_hex, "#F59E0B");
+        assert!(!state.vault_storage_label.is_empty());
+        assert!(state.vault_last_synced_ms.is_some());
+        assert!(vault.backups_dir().join(format!("{}.json", state.vault_backups[0].id)).exists());
+        assert_eq!(vault.read_vault().unwrap()["reason"], "manual");
+
+        // "pre-update" reason maps to BackupReason::PreUpdate (id prefix).
+        state.vault_busy = true;
+        state
+            .settings_outbox
+            .push(SettingsAction::VaultCreateBackup { reason: "pre-update".into() });
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(!state.vault_busy);
+        assert_eq!(state.vault_backups.len(), 2);
+        assert!(state.vault_backups.iter().any(|b| b.reason == "pre-update"));
+        assert!(state.vault_backups.iter().any(|b| b.id.starts_with("pre-update-")));
+    }
+
+    #[test]
+    fn vault_restore_drain_reloads_prefs_and_handles_unknown_id() {
+        let tmp = TempRoot::new("restore");
+        let vault = PreferencesVault::open(tmp.path()).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        state.settings_apply_json_patch(&json!({ "accentHex": "#F59E0B" }));
+        state.settings_outbox.push(SettingsAction::VaultCreateBackup { reason: "manual".into() });
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        let backup_id = state.vault_backups[0].id.clone();
+
+        // Drift the live prefs, then restore the backup through the outbox.
+        state.settings_apply_json_patch(&json!({ "accentHex": "#38BDF8" }));
+        state.voice.muted = true;
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultRestore { backup_id: backup_id.clone() });
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert_eq!(feedback(&state), format!("Restored backup {backup_id}"));
+        assert_eq!(state.ui_config.accent_hex, "#F59E0B");
+        assert!(!state.voice.muted);
+        assert!(!state.vault_busy);
+        assert_eq!(state.vault_backups.len(), 1);
+        assert_eq!(vault.read_vault().unwrap()["reason"], "restore");
+
+        // Unknown backup id: soft failure, busy still clears.
+        state.vault_busy = true;
+        state
+            .settings_outbox
+            .push(SettingsAction::VaultRestore { backup_id: "manual-does-not-exist".into() });
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(feedback(&state).contains("Restore failed: unknown backup"));
+        assert!(!state.vault_busy);
+        assert_eq!(state.vault_backups.len(), 1);
+    }
+
+    #[test]
+    fn vault_export_drain_writes_snapshot_and_reports_missing_destination() {
+        let tmp = TempRoot::new("export");
+        let vault = PreferencesVault::open(tmp.path()).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        state.settings_apply_json_patch(&json!({ "accentHex": "#F59E0B" }));
+        let export_path = tmp.path().join("exports").join("snapshot.json");
+
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultExport);
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, Some(&export_path));
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(feedback(&state).contains("Exported settings to"));
+        assert!(!state.vault_busy);
+        let written: Value =
+            serde_json::from_str(&std::fs::read_to_string(&export_path).expect("export file"))
+                .expect("export JSON");
+        assert_eq!(written["schemaVersion"], 1);
+        assert_eq!(written["uiConfig"]["accentHex"], "#F59E0B");
+
+        // No destination seam: soft failure, busy still clears.
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultExport);
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert_eq!(feedback(&state), "Export failed: no destination available");
+        assert!(!state.vault_busy);
+    }
+
+    #[test]
+    fn vault_import_drain_persists_and_reloads_state() {
+        let tmp = TempRoot::new("import");
+        let vault = PreferencesVault::open(tmp.path()).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut source = AppState::new();
+        source.settings_apply_json_patch(&json!({ "accentHex": "#38BDF8" }));
+        source.voice.muted = true;
+        source.stage_mood = ExpressionMood::Focused;
+        let snapshot = settings_snapshot_json(&source);
+
+        let mut state = AppState::new();
+        assert_ne!(state.ui_config.accent_hex, "#38BDF8");
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultImport { json: snapshot.to_string() });
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert_eq!(feedback(&state), "Imported settings backup");
+        assert_eq!(state.ui_config.accent_hex, "#38BDF8");
+        assert!(state.voice.muted);
+        assert_eq!(state.stage_mood, ExpressionMood::Focused);
+        assert!(!state.vault_busy);
+        assert_eq!(vault.read_vault().unwrap()["reason"], "import");
+        // Hydration queues persist commands so SQLite stays in sync.
+        assert!(state.pending_commands.iter().any(|c| matches!(c, UiCommand::PersistUiConfig)));
+
+        // Malformed / non-object JSON: soft failure, busy still clears.
+        for bad in ["{not json", "[1,2,3]"] {
+            state.vault_busy = true;
+            state.settings_outbox.push(SettingsAction::VaultImport { json: bad.into() });
+            assert!(drain_settings_outbox(&mut state, &ctx));
+            assert_eq!(feedback(&state), "Import failed: invalid settings JSON");
+            assert!(!state.vault_busy);
+        }
+    }
+
+    #[test]
+    fn settings_ops_without_vault_fail_soft_and_clear_busy() {
+        let tmp = TempRoot::new("novault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        let ctx = settings_ctx(None, tmp.path(), &runner, None, None);
+
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultCreateBackup { reason: "manual".into() });
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert_eq!(feedback(&state), "Backup failed: preferences vault unavailable");
+        assert!(!state.vault_busy);
+
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultImport { json: "{}".into() });
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert_eq!(feedback(&state), "Import failed: preferences vault unavailable");
+        assert!(!state.vault_busy);
+
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::VaultRestore { backup_id: "manual-x".into() });
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(feedback(&state).contains("Restore failed: unknown backup"));
+        assert!(!state.vault_busy);
+
+        state.update_applying = true;
+        state.settings_outbox.push(SettingsAction::UpdaterApply);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(state.update_error.as_deref().unwrap_or_default().contains("vault unavailable"));
+        assert!(!state.update_applying);
+    }
+
+    #[test]
+    fn updater_probe_drain_offline_available_and_error_paths() {
+        let tmp = TempRoot::new("probe");
+        write_package_json(tmp.path(), "0.1.0");
+        let vault = PreferencesVault::open(tmp.path().join("data")).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+
+        // Offline (no upstream info): managed-refresh status, checking clears.
+        state.update_checking = true;
+        state.settings_outbox.push(SettingsAction::UpdaterProbe);
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(!state.update_checking);
+        let status = state.update_status.as_ref().expect("probe status");
+        assert_eq!(status.current_version, "0.1.0");
+        assert!(!status.update_available);
+        assert_eq!(status.update_mode, "managed-refresh");
+        assert!(state.update_error.is_none());
+        assert!(status.pending_receipt.is_none());
+
+        // Pre-fetched upstream with a newer version: update flagged.
+        let upstream = UpstreamReleaseInfo {
+            latest_version: Some("9.9.9".into()),
+            release_title: Some("Rune 9.9.9".into()),
+            release_url: Some("https://example.invalid/rune".into()),
+            ..Default::default()
+        };
+        state.update_checking = true;
+        state.settings_outbox.push(SettingsAction::UpdaterProbe);
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, Some(&upstream), None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(!state.update_checking);
+        let status = state.update_status.as_ref().expect("probe status");
+        assert!(status.update_available);
+        assert_eq!(status.latest_version.as_deref(), Some("9.9.9"));
+        assert_eq!(status.release_title.as_deref(), Some("Rune 9.9.9"));
+
+        // Upstream fetch error surfaces on state.update_error, checking clears.
+        let upstream_err = UpstreamReleaseInfo {
+            error: Some("GitHub unreachable (offline test)".into()),
+            ..Default::default()
+        };
+        state.update_checking = true;
+        state.settings_outbox.push(SettingsAction::UpdaterProbe);
+        let ctx = settings_ctx(Some(&vault), tmp.path(), &runner, Some(&upstream_err), None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(!state.update_checking);
+        assert_eq!(state.update_error.as_deref(), Some("GitHub unreachable (offline test)"));
+        let status = state.update_status.as_ref().expect("probe status");
+        assert_eq!(status.upstream_error.as_deref(), Some("GitHub unreachable (offline test)"));
+        assert!(!status.update_available);
+    }
+
+    #[test]
+    fn updater_apply_drain_managed_refresh_offline_success() {
+        let tmp = TempRoot::new("apply-managed");
+        let app_root = tmp.path().join("app");
+        std::fs::create_dir_all(&app_root).unwrap();
+        write_package_json(&app_root, "0.1.0"); // no .git -> managed refresh
+        let vault = PreferencesVault::open(tmp.path().join("data")).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        state.update_applying = true;
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::UpdaterApply);
+        let ctx = settings_ctx(Some(&vault), &app_root, &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+
+        assert!(!state.update_applying);
+        assert!(!state.vault_busy);
+        assert!(state.update_error.is_none());
+        let ids: Vec<&str> = state.update_steps.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, ["vault-backup", "vault-verify", "runtime-sync"]);
+        assert!(state.update_steps.iter().all(|s| s.status == "ok"));
+        let status = state.update_status.as_ref().expect("apply status");
+        assert_eq!(status.update_mode, "managed-refresh");
+        let receipt = status.pending_receipt.as_ref().expect("pending receipt");
+        assert_eq!(receipt.mode, "managed-refresh");
+        assert!(receipt.backup_id.starts_with("pre-update-"));
+        assert!(vault.read_receipt().is_some());
+        // Pre-update backup hook inside the store -> refreshed backups list.
+        assert_eq!(state.vault_backups.len(), 1);
+        assert_eq!(state.vault_backups[0].reason, "pre-update");
+        assert!(!state.vault_storage_label.is_empty());
+    }
+
+    #[test]
+    fn updater_apply_drain_git_fetch_failure_offline() {
+        let tmp = TempRoot::new("apply-fetchfail");
+        let app_root = tmp.path().join("app");
+        std::fs::create_dir_all(app_root.join(".git")).unwrap();
+        write_package_json(&app_root, "0.1.0");
+        let vault = PreferencesVault::open(tmp.path().join("data")).expect("open vault");
+        let runner = ScriptedRunner::new()
+            .clean_git("abc1234")
+            .fail("git", &["fetch", "--tags", "--prune"], "simulated offline failure", None);
+        let mut state = AppState::new();
+        state.update_applying = true;
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::UpdaterApply);
+        let ctx = settings_ctx(Some(&vault), &app_root, &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+
+        assert!(!state.update_applying);
+        assert!(!state.vault_busy);
+        assert!(state.update_error.as_deref().unwrap_or_default().contains("Unable to fetch updates"));
+        assert_eq!(state.update_steps[0].id, "vault-backup");
+        assert_eq!(state.update_steps[0].status, "ok");
+        assert_eq!(state.update_steps[1].id, "git-fetch");
+        assert_eq!(state.update_steps[1].status, "failed");
+        let status = state.update_status.as_ref().expect("apply status");
+        assert_eq!(status.update_mode, "git-pull");
+        assert!(status.pending_receipt.is_none());
+        // Safety backup survives the failed update.
+        assert_eq!(state.vault_backups.len(), 1);
+        assert_eq!(state.vault_backups[0].reason, "pre-update");
+    }
+
+    #[test]
+    fn updater_apply_drain_dirty_worktree_pauses() {
+        let tmp = TempRoot::new("apply-dirty");
+        let app_root = tmp.path().join("app");
+        std::fs::create_dir_all(app_root.join(".git")).unwrap();
+        write_package_json(&app_root, "0.1.0");
+        let vault = PreferencesVault::open(tmp.path().join("data")).expect("open vault");
+        let runner = ScriptedRunner::new()
+            .ok("git", &["rev-parse", "--short", "HEAD"], "abc1234")
+            .ok("git", &["rev-parse", "--abbrev-ref", "HEAD"], "main")
+            .ok("git", &["status", "--porcelain"], " M src/lib.rs");
+        let mut state = AppState::new();
+        state.update_applying = true;
+        state.vault_busy = true;
+        state.settings_outbox.push(SettingsAction::UpdaterApply);
+        let ctx = settings_ctx(Some(&vault), &app_root, &runner, None, None);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+
+        assert!(!state.update_applying);
+        assert!(!state.vault_busy);
+        assert!(state.update_error.as_deref().unwrap_or_default().contains("uncommitted edits"));
+        assert!(state.update_steps.iter().any(|s| s.id == "git-check" && s.status == "failed"));
+        let status = state.update_status.as_ref().expect("apply status");
+        assert!(status.dirty_worktree);
+        assert!(!status.can_self_update);
+        assert_eq!(state.vault_backups.len(), 1);
+    }
+
+    #[test]
+    fn updater_dismiss_receipt_drain_clears_file_and_mirror() {
+        let tmp = TempRoot::new("dismiss");
+        let app_root = tmp.path().join("app");
+        std::fs::create_dir_all(&app_root).unwrap();
+        write_package_json(&app_root, "0.1.0");
+        let vault = PreferencesVault::open(tmp.path().join("data")).expect("open vault");
+        let runner = ScriptedRunner::new();
+        let mut state = AppState::new();
+        let ctx = settings_ctx(Some(&vault), &app_root, &runner, None, None);
+
+        // Managed apply writes a receipt; a later probe surfaces it.
+        state.settings_outbox.push(SettingsAction::UpdaterApply);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        state.settings_outbox.push(SettingsAction::UpdaterProbe);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(state.update_status.as_ref().unwrap().pending_receipt.is_some());
+        assert!(vault.receipt_path().exists());
+
+        state.settings_outbox.push(SettingsAction::UpdaterDismissReceipt);
+        assert!(drain_settings_outbox(&mut state, &ctx));
+        assert!(vault.read_receipt().is_none());
+        assert!(!vault.receipt_path().exists());
+        assert!(state.update_status.as_ref().unwrap().pending_receipt.is_none());
+
+        // Dismiss with no probe status is a safe no-op.
+        let mut bare = AppState::new();
+        bare.settings_outbox.push(SettingsAction::UpdaterDismissReceipt);
+        assert!(drain_settings_outbox(&mut bare, &ctx));
+        assert!(bare.update_status.is_none());
     }
 }
