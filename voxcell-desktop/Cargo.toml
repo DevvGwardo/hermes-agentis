@@ -18,18 +18,19 @@ version = "0.1.0"
 # Required by anomalyco/rune: Cargo ignores `[patch.crates-io]` inside path
 # dependencies, so top-level workspace mirrors RUNE's patched crates.
 [patch.crates-io]
-wgpu-hal = { path = "/tmp/rune-ref/vendor/wgpu-hal" }
-winit = { path = "/tmp/rune-ref/vendor/winit" }
-parley_engine = { path = "/tmp/rune-ref/vendor/parley_engine" }
-accesskit_windows = { path = "/tmp/rune-ref/vendor/accesskit_windows" }
-accesskit_macos = { path = "/tmp/rune-ref/vendor/accesskit_macos" }
+wgpu-hal = { path = "../third_party/rune/vendor/wgpu-hal" }
+winit = { path = "../third_party/rune/vendor/winit" }
+sctk-adwaita = { path = "../third_party/rune/vendor/sctk-adwaita" }
+parley_engine = { path = "../third_party/rune/vendor/parley_engine" }
+accesskit_windows = { path = "../third_party/rune/vendor/accesskit_windows" }
+accesskit_macos = { path = "../third_party/rune/vendor/accesskit_macos" }
 
 [workspace.dependencies]
-rune = { path = "/tmp/rune-ref/crates/rune", features = ["svg"] }
-rune-kit = { path = "/tmp/rune-ref/crates/rune-kit" }
-rune-fx = { path = "/tmp/rune-ref/crates/rune-fx" }
-rune-motion = { path = "/tmp/rune-ref/crates/rune-motion" }
-rune-notify = { path = "/tmp/rune-ref/crates/rune-notify" }
+rune = { path = "../third_party/rune/crates/rune", features = ["svg"] }
+rune-kit = { path = "../third_party/rune/crates/rune-kit" }
+rune-fx = { path = "../third_party/rune/crates/rune-fx" }
+rune-motion = { path = "../third_party/rune/crates/rune-motion" }
+rune-notify = { path = "../third_party/rune/crates/rune-notify" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -43,6 +44,13 @@ dirs = "5"
 rustfft = "6"
 cpal = "0.15"
 bytemuck = { version = "1", features = ["derive"] }
+keyring = "3"
+axum = "0.8"
+rand = "0.9"
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
+sha2 = "0.10"
+semver = "1"
+chrono = { version = "0.4", features = ["serde"] }
 
 [profile.dev]
 debug = "line-tables-only"
