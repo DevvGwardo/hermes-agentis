@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 voxcell-core = { path = "../voxcell-core" }
 image.workspace = true
+bytemuck.workspace = true

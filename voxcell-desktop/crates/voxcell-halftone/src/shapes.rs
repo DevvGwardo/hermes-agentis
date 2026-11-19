@@ -1,4 +1,4 @@
-use crate::portrait::{clamp01, evaluate_natural_blink_curve, smoothstep};
+use crate::portrait::{clamp01, evaluate_natural_blink_curve};
 use crate::raster::{
     BAYER_8X8, BrailleFrameGrid, parse_hex_rgb, rasterize_tonal_grid_rgba, resolve_shape_tone_palette,
 };
@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 use voxcell_core::canvas::CanvasShapeKind;
 use voxcell_core::{DotProfile, ExpressionMood, MouthViseme};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IdleAnimationSet {
     Tactician,
     Celestial,
@@ -112,163 +112,627 @@ fn sd_triangle(px: f32, py: f32, p0x: f32, p0y: f32, p1x: f32, p1y: f32, p2x: f3
     -min_d.sqrt() * min_s.signum()
 }
 
-pub struct IdlePose {
-    pub head_y: f32,
-    pub tilt: f32,
-    pub hair_sway: f32,
-    pub ear_left: f32,
-    pub ear_right: f32,
-    pub ahoge_bounce: f32,
-    pub hood_lift: f32,
-    pub halo_spin: f32,
-    pub halo_lift: f32,
-    pub wing_open: f32,
-    pub tail_wag: f32,
-    pub happy_eyes: f32,
-    pub wink_right: f32,
+// ---------------------------------------------------------------------------
+// brailleIdleLoops.ts — 6 animation sets x 6 separated actions = 36 idle loops
+// ---------------------------------------------------------------------------
+
+pub const IDLE_ACTION_SLOT_SECONDS: f32 = 4.0;
+pub const IDLE_ACTIVE_END_SECONDS: f32 = 3.15;
+pub const IDLE_EASE_IN_SECONDS: f32 = 0.45;
+pub const IDLE_EASE_OUT_START_SECONDS: f32 = 2.65;
+pub const IDLE_ACTIONS_PER_SET: usize = 6;
+pub const IDLE_FULL_LOOP_SECONDS: f32 = IDLE_ACTION_SLOT_SECONDS * IDLE_ACTIONS_PER_SET as f32;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdleMouthMode {
+    Default,
+    Smile,
+    Cat,
+    Hum,
+    Yawn,
+    Grin,
+    O,
 }
 
-pub fn evaluate_idle_pose(shape: CanvasShapeKind, time: f32, reduced_motion: bool) -> IdlePose {
-    let mut pose = IdlePose {
-        head_y: 0.0,
-        tilt: 0.0,
-        hair_sway: 0.0,
-        ear_left: 0.0,
-        ear_right: 0.0,
-        ahoge_bounce: 0.0,
-        hood_lift: 0.0,
-        halo_spin: 0.0,
-        halo_lift: 0.0,
-        wing_open: 0.0,
-        tail_wag: 0.0,
-        happy_eyes: 0.0,
-        wink_right: 0.0,
-    };
-    if reduced_motion {
-        return pose;
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdleHandPose {
+    None,
+    ChinTap,
+    Salute,
+    Clasp,
+    Tome,
+    Mug,
+    Peace,
+    Cheer,
+    PawSwipe,
+    Peek,
+    Wave,
+    Juggle,
+}
 
-    let slot = 4.0_f32;
-    let wrapped = time.rem_euclid(slot * 6.0);
-    let action_idx = (wrapped / slot).floor() as usize;
-    let local_t = wrapped - action_idx as f32 * slot;
-    if local_t >= 3.15 {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdlePropKind {
+    None,
+    Radar,
+    Orbit,
+    Sparkle,
+    Steam,
+    Bubbles,
+    Note,
+    Orb,
+    Heart,
+    Zzz,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct IdleActionDef {
+    pub id: &'static str,
+    pub label: &'static str,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct IdleAnimationSetMeta {
+    pub id: IdleAnimationSet,
+    pub label: &'static str,
+    pub actions: [IdleActionDef; 6],
+}
+
+pub const IDLE_SET_ORDER: [IdleAnimationSet; 6] = [
+    IdleAnimationSet::Tactician,
+    IdleAnimationSet::Celestial,
+    IdleAnimationSet::Scholar,
+    IdleAnimationSet::Idol,
+    IdleAnimationSet::Neko,
+    IdleAnimationSet::Trickster,
+];
+
+static IDLE_ANIMATION_SETS: [IdleAnimationSetMeta; 6] = [
+    IdleAnimationSetMeta {
+        id: IdleAnimationSet::Tactician,
+        label: "Cyber Tactician",
+        actions: [
+            IdleActionDef { id: "radar-scan", label: "Radar Scan" },
+            IdleActionDef { id: "chin-tap", label: "Chin Tap" },
+            IdleActionDef { id: "visor-adjust", label: "Headset Adjust" },
+            IdleActionDef { id: "affirm-nod", label: "Affirmative Nod" },
+            IdleActionDef { id: "signal-wave", label: "Signal Wave" },
+            IdleActionDef { id: "calm-wink", label: "Calm Wink" },
+        ],
+    },
+    IdleAnimationSetMeta {
+        id: IdleAnimationSet::Celestial,
+        label: "Celestial Seraph",
+        actions: [
+            IdleActionDef { id: "halo-spin", label: "Halo Orbit" },
+            IdleActionDef { id: "halo-polish", label: "Halo Polish" },
+            IdleActionDef { id: "wing-flutter", label: "Wing Flutter" },
+            IdleActionDef { id: "serene-pray", label: "Serene Clasp" },
+            IdleActionDef { id: "blessing-sparkle", label: "Blessing Sparkle" },
+            IdleActionDef { id: "sleepy-sway", label: "Dreamy Sway" },
+        ],
+    },
+    IdleAnimationSetMeta {
+        id: IdleAnimationSet::Scholar,
+        label: "Cozy Scholar",
+        actions: [
+            IdleActionDef { id: "hood-snuggle", label: "Hood Snuggle" },
+            IdleActionDef { id: "drowsy-yawn", label: "Drowsy Yawn" },
+            IdleActionDef { id: "page-turn", label: "Tome Flip" },
+            IdleActionDef { id: "thought-bubble", label: "Thought Bubbles" },
+            IdleActionDef { id: "head-nod-doze", label: "Sleepy Doze" },
+            IdleActionDef { id: "warm-sip", label: "Warm Cocoa Sip" },
+        ],
+    },
+    IdleAnimationSetMeta {
+        id: IdleAnimationSet::Idol,
+        label: "Starlight Idol",
+        actions: [
+            IdleActionDef { id: "twintail-bounce", label: "Twintail Bounce" },
+            IdleActionDef { id: "idol-peace", label: "Idol Peace Wink" },
+            IdleActionDef { id: "star-cheer", label: "Star Cheer" },
+            IdleActionDef { id: "mic-hum", label: "Melody Hum" },
+            IdleActionDef { id: "ahoge-boing", label: "Ahoge Boing" },
+            IdleActionDef { id: "curtsy-bow", label: "Stage Bow" },
+        ],
+    },
+    IdleAnimationSetMeta {
+        id: IdleAnimationSet::Neko,
+        label: "Stealth Neko",
+        actions: [
+            IdleActionDef { id: "ear-flick", label: "Radar Ear Flick" },
+            IdleActionDef { id: "paw-swipe", label: "Playful Paw" },
+            IdleActionDef { id: "tail-swish", label: "Tail Swish" },
+            IdleActionDef { id: "prowl-crouch", label: "Stealth Prowl" },
+            IdleActionDef { id: "purr-curl", label: "Happy Purr" },
+            IdleActionDef { id: "ear-groom", label: "Ear Groom" },
+        ],
+    },
+    IdleAnimationSetMeta {
+        id: IdleAnimationSet::Trickster,
+        label: "Spirit Trickster",
+        actions: [
+            IdleActionDef { id: "floppy-ear-hop", label: "Bounce Hop" },
+            IdleActionDef { id: "kitsune-peek", label: "Sleeve Peek" },
+            IdleActionDef { id: "orb-juggle", label: "Spirit Orbs" },
+            IdleActionDef { id: "cheek-puff", label: "Cheek Pout" },
+            IdleActionDef { id: "spin-perk", label: "Joyful Perk" },
+            IdleActionDef { id: "wave-hello", label: "Friendly Wave" },
+        ],
+    },
+];
+
+pub fn idle_set_meta(set: IdleAnimationSet) -> &'static IdleAnimationSetMeta {
+    &IDLE_ANIMATION_SETS[set as usize]
+}
+
+/// Full per-action pose deltas (mirrors `IdlePoseDeltas` in brailleIdleLoops.ts).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct IdlePoseDeltas {
+    pub head_x: f32,
+    pub head_y: f32,
+    pub tilt: f32,
+    pub gaze_x: f32,
+    pub gaze_y: f32,
+    pub blink_left: f32,
+    pub blink_right: f32,
+    pub happy_eyes: f32,
+    pub wide_eyes: f32,
+    pub squint_eyes: f32,
+    pub mouth_mode: IdleMouthMode,
+    pub ear_left: f32,
+    pub ear_right: f32,
+    pub tail_wag: f32,
+    pub hair_sway: f32,
+    pub halo_lift: f32,
+    pub halo_spin: f32,
+    pub wing_open: f32,
+    pub ahoge_bounce: f32,
+    pub hood_lift: f32,
+    pub hood_scale_x: f32,
+    pub squash_y: f32,
+    pub hand: IdleHandPose,
+    pub hand_phase: f32,
+    pub prop: IdlePropKind,
+    pub prop_phase: f32,
+}
+
+pub const NEUTRAL_IDLE_POSE: IdlePoseDeltas = IdlePoseDeltas {
+    head_x: 0.0,
+    head_y: 0.0,
+    tilt: 0.0,
+    gaze_x: 0.0,
+    gaze_y: 0.0,
+    blink_left: 0.0,
+    blink_right: 0.0,
+    happy_eyes: 0.0,
+    wide_eyes: 0.0,
+    squint_eyes: 0.0,
+    mouth_mode: IdleMouthMode::Default,
+    ear_left: 0.0,
+    ear_right: 0.0,
+    tail_wag: 0.0,
+    hair_sway: 0.0,
+    halo_lift: 0.0,
+    halo_spin: 0.0,
+    wing_open: 0.0,
+    ahoge_bounce: 0.0,
+    hood_lift: 0.0,
+    hood_scale_x: 0.0,
+    squash_y: 0.0,
+    hand: IdleHandPose::None,
+    hand_phase: 0.0,
+    prop: IdlePropKind::None,
+    prop_phase: 0.0,
+};
+
+impl Default for IdlePoseDeltas {
+    fn default() -> Self {
+        NEUTRAL_IDLE_POSE
+    }
+}
+
+/// Back-compat alias: the SDF renderer consumes the full TS pose deltas.
+pub type IdlePose = IdlePoseDeltas;
+
+#[derive(Clone, Copy, Debug)]
+pub struct IdleActionFrame {
+    pub set_id: IdleAnimationSet,
+    pub action_index: usize,
+    pub action_id: &'static str,
+    pub action_label: &'static str,
+    pub is_resting: bool,
+    pub envelope: f32,
+    pub phase: f32,
+    pub pose: IdlePoseDeltas,
+}
+
+#[inline]
+fn smootherstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let span = edge1 - edge0;
+    let t = clamp01((x - edge0) / if span == 0.0 { 1.0 } else { span });
+    t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+}
+
+/// Shapes normalized phase [0..1] into a smooth anticipation-and-rebound curve:
+/// brief counter-dip (0.00..0.13), expressive peak, and gentle damped settle.
+fn shaped_bounce_phase(phase: f32) -> f32 {
+    if phase < 0.14 {
+        let t = phase / 0.14;
+        return -0.22 * (t * PI).sin();
+    }
+    let active = (phase - 0.14) / 0.86;
+    (active * PI * 2.0).sin() * (1.0 - 0.12 * active)
+}
+
+fn build_pose_for_action(set: IdleAnimationSet, action_index: usize, env: f32, phase: f32) -> IdlePoseDeltas {
+    let mut pose = NEUTRAL_IDLE_POSE;
+    if env <= 0.001 {
         return pose;
     }
-    let env = if local_t < 0.45 {
-        smoothstep(0.0, 0.45, local_t)
-    } else if local_t > 2.65 {
-        1.0 - smoothstep(2.65, 3.15, local_t)
-    } else {
-        1.0
-    };
-    let phase = (local_t / 3.15).clamp(0.0, 1.0);
     let s = (phase * PI * 2.0).sin();
     let s2 = (phase * PI * 4.0).sin();
     let bell = (phase * PI).sin();
+    let shaped = shaped_bounce_phase(phase);
 
-    match resolve_idle_set(shape) {
-        IdleAnimationSet::Tactician => match action_idx % 6 {
+    match set {
+        IdleAnimationSet::Tactician => match action_index {
             0 => {
+                // radar-scan
+                pose.gaze_x = s * 0.78 * env;
+                pose.gaze_y = (-0.18 + (phase * PI * 2.0).cos() * 0.06) * env;
                 pose.tilt = -s * 0.052 * env;
                 pose.hair_sway = s * 0.03 * env;
+                pose.prop = IdlePropKind::Radar;
+                pose.prop_phase = phase;
             }
-            1 | 2 => {
+            1 => {
+                // chin-tap
+                pose.tilt = -0.105 * env;
+                pose.head_y = (-0.014 + s2.abs() * 0.008) * env;
+                pose.gaze_x = -0.28 * env;
+                pose.gaze_y = -0.26 * env;
+                pose.squint_eyes = 0.28 * env;
+                pose.hand = IdleHandPose::ChinTap;
+                pose.hand_phase = s2.abs() * env;
+            }
+            2 => {
+                // visor-adjust
                 pose.tilt = 0.072 * env;
-                pose.head_y = -0.012 * bell * env;
+                pose.gaze_x = 0.24 * env;
+                pose.hand = IdleHandPose::Salute;
+                pose.hand_phase = bell * env;
             }
             3 => {
-                pose.head_y = 0.038 * bell * env;
+                // affirm-nod
+                pose.head_y = (0.048 * shaped.max(0.0) - 0.012 * bell) * env;
+                pose.squash_y = -0.025 * shaped.max(0.0) * env;
                 pose.happy_eyes = 0.7 * env;
-            }
-            5 => {
-                pose.tilt = 0.08 * bell * env;
-                pose.wink_right = (bell * 1.15).min(1.0) * env;
-            }
-            _ => {
-                pose.tilt = -0.06 * env;
-                pose.happy_eyes = 0.5 * env;
-            }
-        },
-        IdleAnimationSet::Celestial => match action_idx % 6 {
-            0 | 1 => {
-                pose.halo_lift = 0.06 * bell * env;
-                pose.halo_spin = s2 * 0.14 * env;
-            }
-            2 => {
-                pose.head_y = -0.035 * bell * env;
-                pose.wing_open = (0.68 + 0.32 * s2.abs()) * env;
-                pose.hair_sway = s2 * 0.05 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
             }
             4 => {
+                // signal-wave
+                pose.tilt = (-0.062 + s2 * 0.015) * env;
+                pose.happy_eyes = 0.52 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.hand = IdleHandPose::Wave;
+                pose.hand_phase = phase;
+            }
+            _ => {
+                // calm-wink
+                pose.tilt = 0.085 * bell * env;
+                pose.blink_right = (bell * 1.15).min(1.0) * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.prop = IdlePropKind::Sparkle;
+                pose.prop_phase = phase;
+            }
+        },
+        IdleAnimationSet::Celestial => match action_index {
+            0 => {
+                // halo-spin
+                pose.halo_lift = 0.062 * bell * env;
+                pose.halo_spin = s2 * 0.14 * env;
+                pose.gaze_y = -0.2 * env;
+                pose.prop = IdlePropKind::Orbit;
+                pose.prop_phase = phase;
+            }
+            1 => {
+                // halo-polish
+                pose.tilt = -0.078 * env;
+                pose.halo_lift = 0.03 * (phase * PI * 3.0).sin() * env;
+                pose.happy_eyes = 0.6 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.hand = IdleHandPose::Salute;
+                pose.hand_phase = phase;
+            }
+            2 => {
+                // wing-flutter
+                pose.head_y = -0.038 * bell * env;
+                pose.wing_open = (0.68 + 0.32 * s2.abs()) * env;
+                pose.hair_sway = s2 * 0.052 * env;
+                pose.squash_y = (phase * PI * 4.0).sin() * 0.02 * env;
+            }
+            3 => {
+                // serene-pray
+                pose.head_y = 0.018 * bell * env;
+                pose.blink_left = 0.88 * env;
+                pose.blink_right = 0.88 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.hand = IdleHandPose::Clasp;
+                pose.hand_phase = env;
+            }
+            4 => {
+                // blessing-sparkle
+                pose.tilt = 0.068 * env;
                 pose.happy_eyes = 0.85 * env;
                 pose.halo_lift = 0.045 * bell * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.prop = IdlePropKind::Sparkle;
+                pose.prop_phase = phase;
             }
             _ => {
-                pose.tilt = s * 0.09 * env;
-                pose.hair_sway = -s * 0.06 * env;
+                // sleepy-sway
+                pose.tilt = s * 0.105 * env;
+                pose.squint_eyes = 0.78 * env;
+                pose.halo_lift = 0.024 * s * env;
+                pose.hair_sway = -s * 0.072 * env;
             }
         },
-        IdleAnimationSet::Scholar => match action_idx % 6 {
+        IdleAnimationSet::Scholar => match action_index {
             0 => {
-                pose.head_y = 0.025 * bell * env;
-                pose.hood_lift = -0.032 * bell * env;
+                // hood-snuggle
+                pose.head_y = 0.028 * bell * env;
+                pose.hood_lift = -0.034 * bell * env;
+                pose.hood_scale_x = 0.052 * bell * env;
+                pose.squint_eyes = 0.6 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
             }
-            4 => {
-                pose.head_y = 0.065 * bell * env;
-                pose.tilt = 0.065 * env;
-            }
-            _ => {
-                pose.tilt = 0.07 * s * env;
-                pose.happy_eyes = 0.65 * env;
-            }
-        },
-        IdleAnimationSet::Idol => match action_idx % 6 {
-            0 => {
-                pose.head_y = -0.048 * s2.abs() * env;
-                pose.hair_sway = s * 0.11 * env;
-                pose.happy_eyes = 0.7 * env;
-            }
-            4 => {
-                pose.ahoge_bounce = s2 * 0.10 * env;
-            }
-            _ => {
-                pose.tilt = s * 0.08 * env;
-                pose.happy_eyes = 0.85 * env;
-            }
-        },
-        IdleAnimationSet::Neko => match action_idx % 6 {
-            0 => {
-                pose.ear_left = if phase < 0.45 { (phase * PI * 5.0).sin() * 0.2 } else { 0.0 } * env;
-                pose.ear_right = if phase >= 0.45 { ((phase - 0.45) * PI * 5.0).sin() * 0.2 } else { 0.0 } * env;
+            1 => {
+                // drowsy-yawn
+                pose.tilt = -0.062 * bell * env;
+                pose.blink_left = 0.78 * env;
+                pose.blink_right = 0.78 * env;
+                pose.mouth_mode = IdleMouthMode::Yawn;
+                pose.prop = IdlePropKind::Zzz;
+                pose.prop_phase = phase;
             }
             2 => {
-                pose.tail_wag = s * env;
-                pose.happy_eyes = 0.5 * env;
+                // page-turn
+                pose.gaze_x = s * 0.38 * env;
+                pose.gaze_y = 0.34 * env;
+                pose.hand = IdleHandPose::Tome;
+                pose.hand_phase = phase;
             }
-            _ => {
-                pose.tilt = 0.06 * s * env;
-                pose.happy_eyes = 0.8 * env;
-            }
-        },
-        IdleAnimationSet::Trickster => match action_idx % 6 {
-            0 => {
-                pose.head_y = -0.056 * s2.abs() * env;
-                pose.ear_left = s * 0.16 * env;
-                pose.ear_right = -s * 0.16 * env;
+            3 => {
+                // thought-bubble
+                pose.tilt = 0.088 * env;
+                pose.gaze_x = 0.36 * env;
+                pose.gaze_y = -0.36 * env;
+                pose.prop = IdlePropKind::Bubbles;
+                pose.prop_phase = phase;
             }
             4 => {
-                pose.tilt = s * 0.10 * env;
-                pose.hair_sway = -s * 0.085 * env;
-                pose.tail_wag = s * 0.85 * env;
+                // head-nod-doze
+                pose.head_y = (if phase < 0.68 {
+                    smootherstep(0.0, 0.68, phase) * 0.085
+                } else {
+                    0.058 - (phase - 0.68) * 0.20
+                }) * env;
+                pose.tilt = 0.068 * env;
+                pose.blink_left = (if phase < 0.70 { 0.94 } else { 0.12 }) * env;
+                pose.blink_right = (if phase < 0.70 { 0.94 } else { 0.12 }) * env;
+                pose.wide_eyes = if phase >= 0.70 { 0.72 * env } else { 0.0 };
             }
             _ => {
-                pose.happy_eyes = 0.82 * env;
-                pose.tilt = -0.06 * s * env;
+                // warm-sip
+                pose.head_y = 0.015 * bell * env;
+                pose.happy_eyes = 0.76 * env;
+                pose.mouth_mode = IdleMouthMode::Hum;
+                pose.hand = IdleHandPose::Mug;
+                pose.hand_phase = env;
+                pose.prop = IdlePropKind::Steam;
+                pose.prop_phase = phase;
+            }
+        },
+        IdleAnimationSet::Idol => match action_index {
+            0 => {
+                // twintail-bounce
+                pose.head_y = (-0.052 * s2.abs() + if phase < 0.12 { 0.018 } else { 0.0 }) * env;
+                pose.hair_sway = shaped * 0.125 * env;
+                pose.squash_y = s2 * 0.048 * env;
+                pose.happy_eyes = 0.7 * env;
+                pose.mouth_mode = IdleMouthMode::Grin;
+            }
+            1 => {
+                // idol-peace
+                pose.tilt = -0.092 * env;
+                pose.blink_left = 0.94 * env;
+                pose.mouth_mode = IdleMouthMode::Grin;
+                pose.hand = IdleHandPose::Peace;
+                pose.hand_phase = env;
+                pose.prop = IdlePropKind::Sparkle;
+                pose.prop_phase = phase;
+            }
+            2 => {
+                // star-cheer
+                pose.head_y = (-0.044 * s2.abs() + if phase < 0.12 { 0.015 } else { 0.0 }) * env;
+                pose.wide_eyes = 0.6 * env;
+                pose.mouth_mode = IdleMouthMode::Grin;
+                pose.hand = IdleHandPose::Cheer;
+                pose.hand_phase = phase;
+                pose.prop = IdlePropKind::Sparkle;
+                pose.prop_phase = phase;
+            }
+            3 => {
+                // mic-hum
+                pose.tilt = s * 0.082 * env;
+                pose.happy_eyes = 0.75 * env;
+                pose.mouth_mode = IdleMouthMode::Hum;
+                pose.prop = IdlePropKind::Note;
+                pose.prop_phase = phase;
+            }
+            4 => {
+                // ahoge-boing
+                pose.ahoge_bounce = shaped * 0.11 * env;
+                pose.wide_eyes = 0.5 * env;
+                pose.mouth_mode = IdleMouthMode::O;
+            }
+            _ => {
+                // curtsy-bow
+                pose.head_y = 0.056 * bell * env;
+                pose.squash_y = -0.032 * bell * env;
+                pose.happy_eyes = 0.92 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.hair_sway = 0.058 * bell * env;
+            }
+        },
+        IdleAnimationSet::Neko => match action_index {
+            0 => {
+                // ear-flick
+                pose.ear_left = (if phase < 0.45 { (phase * PI * 5.0).sin() * 0.2 } else { 0.0 }) * env;
+                pose.ear_right = (if phase >= 0.45 { ((phase - 0.45) * PI * 5.0).sin() * 0.2 } else { 0.0 }) * env;
+                pose.gaze_x = (if phase < 0.45 { -0.48 } else { 0.48 }) * env;
+                pose.mouth_mode = IdleMouthMode::Cat;
+            }
+            1 => {
+                // paw-swipe
+                pose.tilt = -0.072 * env;
+                pose.mouth_mode = IdleMouthMode::Cat;
+                pose.hand = IdleHandPose::PawSwipe;
+                pose.hand_phase = phase;
+            }
+            2 => {
+                // tail-swish
+                pose.tail_wag = s * 1.0 * env;
+                pose.mouth_mode = IdleMouthMode::Cat;
+                pose.happy_eyes = 0.5 * env;
+            }
+            3 => {
+                // prowl-crouch
+                pose.head_y = 0.052 * bell * env;
+                pose.squash_y = -0.052 * bell * env;
+                pose.squint_eyes = 0.68 * env;
+                pose.gaze_x = s * 0.58 * env;
+                pose.mouth_mode = IdleMouthMode::Cat;
+            }
+            4 => {
+                // purr-curl
+                pose.happy_eyes = 0.96 * env;
+                pose.tilt = 0.062 * s * env;
+                pose.mouth_mode = IdleMouthMode::Cat;
+                pose.prop = IdlePropKind::Heart;
+                pose.prop_phase = phase;
+            }
+            _ => {
+                // ear-groom
+                pose.tilt = -0.112 * env;
+                pose.blink_left = 0.85 * env;
+                pose.ear_left = -0.14 * env;
+                pose.mouth_mode = IdleMouthMode::Cat;
+                pose.hand = IdleHandPose::PawSwipe;
+                pose.hand_phase = 0.5 + 0.3 * s;
+            }
+        },
+        IdleAnimationSet::Trickster => match action_index {
+            0 => {
+                // floppy-ear-hop
+                pose.head_y = (-0.062 * s2.abs() + if phase < 0.12 { 0.02 } else { 0.0 }) * env;
+                pose.ear_left = shaped * 0.18 * env;
+                pose.ear_right = -shaped * 0.18 * env;
+                pose.squash_y = s2 * 0.048 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+            }
+            1 => {
+                // kitsune-peek
+                pose.tilt = 0.088 * bell * env;
+                pose.happy_eyes = 0.6 * env;
+                pose.hand = IdleHandPose::Peek;
+                pose.hand_phase = env;
+            }
+            2 => {
+                // orb-juggle
+                pose.gaze_y = -0.18 * env;
+                pose.mouth_mode = IdleMouthMode::Smile;
+                pose.hand = IdleHandPose::Juggle;
+                pose.hand_phase = phase;
+                pose.prop = IdlePropKind::Orb;
+                pose.prop_phase = phase;
+            }
+            3 => {
+                // cheek-puff
+                pose.tilt = -0.056 * bell * env;
+                pose.squint_eyes = 0.48 * env;
+                pose.mouth_mode = IdleMouthMode::O;
+                pose.hood_scale_x = 0.036 * env;
+            }
+            4 => {
+                // spin-perk
+                pose.head_x = s * 0.04 * env;
+                pose.tilt = s * 0.105 * env;
+                pose.hair_sway = -s * 0.095 * env;
+                pose.tail_wag = s * 0.85 * env;
+                pose.happy_eyes = 0.85 * env;
+            }
+            _ => {
+                // wave-hello
+                pose.tilt = (-0.068 + s2 * 0.015) * env;
+                pose.happy_eyes = 0.88 * env;
+                pose.mouth_mode = IdleMouthMode::Grin;
+                pose.hand = IdleHandPose::Wave;
+                pose.hand_phase = phase;
             }
         },
     }
     pose
+}
+
+/// Evaluates a character's 6-action separated idle animation loop at `offset_time`.
+/// Each action occupies a 4.0s window: 0.00-3.15s active motion + 3.15-4.00s calm neutral rest.
+pub fn evaluate_idle_action_step(set: IdleAnimationSet, offset_time: f32, reduced_motion: bool) -> IdleActionFrame {
+    let meta = idle_set_meta(set);
+    let safe_time = if offset_time.is_finite() { offset_time } else { 0.0 };
+    let wrapped = safe_time.rem_euclid(IDLE_FULL_LOOP_SECONDS);
+    let action_index = ((wrapped / IDLE_ACTION_SLOT_SECONDS).floor() as usize).min(IDLE_ACTIONS_PER_SET - 1);
+    let local_t = wrapped - action_index as f32 * IDLE_ACTION_SLOT_SECONDS;
+    let action_def = meta.actions[action_index];
+
+    if reduced_motion || local_t >= IDLE_ACTIVE_END_SECONDS {
+        return IdleActionFrame {
+            set_id: meta.id,
+            action_index,
+            action_id: action_def.id,
+            action_label: action_def.label,
+            is_resting: true,
+            envelope: 0.0,
+            phase: 0.0,
+            pose: NEUTRAL_IDLE_POSE,
+        };
+    }
+
+    let envelope = if local_t < IDLE_EASE_IN_SECONDS {
+        smootherstep(0.0, IDLE_EASE_IN_SECONDS, local_t)
+    } else if local_t > IDLE_EASE_OUT_START_SECONDS {
+        1.0 - smootherstep(IDLE_EASE_OUT_START_SECONDS, IDLE_ACTIVE_END_SECONDS, local_t)
+    } else {
+        1.0
+    };
+
+    let phase = clamp01(local_t / IDLE_ACTIVE_END_SECONDS);
+    let pose = build_pose_for_action(meta.id, action_index, envelope, phase);
+    IdleActionFrame {
+        set_id: meta.id,
+        action_index,
+        action_id: action_def.id,
+        action_label: action_def.label,
+        is_resting: false,
+        envelope,
+        phase,
+        pose,
+    }
+}
+
+/// Idle pose for the SDF renderer — projection of the full 36-action TS idle loop.
+pub fn evaluate_idle_pose(shape: CanvasShapeKind, time: f32, reduced_motion: bool) -> IdlePose {
+    evaluate_idle_action_step(resolve_idle_set(shape), time, reduced_motion).pose
 }
 
 pub fn evaluate_shape_sdf(shape: CanvasShapeKind, x: f32, y: f32, pose: &IdlePose) -> f32 {
@@ -487,6 +951,24 @@ pub fn render_canvas_dot_rgba(
         };
     let ct = tilt.cos();
     let st = tilt.sin();
+
+    // Turn-coupled saccade eye-lead: idle action gaze wins, then thinking scan,
+    // then VOR fixation holds with a lead proportional to head tilt
+    // (TS: turnLead = clamp(-dragTilt * 1.15, -0.14, 0.14)).
+    let (gaze_tx, gaze_ty) = if pose.gaze_x.abs() > 0.02 || pose.gaze_y.abs() > 0.02 {
+        (pose.gaze_x, pose.gaze_y)
+    } else if is_thinking {
+        let step_phase = (time * 1.15).floor();
+        ((step_phase * 1.9).sin() * 0.52, -0.34 + (step_phase * 1.3).cos() * 0.08)
+    } else {
+        let idle_fix = (time * 0.72).floor() as i64;
+        let turn_lead = (-tilt * 1.15).clamp(-0.14, 0.14);
+        let gx = if (idle_fix * 7).rem_euclid(3) == 0 { (idle_fix as f32 * 2.1).sin() * 0.22 } else { 0.0 } + turn_lead;
+        let gy = if (idle_fix * 5).rem_euclid(4) == 0 { -0.10 } else { 0.02 };
+        (gx, gy)
+    };
+    let gx = gaze_tx.clamp(-1.0, 1.0) * 0.022;
+    let gy = gaze_ty.clamp(-1.0, 1.0) * 0.018;
     let mouth_open = if is_speaking {
         match viseme {
             MouthViseme::Closed => 0.0,
@@ -582,15 +1064,16 @@ pub fn render_canvas_dot_rgba(
 
             let mut lum = if in_face {
                 let mut f_lum = 0.68;
-                // Eyes
-                let eye_y = face_cy;
-                let left_ex = face_cx - 0.135;
-                let right_ex = face_cx + 0.135;
+                // Eyes (gaze-shifted with turn-coupled lead, per-eye idle blinks)
+                let eye_y = face_cy + gy;
+                let left_ex = face_cx - 0.135 + gx;
+                let right_ex = face_cx + 0.135 + gx;
                 if (ny - eye_y).abs() < 0.095 {
                     let is_left = (nx - left_ex).abs() < (nx - right_ex).abs();
                     let ex = if is_left { left_ex } else { right_ex };
                     let eye_rx = 0.068_f32;
-                    let eye_ry = 0.078_f32 * (1.0 - blink.max(if !is_left { pose.wink_right } else { 0.0 }) * 0.88);
+                    let eye_blink = if is_left { pose.blink_left } else { pose.blink_right };
+                    let eye_ry = 0.078_f32 * (1.0 - blink.max(eye_blink) * 0.88);
                     let dx_e = nx - ex;
                     let dy_e = ny - eye_y;
                     if pose.happy_eyes > 0.45 && blink < 0.4 {
