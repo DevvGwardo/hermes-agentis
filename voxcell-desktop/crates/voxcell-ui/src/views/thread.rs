@@ -379,9 +379,11 @@ fn build_trace_row(
                 );
             if !step.timestamp.is_empty() {
                 step_row = step_row.child(
+                    // Uphill a11y: HH:MM timestamps were text_faint (~2.5:1);
+                    // accent_soft is the brighter existing token (~10:1).
                     text(step.timestamp.clone())
                         .font(theme.mono_sm)
-                        .color(theme.text_faint),
+                        .color(theme.accent_soft),
                 );
             }
             step_row = step_row.child(
@@ -465,7 +467,9 @@ fn build_entry_row(_state: &AppState, theme: &VoxcellTheme, id: &str, entry: &Te
                                 entry.timestamp.clone()
                             })
                             .font(theme.mono_sm)
-                            .color(theme.text_faint),
+                            // Uphill a11y: brighter existing token (accent_soft)
+                            // instead of text_faint so HH:MM clears WCAG 3.0.
+                            .color(theme.accent_soft),
                         ),
                 )
                 .child(
@@ -510,8 +514,25 @@ fn build_minimap_rail(
             }
         };
         let anchor = t.anchor_id.clone();
+        // Uphill a11y: every tick is a pressable jump target, so it must carry an
+        // accessible name (rune El::label -> AccessKit name, the same API the
+        // committed sidebar/settings controls use). The name is built from the
+        // core::thread minimap data: turn number + status role (+ turn title).
+        let status_word = match t.status {
+            voxcell_core::thread::MinimapTurnStatus::Live => "live",
+            voxcell_core::thread::MinimapTurnStatus::Error => "error",
+            voxcell_core::thread::MinimapTurnStatus::Budget => "budget",
+            voxcell_core::thread::MinimapTurnStatus::Cancelled => "cancelled",
+            voxcell_core::thread::MinimapTurnStatus::Done => "done",
+        };
+        let mut tick_name = format!("Turn {} \u{b7} {}", t.turn_number, status_word);
+        if !t.title.is_empty() {
+            tick_name.push_str(" \u{2014} ");
+            tick_name.push_str(&t.title);
+        }
         ticks = ticks.child(
             el().key(format!("minimap-tick-{}", t.anchor_id))
+                .label(tick_name)
                 .w(if is_active { 18.0 } else { 12.0 })
                 .h(6.0)
                 .radius(3.0)
@@ -1558,5 +1579,201 @@ mod tests {
             rt.state.thread_scroll.scroll_y
         );
         assert!(built_row_keys(&rt).contains(&"u000".to_string()));
+    }
+
+    // ---- Uphill a11y: minimap tick names + timestamp contrast ----
+
+    /// (role, name, key) triples from rune's AccessKit JSON — the same walk
+    /// uphill's `audit_a11y` uses, so these tests assert on the real a11y tree.
+    fn a11y_nodes(rt: &Runtime<AppState>) -> Vec<(String, String, String)> {
+        fn walk(v: &serde_json::Value, out: &mut Vec<(String, String, String)>) {
+            match v {
+                serde_json::Value::Object(map) => {
+                    if let Some(role) = map.get("role").and_then(|r| r.as_str()) {
+                        out.push((
+                            role.to_string(),
+                            map.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                            map.get("key").and_then(|k| k.as_str()).unwrap_or("").to_string(),
+                        ));
+                    }
+                    for (k, child) in map {
+                        if k != "role" && k != "name" && k != "key" {
+                            walk(child, out);
+                        }
+                    }
+                }
+                serde_json::Value::Array(items) => {
+                    for child in items {
+                        walk(child, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut out = Vec::new();
+        walk(&rt.accessibility_json(), &mut out);
+        out
+    }
+
+    /// HH:MM transcript/step timestamp, the shape uphill's contrast audit keys on.
+    fn is_hhmm(t: &str) -> bool {
+        let b = t.trim().as_bytes();
+        b.len() == 5 && b[2] == b':' && b[..2].iter().chain(b[3..].iter()).all(|c| c.is_ascii_digit())
+    }
+
+    fn composite_over(fg: [f32; 4], bg: [f32; 4]) -> [f32; 4] {
+        let a = fg[3];
+        [
+            fg[0] * a + bg[0] * (1.0 - a),
+            fg[1] * a + bg[1] * (1.0 - a),
+            fg[2] * a + bg[2] * (1.0 - a),
+            1.0,
+        ]
+    }
+
+    fn srgb_luminance(r: f32, g: f32, b: f32) -> f64 {
+        fn chan(c: f32) -> f64 {
+            let c = c as f64;
+            if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+        }
+        0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b)
+    }
+
+    fn has_ancestor_key(rt: &Runtime<AppState>, idx: usize, key: &str) -> bool {
+        let elements = rt.elements();
+        let mut cur = elements[idx].parent;
+        while let Some(i) = cur {
+            if elements[i].key.as_deref() == Some(key) {
+                return true;
+            }
+            cur = elements[i].parent;
+        }
+        false
+    }
+
+    /// WCAG ratio of text node `idx` against its ancestor fills folded over the
+    /// window clear color (uphill `audit_contrast`'s background model).
+    fn contrast_ratio(rt: &Runtime<AppState>, idx: usize) -> f64 {
+        let elements = rt.elements();
+        let e = &elements[idx];
+        let tc = e.text_color.expect("text node carries a color");
+        let clear = rt.clear_color();
+        let mut chain = Vec::new();
+        let mut cur = e.parent;
+        while let Some(i) = cur {
+            chain.push(i);
+            cur = elements[i].parent;
+        }
+        let mut bg = [clear[0], clear[1], clear[2], 1.0];
+        for i in chain.iter().rev() {
+            let f = elements[*i].fill;
+            if f.a <= 0.001 {
+                continue;
+            }
+            bg = composite_over([f.r, f.g, f.b, f.a * elements[*i].opacity], bg);
+        }
+        let fg = composite_over([tc.r, tc.g, tc.b, tc.a * e.opacity], bg);
+        let l1 = srgb_luminance(fg[0], fg[1], fg[2]);
+        let l2 = srgb_luminance(bg[0], bg[1], bg[2]);
+        let (hi, lo) = if l1 >= l2 { (l1, l2) } else { (l2, l1) };
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    /// Every visible HH:MM timestamp (optionally restricted to the subtree under
+    /// `ancestor_key`) must use the brighter existing `accent_soft` token and
+    /// clear WCAG 3.0. Returns how many timestamps were checked.
+    fn assert_timestamp_contrast(rt: &Runtime<AppState>, ancestor_key: Option<&str>) -> usize {
+        let theme = VoxcellTheme::from_config(&rt.state.ui_config);
+        let elements = rt.elements();
+        let mut checked = 0;
+        for (i, e) in elements.iter().enumerate() {
+            let Some(t) = e.text.as_deref() else { continue };
+            if !is_hhmm(t) || e.exiting || e.rect[2] <= 0.5 || e.visible[2] <= 0.5 {
+                continue;
+            }
+            if let Some(key) = ancestor_key {
+                if !has_ancestor_key(rt, i, key) {
+                    continue;
+                }
+            }
+            checked += 1;
+            assert_eq!(
+                e.text_color,
+                Some(theme.accent_soft),
+                "timestamp {t:?} must use the brighter existing accent_soft token"
+            );
+            assert_ne!(
+                e.text_color,
+                Some(theme.text_faint),
+                "timestamp {t:?} must not regress to text_faint (~2.5:1)"
+            );
+            let ratio = contrast_ratio(rt, i);
+            assert!(ratio >= 3.0, "timestamp {t:?} contrast {ratio:.2} must be >= 3.0");
+        }
+        checked
+    }
+
+    #[test]
+    fn thread_minimap_ticks_expose_turn_names_in_accesskit() {
+        let mut s = thread_state();
+        push_many_entries(&mut s, 0, 12);
+        let rt = boot(s, (1280.0, 800.0));
+        let blocks = thread_timeline(&rt.state);
+        let turns = extract_thread_minimap_turns(&blocks);
+        assert!(!turns.is_empty(), "minimap data must exist for the injected turns");
+
+        let nodes = a11y_nodes(&rt);
+        let tick_nodes: Vec<&(String, String, String)> =
+            nodes.iter().filter(|(_, _, k)| k.starts_with("minimap-tick-")).collect();
+        assert_eq!(tick_nodes.len(), turns.len(), "one AccessKit node per minimap tick");
+
+        for t in &turns {
+            let key = format!("minimap-tick-{}", t.anchor_id);
+            let node = nodes
+                .iter()
+                .find(|(_, _, k)| k == &key)
+                .unwrap_or_else(|| panic!("tick {key} missing from the AccessKit tree"));
+            assert_eq!(node.0, "button", "tick {key} keeps its button role");
+            let status = match t.status {
+                voxcell_core::thread::MinimapTurnStatus::Live => "live",
+                voxcell_core::thread::MinimapTurnStatus::Error => "error",
+                voxcell_core::thread::MinimapTurnStatus::Budget => "budget",
+                voxcell_core::thread::MinimapTurnStatus::Cancelled => "cancelled",
+                voxcell_core::thread::MinimapTurnStatus::Done => "done",
+            };
+            let mut expected = format!("Turn {} \u{b7} {}", t.turn_number, status);
+            if !t.title.is_empty() {
+                expected.push_str(&format!(" \u{2014} {}", t.title));
+            }
+            assert_eq!(node.1, expected, "tick {key} AccessKit name from core minimap data");
+            assert!(!node.1.trim().is_empty(), "tick {key} must not be a screen-reader dead end");
+            let el = rt
+                .elements()
+                .into_iter()
+                .find(|e| e.key.as_deref() == Some(key.as_str()))
+                .unwrap_or_else(|| panic!("tick element {key} must be mounted"));
+            assert_eq!(el.label.as_deref(), Some(expected.as_str()), "El::label feeds the a11y name");
+        }
+    }
+
+    #[test]
+    fn thread_message_timestamps_use_accent_soft_and_clear_wcag_3() {
+        let mut s = thread_state();
+        push_many_entries(&mut s, 0, 6);
+        let rt = boot(s, (1280.0, 800.0));
+        let checked = assert_timestamp_contrast(&rt, None);
+        assert!(checked >= 2, "expected visible HH:MM message timestamps, checked {checked}");
+    }
+
+    #[test]
+    fn thread_trace_step_timestamps_use_accent_soft_and_clear_wcag_3() {
+        let mut rt = boot(thread_state(), (1280.0, 800.0));
+        // Preset "thread" ships trace-e2 (reasoning + tool steps); expand it with
+        // the same gesture the collapse test uses so step timestamps mount.
+        assert!(rt.find("trace-e2").is_some(), "trace row must exist");
+        click_text(&mut rt, "2 steps");
+        assert!(rt.state.thread_expanded_traces.contains("trace-e2"), "trace expanded");
+        let checked = assert_timestamp_contrast(&rt, Some("trace-e2"));
+        assert!(checked >= 1, "expanded trace must show step timestamps, checked {checked}");
     }
 }
