@@ -330,6 +330,13 @@ pub fn render_home(state: &AppState, theme: &VoxcellTheme, _cx: &mut Cx<AppState
     };
     let stage_portrait = el()
         .key("home-portrait-stage")
+        // P5 uphill-a11y: the portrait surface must carry an AccessKit name
+        // describing the character state (rune El::label, same API as sidebar).
+        .label(format!(
+            "Companion portrait — {:?} mood{}",
+            expr.mood,
+            if expr.is_speaking { ", speaking" } else { "" }
+        ))
         .w(pw)
         .h(ph)
         .radius(16.0)
@@ -1304,5 +1311,76 @@ mod tests {
             })
             .count();
         assert!(lit > 1_000, "GPU dots must rasterize (got {lit} lit pixels)");
+    }
+
+    // ── P5 uphill-audit fix: portrait stage accessible name ────
+
+    /// Walk the AccessKit JSON like voxcell-uphill's `audit_a11y`:
+    /// collect (role, name, key) for every node that carries a role.
+    fn a11y_nodes(tree: &serde_json::Value, out: &mut Vec<(String, String, String)>) {
+        match tree {
+            serde_json::Value::Object(map) => {
+                if let Some(role) = map.get("role").and_then(|r| r.as_str()) {
+                    out.push((
+                        role.to_string(),
+                        map.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                        map.get("key").and_then(|k| k.as_str()).unwrap_or("").to_string(),
+                    ));
+                }
+                for (k, child) in map {
+                    if k != "role" && k != "name" && k != "key" {
+                        a11y_nodes(child, out);
+                    }
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for child in items {
+                    a11y_nodes(child, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn home_portrait_stage_is_named_in_accesskit_tree() {
+        let mut s = AppState::new();
+        s.apply_scene_preset("idle");
+        let mut rt = Runtime::new(s, home_view, (1280.0, 800.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.016);
+        let stage = rt
+            .elements()
+            .into_iter()
+            .find(|e| e.key.as_deref() == Some("home-portrait-stage"))
+            .expect("portrait stage");
+        let label = stage.label.as_deref().expect("stage carries a label");
+        assert!(label.contains("Companion portrait"), "label: {label}");
+        assert!(label.contains("mood"), "label: {label}");
+
+        // Audit method: the name must surface in accessibility_json.
+        let mut nodes = Vec::new();
+        a11y_nodes(&rt.accessibility_json(), &mut nodes);
+        let node = nodes
+            .iter()
+            .find(|(_, _, k)| k == "home-portrait-stage")
+            .expect("stage present in AccessKit tree");
+        assert_eq!(node.1.trim(), label);
+
+        // Speaking state is reflected in the accessible name.
+        rt.update(|s, _tx| {
+            s.apply_scene_preset("speaking");
+        });
+        rt.frame(0.016);
+        let stage = rt
+            .elements()
+            .into_iter()
+            .find(|e| e.key.as_deref() == Some("home-portrait-stage"))
+            .expect("portrait stage");
+        assert!(
+            stage.label.as_deref().unwrap_or("").contains("speaking"),
+            "speaking label: {:?}",
+            stage.label
+        );
     }
 }

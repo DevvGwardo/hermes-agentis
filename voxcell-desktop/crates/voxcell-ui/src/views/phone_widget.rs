@@ -125,6 +125,12 @@ pub fn render_phone_widget(state: &AppState, theme: &VoxcellTheme, _cx: &mut Cx<
         .child(timer_row)
         .child(
             el().key("phone-portrait-box")
+                // P5 uphill-a11y: name the call portrait for AccessKit.
+                .label(format!(
+                    "Call portrait — {:?} mood{}",
+                    state.stage_mood,
+                    if state.audio.is_speaking { ", speaking" } else { "" }
+                ))
                 .w_full()
                 .grow(1.0)
                 .min_h(0.0)
@@ -299,5 +305,57 @@ mod tests {
         s.phone_widget_open = true;
         s.sync_phone_call_timer();
         assert_eq!(s.phone_call_started_ms, Some(s.now_ms));
+    }
+
+    // ── P5 uphill-audit fix: call portrait accessible name ────
+
+    /// Walk the AccessKit JSON like voxcell-uphill's `audit_a11y`:
+    /// collect (role, name, key) for every node that carries a role.
+    fn a11y_nodes(tree: &serde_json::Value, out: &mut Vec<(String, String, String)>) {
+        match tree {
+            serde_json::Value::Object(map) => {
+                if let Some(role) = map.get("role").and_then(|r| r.as_str()) {
+                    out.push((
+                        role.to_string(),
+                        map.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                        map.get("key").and_then(|k| k.as_str()).unwrap_or("").to_string(),
+                    ));
+                }
+                for (k, child) in map {
+                    if k != "role" && k != "name" && k != "key" {
+                        a11y_nodes(child, out);
+                    }
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for child in items {
+                    a11y_nodes(child, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn phone_portrait_box_is_named_in_accesskit_tree() {
+        let mut rt = Runtime::new(phone_state(), render_phone_window, (320.0, 420.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let bx = rt
+            .elements()
+            .into_iter()
+            .find(|e| e.key.as_deref() == Some("phone-portrait-box"))
+            .expect("portrait box");
+        let label = bx.label.as_deref().expect("box carries a label");
+        assert!(label.contains("Call portrait"), "label: {label}");
+        assert!(label.contains("mood"), "label: {label}");
+
+        // Audit method: the name must surface in accessibility_json.
+        let mut nodes = Vec::new();
+        a11y_nodes(&rt.accessibility_json(), &mut nodes);
+        let node = nodes
+            .iter()
+            .find(|(_, _, k)| k == "phone-portrait-box")
+            .expect("box present in AccessKit tree");
+        assert_eq!(node.1.trim(), label);
     }
 }
