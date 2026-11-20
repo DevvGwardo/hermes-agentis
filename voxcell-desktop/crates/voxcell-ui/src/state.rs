@@ -78,6 +78,34 @@ pub enum UiCommand {
     // P4-02 (phone-tray, append-only): end the phone call — stop active runs,
     // drop the mic and close the widget. Side effects live in app/bridge.rs.
     PhoneHangup,
+    // P5 queue-forms (append-only): deferred Operations forms. Explicit bridge
+    // arms live in app/bridge.rs before the wildcard fallback.
+    /// New-Job form submit (web onCreateJob -> POST /api/jobs).
+    CreateJob {
+        name: String,
+        schedule: String,
+        prompt: String,
+    },
+    /// Add-Profile form submit. `api_key` is a transient payload for the bridge
+    /// store seam only — it is NEVER retained in AppState (redacted summaries).
+    RegisterProfile {
+        id: String,
+        mode: String,
+        base_url: String,
+        api_key: String,
+    },
+    /// Confirmed Delete-Profile (custom registrations only; default protected).
+    DeleteProfile {
+        id: String,
+    },
+    /// Transport-mode toggle (web onChangeTransportMode).
+    SetTransportMode {
+        mode: GatewayTransport,
+    },
+    /// Header session switcher (web onSelectChannel).
+    SwitchSession {
+        channel_id: String,
+    },
 }
 
 pub struct AppState {
@@ -295,6 +323,48 @@ pub struct AppState {
     pub canvas_dragging_dot: Option<String>,
     /// P4-01 canvas: dragged dot's design-space origin at gesture start.
     pub canvas_drag_origin: Option<(f32, f32)>,
+
+    /// P5 queue-forms: New-Job form visibility (web showNewJobForm).
+    pub queue_new_job_open: bool,
+    /// P5 queue-forms: New-Job optional name draft.
+    pub queue_job_name_edit: TextEdit,
+    /// P5 queue-forms: New-Job cron schedule draft (web default `0 9 * * *`).
+    pub queue_job_schedule_edit: TextEdit,
+    /// P5 queue-forms: New-Job prompt draft.
+    pub queue_job_prompt_edit: TextEdit,
+    /// P5 queue-forms: job create in flight (web jobBusyId === 'create').
+    pub queue_job_busy: bool,
+    /// P5 queue-forms: job form error banner (web jobError).
+    pub queue_job_error: Option<String>,
+    /// P5 queue-forms: Add-Profile form visibility (web showAddProfileForm).
+    pub queue_add_profile_open: bool,
+    /// P5 queue-forms: profile slug draft.
+    pub queue_profile_slug_edit: TextEdit,
+    /// P5 queue-forms: gateway mode draft ("multiplexed" | "standalone").
+    pub queue_profile_mode: String,
+    /// P5 queue-forms: standalone gateway URL draft.
+    pub queue_profile_url_edit: TextEdit,
+    /// P5 queue-forms: TRANSIENT profile API-key draft (masked input). Cleared
+    /// on submit/cancel; the raw key travels only inside RegisterProfile to the
+    /// bridge store seam — registered profiles are redacted summaries only.
+    pub queue_profile_key_edit: TextEdit,
+    /// P5 queue-forms: profile save/delete in flight (web profileBusy).
+    pub queue_profile_busy: bool,
+    /// P5 queue-forms: profile form error banner (web profileError).
+    pub queue_profile_error: Option<String>,
+    /// P5 queue-forms: UI-registered custom profiles — REDACTED summaries only
+    /// (voxcell_hermes::profiles::HermesProfileSummary; never raw keys).
+    pub queue_registered_profiles: Vec<voxcell_hermes::profiles::HermesProfileSummary>,
+    /// P5 queue-forms: profile id awaiting delete confirmation (None = closed).
+    pub queue_delete_confirm: Option<String>,
+
+    /// P5 native-chrome (spec P3-01 gap): frameless OS-chrome switch. When
+    /// true, main.rs declares `App::titlebar` at startup (rune replaces the
+    /// native titlebar; Windows keeps resize edges, Aero Snap and caption
+    /// buttons) and the in-app 46px titlebar becomes the `.window_drag()`
+    /// region. Persisted via main.rs's local config seam; the frame swap
+    /// applies at next launch (rune's titlebar declaration is creation-time).
+    pub native_chrome: bool,
 }
 
 impl Default for AppState {
@@ -519,6 +589,22 @@ impl AppState {
             canvas_pan_drag: None,
             canvas_dragging_dot: None,
             canvas_drag_origin: None,
+            queue_new_job_open: false,
+            queue_job_name_edit: TextEdit::default(),
+            queue_job_schedule_edit: TextEdit::new("0 9 * * *"),
+            queue_job_prompt_edit: TextEdit::default(),
+            queue_job_busy: false,
+            queue_job_error: None,
+            queue_add_profile_open: false,
+            queue_profile_slug_edit: TextEdit::default(),
+            queue_profile_mode: "multiplexed".to_string(),
+            queue_profile_url_edit: TextEdit::default(),
+            queue_profile_key_edit: TextEdit::default(),
+            queue_profile_busy: false,
+            queue_profile_error: None,
+            queue_registered_profiles: Vec::new(),
+            queue_delete_confirm: None,
+            native_chrome: false,
         };
         state.step_animations(0.016);
         state
@@ -2277,7 +2363,7 @@ impl AppState {
     /// `has_api_key: bool` ever surfaces — raw bearer tokens never reach the UI.
     pub fn queue_profile_summaries(&self) -> Vec<voxcell_hermes::profiles::HermesProfileSummary> {
         use voxcell_hermes::profiles::{HermesProfileMode, HermesProfileSource, HermesProfileSummary};
-        self.gateway_profiles
+        let mut out: Vec<HermesProfileSummary> = self.gateway_profiles
             .iter()
             .map(|p| {
                 let standalone = p.source == "standalone";
@@ -2313,7 +2399,15 @@ impl AppState {
                     error: if p.online { None } else { self.gateway.last_error.clone() },
                 }
             })
-            .collect()
+            .collect();
+        // P5 queue-forms: append UI-registered custom profiles (redacted
+        // summaries only). Gateway-discovered ids win over local registrations.
+        for reg in &self.queue_registered_profiles {
+            if !out.iter().any(|p| p.id == reg.id) {
+                out.push(reg.clone());
+            }
+        }
+        out
     }
 
     /// Parallel lane count for a profile from the sidebar session badges.
@@ -3065,5 +3159,235 @@ impl AppState {
         self.canvas_drag_origin = None;
         self.canvas_sync_sessions();
         self.pending_commands.push(UiCommand::PersistDots);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P5 queue-forms (append-only, workstream 4 'queue-forms'): deferred Operations
+// forms — New-Job, Add/Delete-Profile, transport toggle, header session switch.
+// Raw profile keys live only in the transient key draft and the RegisterProfile
+// command payload; registered profiles are stored as redacted summaries built
+// by the voxcell_hermes::profiles catalog pipeline (never raw keys in state).
+// ---------------------------------------------------------------------------
+impl AppState {
+    /// Toggle the New-Job form (web showNewJobForm); clears stale errors.
+    pub fn queue_toggle_new_job_form(&mut self) {
+        self.queue_new_job_open = !self.queue_new_job_open;
+        self.queue_job_error = None;
+    }
+
+    /// Close the New-Job form without submitting (web Cancel).
+    pub fn queue_cancel_new_job(&mut self) {
+        self.queue_new_job_open = false;
+        self.queue_job_error = None;
+    }
+
+    /// Validate + dispatch CreateJob. Empty prompt/schedule mirror the web
+    /// disabled-submit guard; an offline gateway is rejected locally with a
+    /// form error (no command queued, no network attempt).
+    pub fn queue_submit_new_job(&mut self) {
+        if self.queue_job_busy {
+            return;
+        }
+        let prompt = self.queue_job_prompt_edit.text.trim().to_string();
+        let schedule = self.queue_job_schedule_edit.text.trim().to_string();
+        if prompt.is_empty() || schedule.is_empty() {
+            self.queue_job_error =
+                Some("Enter a job prompt and a cron schedule.".to_string());
+            return;
+        }
+        if !self.gateway.online {
+            self.queue_job_error =
+                Some("Gateway offline — connect before creating jobs.".to_string());
+            return;
+        }
+        let name = self.queue_job_name_edit.text.trim().to_string();
+        self.queue_job_error = None;
+        self.queue_job_busy = true;
+        self.pending_commands.push(UiCommand::CreateJob {
+            name,
+            schedule,
+            prompt,
+        });
+    }
+
+    /// Apply the bridge CreateJob outcome (BridgeEvent::JobFormOutcome):
+    /// success clears name/prompt drafts and closes the form (web parity,
+    /// schedule kept); failure surfaces the error banner and re-enables submit.
+    pub fn queue_apply_job_outcome(&mut self, result: Result<(), String>) {
+        self.queue_job_busy = false;
+        match result {
+            Ok(()) => {
+                self.queue_job_error = None;
+                self.queue_job_name_edit.clear();
+                self.queue_job_prompt_edit.clear();
+                self.queue_new_job_open = false;
+            }
+            Err(e) => self.queue_job_error = Some(e),
+        }
+    }
+
+    /// Toggle the Add-Profile form (web showAddProfileForm).
+    pub fn queue_toggle_add_profile_form(&mut self) {
+        self.queue_add_profile_open = !self.queue_add_profile_open;
+        self.queue_profile_error = None;
+    }
+
+    /// Close the Add-Profile form, dropping the transient key draft.
+    pub fn queue_cancel_add_profile(&mut self) {
+        self.queue_add_profile_open = false;
+        self.queue_profile_error = None;
+        self.queue_profile_key_edit.clear();
+    }
+
+    /// Register a custom profile through voxcell_hermes::profiles: reserved-slug
+    /// guard + slug normalization, then a redacted summary from the real catalog
+    /// pipeline. The raw key travels only in the RegisterProfile command payload
+    /// (bridge store seam) and is cleared from the draft immediately.
+    pub fn queue_submit_profile(&mut self) {
+        use voxcell_hermes::profiles::{
+            HermesProfileDefinition, HermesProfileMode, HermesProfileSource,
+            build_profile_catalog, is_valid_custom_profile_slug, is_valid_http_url,
+            normalize_profile_id,
+        };
+        if self.queue_profile_busy {
+            return;
+        }
+        let raw = self.queue_profile_slug_edit.text.trim().to_lowercase();
+        if raw.is_empty() {
+            self.queue_profile_error =
+                Some("Enter a profile slug (e.g. coder, research).".to_string());
+            return;
+        }
+        // Normalize FIRST (TS normalizeProfileId semantics): "Coder Agent!" ->
+        // "coder-agent"; the reserved/validity guard then runs on the normalized
+        // slug, and inputs that collapse to empty/"default" are still rejected.
+        let id = normalize_profile_id(Some(&raw));
+        if !is_valid_custom_profile_slug(Some(&id)) {
+            self.queue_profile_error =
+                Some(format!("Invalid or reserved profile slug: {id}"));
+            return;
+        }
+        if self.queue_registered_profiles.iter().any(|p| p.id == id)
+            || self.gateway_profiles.iter().any(|p| p.name == id)
+        {
+            self.queue_profile_error = Some(format!("Profile @{id} already exists."));
+            return;
+        }
+        let standalone = self.queue_profile_mode == "standalone";
+        let base_url = self.queue_profile_url_edit.text.trim().to_string();
+        if standalone && base_url.is_empty() {
+            self.queue_profile_error = Some(
+                "Standalone profiles need a gateway URL (e.g. http://127.0.0.1:8643)."
+                    .to_string(),
+            );
+            return;
+        }
+        if standalone && !is_valid_http_url(Some(&base_url)) {
+            self.queue_profile_error = Some(format!("Invalid gateway URL: {base_url}"));
+            return;
+        }
+        let api_key = self.queue_profile_key_edit.text.trim().to_string();
+        let mode = if standalone {
+            HermesProfileMode::Standalone
+        } else {
+            HermesProfileMode::Multiplexed
+        };
+        let mut def = HermesProfileDefinition::new(id.clone(), mode, HermesProfileSource::Custom)
+            .with_label(id.clone());
+        if standalone {
+            def = def.with_base_url(base_url.clone());
+        }
+        if !api_key.is_empty() {
+            def = def.with_api_key(api_key.clone());
+        }
+        // Multiplexed profiles inherit the primary gateway URL (web parity).
+        let mut env = HashMap::new();
+        if !self.gateway.base_url.is_empty() {
+            env.insert(
+                "HERMES_API_URL".to_string(),
+                self.gateway.base_url.clone(),
+            );
+        }
+        let catalog = build_profile_catalog(&env, &[], &[def]);
+        let Some(summary) = catalog.runtime(&id).map(|r| r.to_redacted_summary(None)) else {
+            self.queue_profile_error =
+                Some(format!("Profile @{id} could not be registered."));
+            return;
+        };
+        self.queue_profile_error = None;
+        self.queue_profile_busy = true;
+        self.queue_registered_profiles.push(summary);
+        self.pending_commands.push(UiCommand::RegisterProfile {
+            id,
+            mode: self.queue_profile_mode.clone(),
+            base_url,
+            api_key,
+        });
+        self.queue_profile_slug_edit.clear();
+        self.queue_profile_url_edit.clear();
+        self.queue_profile_key_edit.clear();
+        self.queue_add_profile_open = false;
+    }
+
+    /// Open the delete-confirm step for a custom profile (web confirm dialog).
+    /// The default profile can never be deleted.
+    pub fn queue_request_delete_profile(&mut self, id: &str) {
+        if id.is_empty() || id == "default" {
+            return;
+        }
+        self.queue_delete_confirm = Some(id.to_string());
+        self.queue_profile_error = None;
+    }
+
+    /// Dismiss the delete-confirm step without deleting.
+    pub fn queue_cancel_delete_profile(&mut self) {
+        self.queue_delete_confirm = None;
+    }
+
+    /// Confirmed delete: drop the redacted registration and dispatch the bridge
+    /// command (store key cleanup). Default profile is protected.
+    pub fn queue_confirm_delete_profile(&mut self) {
+        let Some(id) = self.queue_delete_confirm.take() else {
+            return;
+        };
+        if id == "default" {
+            self.queue_profile_error =
+                Some("The default profile cannot be deleted.".to_string());
+            return;
+        }
+        self.queue_registered_profiles.retain(|p| p.id != id);
+        self.queue_profile_busy = true;
+        self.queue_profile_error = None;
+        self.pending_commands.push(UiCommand::DeleteProfile { id });
+    }
+
+    /// Apply the bridge RegisterProfile/DeleteProfile persistence outcome.
+    pub fn queue_apply_profile_outcome(&mut self, result: Result<(), String>) {
+        self.queue_profile_busy = false;
+        if let Err(e) = result {
+            self.queue_profile_error = Some(e);
+        }
+    }
+
+    /// Transport-mode toggle (web onChangeTransportMode): update the transport
+    /// consumed by SendPrompt and dispatch the bridge client sync.
+    pub fn queue_set_transport(&mut self, mode: GatewayTransport) {
+        self.gateway.active_transport = mode;
+        self.pending_commands.push(UiCommand::SetTransportMode { mode });
+    }
+
+    /// Header session switcher (web onSelectChannel): focus another channel and
+    /// notify the bridge. Unknown/empty ids are ignored.
+    pub fn queue_switch_session(&mut self, channel_id: &str) {
+        if channel_id.is_empty()
+            || !self.channels.iter().any(|c| c.id == channel_id)
+        {
+            return;
+        }
+        self.active_channel_id = channel_id.to_string();
+        self.pending_commands.push(UiCommand::SwitchSession {
+            channel_id: channel_id.to_string(),
+        });
     }
 }

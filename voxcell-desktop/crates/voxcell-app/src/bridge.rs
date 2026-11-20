@@ -46,6 +46,10 @@ pub enum BridgeEvent {
     Os(OsAction),
     /// P3-06: async upstream release probe result for the settings updater.
     SettingsProbe(UpstreamReleaseInfo),
+    /// P5 queue-forms: New-Job create outcome (offline-safe error surfacing).
+    JobFormOutcome(Result<(), String>),
+    /// P5 queue-forms: profile key persistence outcome (register/delete).
+    ProfileFormOutcome(Result<(), String>),
 }
 
 /// P4-03: actions originating outside the view tree (tray, hotkey, toasts).
@@ -1092,6 +1096,12 @@ pub fn poll_bridge(state: &mut AppState, dt: f32) -> bool {
                     };
                     finish_update_probe(state, &ctx);
                 }
+                BridgeEvent::JobFormOutcome(result) => {
+                    state.queue_apply_job_outcome(result);
+                }
+                BridgeEvent::ProfileFormOutcome(result) => {
+                    state.queue_apply_profile_outcome(result);
+                }
             }
         }
     }
@@ -1163,6 +1173,89 @@ fn apply_gateway_sessions(state: &mut AppState, records: Vec<GatewaySessionRecor
             });
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// P5 queue-forms helpers: New-Job POST through the gateway client seam, plus
+// pure mappings unit-tested without network.
+// ---------------------------------------------------------------------------
+
+/// Pure POST /api/jobs payload (web handleCreateJobSubmit): trimmed prompt +
+/// schedule, optional name omitted when empty.
+fn job_create_payload(name: &str, schedule: &str, prompt: &str) -> Value {
+    let mut body = json!({
+        "prompt": prompt.trim(),
+        "schedule": schedule.trim(),
+    });
+    let name = name.trim();
+    if !name.is_empty() {
+        body["name"] = Value::String(name.to_string());
+    }
+    body
+}
+
+/// POST /api/jobs via the gateway client seam (`fetch_with_429_retry` +
+/// `build_gateway_url`), mirroring the web server's /api/hermes/jobs proxy.
+async fn create_gateway_job(
+    client: &HermesClient,
+    name: &str,
+    schedule: &str,
+    prompt: &str,
+) -> Result<(), String> {
+    let url = voxcell_hermes::build_gateway_url(&client.config, "/api/jobs", false);
+    let body = job_create_payload(name, schedule, prompt);
+    let api_key = client.config.api_key.clone();
+    let http = reqwest::Client::new();
+    let resp = client
+        .fetch_with_429_retry(|| {
+            let mut req = http
+                .post(&url)
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .json(&body);
+            if !api_key.is_empty() {
+                req = req.header(
+                    reqwest::header::AUTHORIZATION,
+                    format!("Bearer {api_key}"),
+                );
+            }
+            req
+        })
+        .await?;
+    if !resp.status().is_success() {
+        return Err(format!("job create HTTP {}", resp.status()));
+    }
+    Ok(())
+}
+
+/// Map the UI transport toggle onto the client's preferred transport.
+fn preferred_for_transport(mode: voxcell_core::GatewayTransport) -> voxcell_hermes::PreferredTransport {
+    match mode {
+        voxcell_core::GatewayTransport::Runs => voxcell_hermes::PreferredTransport::Runs,
+        voxcell_core::GatewayTransport::SessionStream => {
+            voxcell_hermes::PreferredTransport::SessionStream
+        }
+        voxcell_core::GatewayTransport::ChatCompletions => {
+            voxcell_hermes::PreferredTransport::ChatCompletions
+        }
+    }
+}
+
+/// Store secret name for a per-profile key — mirrors the profiles crate's
+/// `HERMES_API_KEY_<SLUG>` env convention (non-alphanumeric runs -> one `_`,
+/// uppercased).
+fn profile_key_secret_name(id: &str) -> String {
+    let mut slug = String::new();
+    let mut prev_underscore = false;
+    for c in id.chars() {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c.to_ascii_uppercase());
+            prev_underscore = false;
+        } else if !prev_underscore {
+            slug.push('_');
+            prev_underscore = true;
+        }
+    }
+    format!("HERMES_API_KEY_{slug}")
 }
 
 fn handle_command(b: &DesktopBridge, state: &AppState, cmd: UiCommand) {
@@ -1383,6 +1476,93 @@ fn handle_command(b: &DesktopBridge, state: &AppState, cmd: UiCommand) {
                     let _ = s.dismiss_channel(&ch_id);
                 }
             }
+        }
+        // ---- P5 queue-forms: explicit arms for the deferred Operations forms.
+        UiCommand::CreateJob {
+            name,
+            schedule,
+            prompt,
+        } => {
+            // Offline-safe: never attempt the network while the gateway is
+            // down; surface the failure through the form error banner.
+            if !state.gateway.online {
+                let _ = b.tx.send(BridgeEvent::JobFormOutcome(Err(
+                    "Gateway offline — job not created.".to_string(),
+                )));
+                (b.waker.clone())();
+                return;
+            }
+            let client = Arc::clone(&b.client.lock().unwrap());
+            let tx = b.tx.clone();
+            let waker = b.waker.clone();
+            b.tokio.spawn(async move {
+                let outcome = create_gateway_job(&client, &name, &schedule, &prompt).await;
+                if outcome.is_ok() {
+                    if let Ok(jobs) = client.fetch_jobs().await {
+                        let _ = tx.send(BridgeEvent::CronJobs(jobs));
+                    }
+                }
+                let _ = tx.send(BridgeEvent::JobFormOutcome(outcome));
+                (waker)();
+            });
+        }
+        UiCommand::RegisterProfile {
+            id,
+            mode: _,
+            base_url: _,
+            api_key,
+        } => {
+            // The raw key is persisted ONLY through the store seam (the
+            // server-side equivalent); AppState keeps redacted summaries.
+            // Registration metadata (mode/base_url) already lives in the
+            // state's redacted catalog entry.
+            let mut outcome = Ok(());
+            if !api_key.is_empty() {
+                match b.store.lock() {
+                    Ok(guard) => {
+                        if let Some(ref s) = *guard {
+                            if let Err(e) =
+                                s.set_secret(&profile_key_secret_name(&id), &api_key)
+                            {
+                                outcome = Err(format!("profile key storage failed: {e}"));
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        outcome = Err("profile key storage unavailable".to_string());
+                    }
+                }
+            }
+            let _ = b.tx.send(BridgeEvent::ProfileFormOutcome(outcome));
+            (b.waker.clone())();
+        }
+        UiCommand::DeleteProfile { id } => {
+            // Clear any stored per-profile key (empty secret = inherit primary).
+            let mut outcome = Ok(());
+            if let Ok(guard) = b.store.lock() {
+                if let Some(ref s) = *guard {
+                    if let Err(e) = s.set_secret(&profile_key_secret_name(&id), "") {
+                        outcome = Err(format!("profile key cleanup failed: {e}"));
+                    }
+                }
+            }
+            let _ = b.tx.send(BridgeEvent::ProfileFormOutcome(outcome));
+            (b.waker.clone())();
+        }
+        UiCommand::SetTransportMode { mode } => {
+            {
+                let mut guard = b.client.lock().unwrap();
+                let mut next = (**guard).clone();
+                next.preferred_transport = preferred_for_transport(mode);
+                *guard = Arc::new(next);
+            }
+            trigger_gateway_refresh();
+        }
+        UiCommand::SwitchSession { channel_id: _ } => {
+            // AppState already focused the channel (queue_switch_session);
+            // refresh gateway session telemetry so the header switcher and
+            // the session rail reflect the gateway's view.
+            trigger_gateway_refresh();
         }
         // P3-06 integration: wildcard fallback so future UiCommand variants
         // never break the app build. Settings vault/updater dispatch rides
@@ -2630,5 +2810,167 @@ mod tests {
         bare.settings_outbox.push(SettingsAction::UpdaterDismissReceipt);
         assert!(drain_settings_outbox(&mut bare, &ctx));
         assert!(bare.update_status.is_none());
+    }
+
+    // ---- P5 queue-forms: bridge arms + pure helpers (headless, no network).
+    // The test bridge has no store and an unroutable base URL; only arms that
+    // never dial the network are exercised (offline guard, sync store seam,
+    // client preference). BRIDGE is unset in tests, so trigger_gateway_refresh
+    // is a safe no-op. ----
+
+    fn test_bridge() -> DesktopBridge {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let cfg = ProfileGatewayConfig {
+            base_url: "http://127.0.0.1:9".to_string(),
+            profile: "default".to_string(),
+            api_key: String::new(),
+            route_prefix: String::new(),
+        };
+        DesktopBridge {
+            tokio: tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("test tokio runtime"),
+            store: Mutex::new(None),
+            client: Mutex::new(Arc::new(HermesClient::new(cfg))),
+            tx,
+            rx: Mutex::new(rx),
+            waker: Arc::new(|| {}),
+            deepgram_key: Mutex::new(String::new()),
+            tray: Mutex::new(TraySlot::default()),
+            phone: Mutex::new(PhoneSlot::default()),
+            vault: Mutex::new(None),
+            app_root: PathBuf::from("."),
+        }
+    }
+
+    #[test]
+    fn job_create_payload_trims_and_omits_empty_name() {
+        let body = job_create_payload("  ", " 0 9 * * * ", " Summarize runs ");
+        assert_eq!(body["prompt"], "Summarize runs");
+        assert_eq!(body["schedule"], "0 9 * * *");
+        assert!(body.get("name").is_none());
+        let named = job_create_payload(" Digest ", "0 9 * * *", "p");
+        assert_eq!(named["name"], "Digest");
+    }
+
+    #[test]
+    fn preferred_for_transport_covers_all_modes() {
+        assert_eq!(
+            preferred_for_transport(voxcell_core::GatewayTransport::Runs),
+            voxcell_hermes::PreferredTransport::Runs
+        );
+        assert_eq!(
+            preferred_for_transport(voxcell_core::GatewayTransport::SessionStream),
+            voxcell_hermes::PreferredTransport::SessionStream
+        );
+        assert_eq!(
+            preferred_for_transport(voxcell_core::GatewayTransport::ChatCompletions),
+            voxcell_hermes::PreferredTransport::ChatCompletions
+        );
+    }
+
+    #[test]
+    fn profile_key_secret_name_matches_env_convention() {
+        assert_eq!(
+            profile_key_secret_name("coder-agent"),
+            "HERMES_API_KEY_CODER_AGENT"
+        );
+        assert_eq!(
+            profile_key_secret_name("research_v2"),
+            "HERMES_API_KEY_RESEARCH_V2"
+        );
+        assert_eq!(profile_key_secret_name("a--b"), "HERMES_API_KEY_A_B");
+    }
+
+    #[test]
+    fn create_job_offline_surfaces_form_error_without_network() {
+        let b = test_bridge();
+        let mut s = AppState::new();
+        s.gateway.online = false;
+        handle_command(
+            &b,
+            &s,
+            UiCommand::CreateJob {
+                name: "x".into(),
+                schedule: "0 9 * * *".into(),
+                prompt: "p".into(),
+            },
+        );
+        let ev = b.rx.lock().unwrap().try_recv().expect("offline outcome event");
+        match ev {
+            BridgeEvent::JobFormOutcome(Err(e)) => assert!(e.contains("offline")),
+            _ => panic!("expected offline JobFormOutcome Err"),
+        }
+        // Applying the outcome surfaces the banner and clears busy.
+        s.queue_job_busy = true;
+        s.queue_apply_job_outcome(Err("Gateway offline — job not created.".into()));
+        assert!(!s.queue_job_busy);
+        assert!(s.queue_job_error.unwrap().contains("offline"));
+    }
+
+    #[test]
+    fn register_and_delete_profile_outcomes_without_store() {
+        let b = test_bridge();
+        let s = AppState::new();
+        handle_command(
+            &b,
+            &s,
+            UiCommand::RegisterProfile {
+                id: "coder".into(),
+                mode: "multiplexed".into(),
+                base_url: String::new(),
+                api_key: "sk-test".into(),
+            },
+        );
+        assert!(matches!(
+            b.rx.lock().unwrap().try_recv(),
+            Ok(BridgeEvent::ProfileFormOutcome(Ok(())))
+        ));
+        handle_command(&b, &s, UiCommand::DeleteProfile { id: "coder".into() });
+        assert!(matches!(
+            b.rx.lock().unwrap().try_recv(),
+            Ok(BridgeEvent::ProfileFormOutcome(Ok(())))
+        ));
+    }
+
+    #[test]
+    fn set_transport_mode_updates_client_preference() {
+        let b = test_bridge();
+        let s = AppState::new();
+        handle_command(
+            &b,
+            &s,
+            UiCommand::SetTransportMode {
+                mode: voxcell_core::GatewayTransport::Runs,
+            },
+        );
+        assert_eq!(
+            b.client.lock().unwrap().preferred_transport,
+            voxcell_hermes::PreferredTransport::Runs
+        );
+        handle_command(
+            &b,
+            &s,
+            UiCommand::SetTransportMode {
+                mode: voxcell_core::GatewayTransport::SessionStream,
+            },
+        );
+        assert_eq!(
+            b.client.lock().unwrap().preferred_transport,
+            voxcell_hermes::PreferredTransport::SessionStream
+        );
+    }
+
+    #[test]
+    fn switch_session_arm_is_a_safe_refresh_noop_headless() {
+        let b = test_bridge();
+        let mut s = AppState::new();
+        s.queue_switch_session("home");
+        let cmd = s.pending_commands.pop().expect("SwitchSession queued");
+        assert!(matches!(cmd, UiCommand::SwitchSession { .. }));
+        handle_command(&b, &s, cmd);
+        // No BRIDGE static in tests: the refresh is a no-op, no events emitted.
+        assert!(b.rx.lock().unwrap().try_recv().is_err());
     }
 }

@@ -19,7 +19,7 @@
 use crate::state::{AppState, UiCommand};
 use crate::theme::{FONT_UI, VoxcellTheme};
 use rune::{Color, Cx, El, ScrollSpec, TextStyle, col, edit_access, el, row, text, text_input};
-use rune_kit::{Button, ButtonVariant, ControlSize, Divider, Kit};
+use rune_kit::{Button, ButtonVariant, ControlSize, Divider, Kit, TextInput};
 use voxcell_core::{ApprovalKind, GatewayTransport};
 use voxcell_hermes::profiles::{HermesProfileMode, HermesProfileSource};
 
@@ -71,6 +71,28 @@ fn transport_label(t: GatewayTransport) -> &'static str {
         GatewayTransport::SessionStream => "/sessions/stream",
         GatewayTransport::ChatCompletions => "/v1/chat/completions",
     }
+}
+
+/// P5 queue-forms: one transport-mode toggle button (web onChangeTransportMode).
+fn transport_button(
+    k: &Kit,
+    state: &AppState,
+    mode: GatewayTransport,
+    key: &str,
+    label: &str,
+) -> El {
+    let active = state.gateway.active_transport == mode;
+    el().key(key).child(
+        Button::new(label)
+            .variant(if active {
+                ButtonVariant::Submit
+            } else {
+                ButtonVariant::Ghost
+            })
+            .control_size(ControlSize::Mini)
+            .on_press(move |s: &mut AppState| s.queue_set_transport(mode))
+            .build(k),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +208,39 @@ fn gateway_card(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
                     "Transport",
                     transport_label(state.gateway.active_transport),
                     theme.text,
+                )),
+        )
+        .child(
+            row()
+                .key("queue-transport-toggle")
+                .w_full()
+                .gap(6.0)
+                .items_center()
+                .child(
+                    text("Turn transport")
+                        .font(theme.mono_sm)
+                        .color(theme.text_muted),
+                )
+                .child(transport_button(
+                    k,
+                    state,
+                    GatewayTransport::Runs,
+                    "queue-transport-runs",
+                    "/v1/runs",
+                ))
+                .child(transport_button(
+                    k,
+                    state,
+                    GatewayTransport::SessionStream,
+                    "queue-transport-session-stream",
+                    "/sessions/stream",
+                ))
+                .child(transport_button(
+                    k,
+                    state,
+                    GatewayTransport::ChatCompletions,
+                    "queue-transport-chat-completions",
+                    "/v1/chat/completions",
                 )),
         )
         .child(
@@ -379,7 +434,35 @@ fn runtime_tab(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
             theme,
             "Parallel Profiles",
             "isolated memories & tools per profile",
-        ));
+        ))
+        .child(
+            row().w_full().gap(6.0).items_center().child(
+                el().key("queue-add-profile-toggle").child(
+                    Button::new("Add Profile")
+                        .variant(ButtonVariant::Neutral)
+                        .control_size(ControlSize::Small)
+                        .on_press(|s: &mut AppState| s.queue_toggle_add_profile_form())
+                        .build(k),
+                ),
+            ),
+        );
+    if let Some(err) = &state.queue_profile_error {
+        profiles = profiles.child(
+            el().key("queue-profile-error")
+                .w_full()
+                .padding(8.0)
+                .radius(theme.radius_control)
+                .fill(theme.semantic_error.alpha(0.12))
+                .child(
+                    text(err.clone())
+                        .font(theme.mono_sm)
+                        .color(theme.semantic_error),
+                ),
+        );
+    }
+    if state.queue_add_profile_open {
+        profiles = profiles.child(add_profile_form(state, theme, k));
+    }
     if summaries.is_empty() {
         profiles = profiles.child(empty_note(theme, "No gateway profiles discovered."));
     }
@@ -441,6 +524,60 @@ fn runtime_tab(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
         }
 
         let name = p.id.clone();
+        // P5 queue-forms: delete (with confirm) for UI-registered custom
+        // profiles only — gateway-discovered/env profiles are not removable.
+        let is_registered = state
+            .queue_registered_profiles
+            .iter()
+            .any(|r| r.id == p.id);
+        let confirming = state.queue_delete_confirm.as_deref() == Some(p.id.as_str());
+        let mut card_actions = row().gap(6.0).items_center().child(
+            el().key(format!("queue-profile-use-{}", p.id)).child(
+                Button::new(if p.is_default { "Default" } else { "Use default" })
+                    .variant(if p.is_default {
+                        ButtonVariant::Submit
+                    } else {
+                        ButtonVariant::Neutral
+                    })
+                    .control_size(ControlSize::Small)
+                    .on_press(move |s: &mut AppState| s.queue_switch_profile(&name))
+                    .build(k),
+            ),
+        );
+        if confirming {
+            card_actions = card_actions
+                .child(
+                    el().key(format!("queue-profile-delete-confirm-{}", p.id)).child(
+                        Button::new("Confirm Delete")
+                            .variant(ButtonVariant::Submit)
+                            .control_size(ControlSize::Mini)
+                            .on_press(|s: &mut AppState| s.queue_confirm_delete_profile())
+                            .build(k),
+                    ),
+                )
+                .child(
+                    el().key(format!("queue-profile-delete-cancel-{}", p.id)).child(
+                        Button::new("Keep")
+                            .variant(ButtonVariant::Ghost)
+                            .control_size(ControlSize::Mini)
+                            .on_press(|s: &mut AppState| s.queue_cancel_delete_profile())
+                            .build(k),
+                    ),
+                );
+        } else if is_registered {
+            let idd = p.id.clone();
+            card_actions = card_actions.child(
+                el().key(format!("queue-profile-delete-{}", p.id)).child(
+                    Button::new("Delete")
+                        .variant(ButtonVariant::Ghost)
+                        .control_size(ControlSize::Mini)
+                        .on_press(move |s: &mut AppState| {
+                            s.queue_request_delete_profile(&idd);
+                        })
+                        .build(k),
+                ),
+            );
+        }
         profiles = profiles.child(
             row()
                 .key(format!("queue-profile-{}", p.id))
@@ -471,19 +608,7 @@ fn runtime_tab(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
                                 .color(theme.text_faint),
                         ),
                 )
-                .child(
-                    el().key(format!("queue-profile-use-{}", p.id)).child(
-                        Button::new(if p.is_default { "Default" } else { "Use default" })
-                            .variant(if p.is_default {
-                                ButtonVariant::Submit
-                            } else {
-                                ButtonVariant::Neutral
-                            })
-                            .control_size(ControlSize::Small)
-                            .on_press(move |s: &mut AppState| s.queue_switch_profile(&name))
-                            .build(k),
-                    ),
-                ),
+                .child(card_actions),
         );
     }
 
@@ -872,7 +997,291 @@ fn approvals_tab(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
 // ---------------------------------------------------------------------------
 // Jobs tab: cron manager (GET /api/jobs) with run/pause/resume/delete.
 // ---------------------------------------------------------------------------
+/// P5 queue-forms: visible field label above a kit `TextInput`. rune-kit's
+/// `TextInput::label` only sets the accessible name (`name_field` in
+/// third_party/rune/crates/rune-kit/src/controls/text_input.rs) — it renders
+/// no visible text. Web forms show visible labels, so render one here: the
+/// same label-over-input pattern as kit `TextField`, with the visible text
+/// a11y-hidden because the editor itself carries the accessible name.
+fn labeled_field(label: &str, theme: &VoxcellTheme, field: El) -> El {
+    col()
+        .w_full()
+        .gap(4.0)
+        .child(
+            text(label.to_string())
+                .font(theme.mono_sm)
+                .color(theme.text_muted)
+                .a11y_hidden(),
+        )
+        .child(field)
+}
+
+/// P5 queue-forms: New-Job form (web showNewJobForm): optional name, cron
+/// schedule (default `0 9 * * *`), prompt; Cancel / Create Job actions.
+fn new_job_form(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
+    col()
+        .key("queue-new-job-form")
+        .w_full()
+        .padding(10.0)
+        .gap(8.0)
+        .radius(theme.radius_card)
+        .fill(theme.bg.alpha(0.35))
+        .border(0.75, theme.border)
+        .child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .child(
+                    el().grow(1.0).min_w(0.0).child(labeled_field(
+                        "Name (optional)",
+                        theme,
+                        TextInput::new(&state.queue_job_name_edit)
+                            .label("Name (optional)")
+                            .placeholder("Morning digest")
+                            .width(None)
+                            .on_edit(|s: &mut AppState| &mut s.queue_job_name_edit)
+                            .build(k),
+                    )),
+                )
+                .child(
+                    el().grow(1.0).min_w(0.0).child(labeled_field(
+                        "Cron schedule",
+                        theme,
+                        TextInput::new(&state.queue_job_schedule_edit)
+                            .label("Cron schedule")
+                            .placeholder("0 9 * * *")
+                            .width(None)
+                            .on_edit(|s: &mut AppState| &mut s.queue_job_schedule_edit)
+                            .build(k),
+                    )),
+                ),
+        )
+        .child(labeled_field(
+            "Job prompt",
+            theme,
+            TextInput::new(&state.queue_job_prompt_edit)
+                .label("Job prompt")
+                .placeholder("Job prompt to execute on gateway...")
+                .width(None)
+                .on_edit(|s: &mut AppState| &mut s.queue_job_prompt_edit)
+                .build(k),
+        ))
+        .child(
+            row()
+                .w_full()
+                .gap(6.0)
+                .child(
+                    el().key("queue-job-cancel").child(
+                        Button::new("Cancel")
+                            .variant(ButtonVariant::Ghost)
+                            .control_size(ControlSize::Small)
+                            .on_press(|s: &mut AppState| s.queue_cancel_new_job())
+                            .build(k),
+                    ),
+                )
+                .child(
+                    el().key("queue-job-create").child(
+                        Button::new(if state.queue_job_busy {
+                            "Creating..."
+                        } else {
+                            "Create Job"
+                        })
+                        .variant(ButtonVariant::Submit)
+                        .control_size(ControlSize::Small)
+                        .disabled(
+                            state.queue_job_busy
+                                || state.queue_job_prompt_edit.text.trim().is_empty(),
+                        )
+                        .on_press(|s: &mut AppState| s.queue_submit_new_job())
+                        .build(k),
+                    ),
+                ),
+        )
+}
+
+/// P5 queue-forms: Add-Profile form (web showAddProfileForm): slug, gateway
+/// mode, conditional standalone URL, optional SECURE (masked) API-key draft.
+fn add_profile_form(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
+    let standalone = state.queue_profile_mode == "standalone";
+    let mut form = col()
+        .key("queue-add-profile-form")
+        .w_full()
+        .padding(10.0)
+        .gap(8.0)
+        .radius(theme.radius_card)
+        .fill(theme.bg.alpha(0.35))
+        .border(0.75, theme.border)
+        .child(labeled_field(
+            "Profile Slug",
+            theme,
+            TextInput::new(&state.queue_profile_slug_edit)
+                .label("Profile Slug")
+                .placeholder("e.g. coder, research")
+                .width(None)
+                .on_edit(|s: &mut AppState| &mut s.queue_profile_slug_edit)
+                .build(k),
+        ))
+        .child(
+            row()
+                .key("queue-profile-mode")
+                .w_full()
+                .gap(6.0)
+                .items_center()
+                .child(
+                    text("Gateway Mode")
+                        .font(theme.mono_sm)
+                        .color(theme.text_muted),
+                )
+                .child(
+                    el().key("queue-profile-mode-multiplexed").child(
+                        Button::new("Multiplexed (/p/<name>)")
+                            .variant(if !standalone {
+                                ButtonVariant::Submit
+                            } else {
+                                ButtonVariant::Ghost
+                            })
+                            .control_size(ControlSize::Mini)
+                            .on_press(|s: &mut AppState| {
+                                s.queue_profile_mode = "multiplexed".to_string();
+                            })
+                            .build(k),
+                    ),
+                )
+                .child(
+                    el().key("queue-profile-mode-standalone").child(
+                        Button::new("Standalone Gateway Port")
+                            .variant(if standalone {
+                                ButtonVariant::Submit
+                            } else {
+                                ButtonVariant::Ghost
+                            })
+                            .control_size(ControlSize::Mini)
+                            .on_press(|s: &mut AppState| {
+                                s.queue_profile_mode = "standalone".to_string();
+                            })
+                            .build(k),
+                    ),
+                ),
+        );
+    if standalone {
+        form = form.child(labeled_field(
+            "Standalone Gateway URL",
+            theme,
+            TextInput::new(&state.queue_profile_url_edit)
+                .label("Standalone Gateway URL")
+                .placeholder("http://127.0.0.1:8643")
+                .width(None)
+                .on_edit(|s: &mut AppState| &mut s.queue_profile_url_edit)
+                .build(k),
+        ));
+    }
+    form.child(labeled_field(
+        "Profile API Key (optional, stored server-side only)",
+        theme,
+        TextInput::new(&state.queue_profile_key_edit)
+            .label("Profile API Key (optional, stored server-side only)")
+            .placeholder("sk-...")
+            .secure()
+            .width(None)
+            .on_edit(|s: &mut AppState| &mut s.queue_profile_key_edit)
+            .build(k),
+    ))
+    .child(
+        row()
+            .w_full()
+            .gap(6.0)
+            .child(
+                el().key("queue-profile-cancel").child(
+                    Button::new("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .control_size(ControlSize::Small)
+                        .on_press(|s: &mut AppState| s.queue_cancel_add_profile())
+                        .build(k),
+                ),
+            )
+            .child(
+                el().key("queue-profile-save").child(
+                    Button::new(if state.queue_profile_busy {
+                        "Saving..."
+                    } else {
+                        "Save Profile"
+                    })
+                    .variant(ButtonVariant::Submit)
+                    .control_size(ControlSize::Small)
+                    .disabled(state.queue_profile_busy)
+                    .on_press(|s: &mut AppState| s.queue_submit_profile())
+                    .build(k),
+                ),
+            ),
+    )
+}
+
+/// P5 queue-forms: Operations header with the session switcher (web
+/// onSelectChannel): one button per channel, active channel highlighted.
+fn queue_header(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
+    let mut r = row()
+        .key("queue-header")
+        .w_full()
+        .justify_between()
+        .items_center()
+        .gap(8.0)
+        .child(text("Operations").font(section_font()).color(theme.text));
+    if state.channels.len() > 1 {
+        let mut switcher = row()
+            .key("queue-session-switcher")
+            .gap(4.0)
+            .items_center();
+        for ch in &state.channels {
+            let active = ch.id == state.active_channel_id;
+            let idc = ch.id.clone();
+            let trimmed = ch.name.trim_start_matches('#').to_string();
+            let label = if trimmed.is_empty() {
+                ch.id.clone()
+            } else {
+                trimmed
+            };
+            switcher = switcher.child(
+                el().key(format!("queue-session-{}", ch.id)).child(
+                    Button::new(label)
+                        .variant(if active {
+                            ButtonVariant::Submit
+                        } else {
+                            ButtonVariant::Ghost
+                        })
+                        .control_size(ControlSize::Mini)
+                        .on_press(move |s: &mut AppState| s.queue_switch_session(&idc))
+                        .build(k),
+                ),
+            );
+        }
+        r = r.child(switcher);
+    }
+    r
+}
+
 fn jobs_tab(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
+    // P5 queue-forms: New Job toggle appears while connected (web parity);
+    // offline submits are rejected with a form error by queue_submit_new_job.
+    let mut header_actions = row().gap(6.0).items_center().child(
+        Button::new("Refresh")
+            .variant(ButtonVariant::Neutral)
+            .control_size(ControlSize::Small)
+            .on_press(|s: &mut AppState| {
+                s.pending_commands.push(UiCommand::RefreshGateway);
+            })
+            .build(k),
+    );
+    if state.gateway.online {
+        header_actions = header_actions.child(
+            el().key("queue-new-job-toggle").child(
+                Button::new("New Job")
+                    .variant(ButtonVariant::Neutral)
+                    .control_size(ControlSize::Small)
+                    .on_press(|s: &mut AppState| s.queue_toggle_new_job_form())
+                    .build(k),
+            ),
+        );
+    }
     let mut sec = col()
         .key("queue-cron")
         .w_full()
@@ -887,16 +1296,25 @@ fn jobs_tab(state: &AppState, theme: &VoxcellTheme, k: &Kit) -> El {
                         .font(section_font())
                         .color(theme.text),
                 )
+                .child(header_actions),
+        );
+    if let Some(err) = &state.queue_job_error {
+        sec = sec.child(
+            el().key("queue-job-error")
+                .w_full()
+                .padding(8.0)
+                .radius(theme.radius_control)
+                .fill(theme.semantic_error.alpha(0.12))
                 .child(
-                    Button::new("Refresh")
-                        .variant(ButtonVariant::Neutral)
-                        .control_size(ControlSize::Small)
-                        .on_press(|s: &mut AppState| {
-                            s.pending_commands.push(UiCommand::RefreshGateway);
-                        })
-                        .build(k),
+                    text(err.clone())
+                        .font(theme.mono_sm)
+                        .color(theme.semantic_error),
                 ),
         );
+    }
+    if state.queue_new_job_open {
+        sec = sec.child(new_job_form(state, theme, k));
+    }
     if state.cron_jobs.is_empty() {
         return sec.child(empty_note(
             theme,
@@ -1045,6 +1463,7 @@ pub fn render_queue(state: &AppState, theme: &VoxcellTheme, _cx: &mut Cx<AppStat
         .h_full()
         .padding(14.0)
         .gap(12.0)
+        .child(queue_header(state, theme, k))
         .child(gateway_card(state, theme, k));
     if let Some(runs) = active_runs_section(state, theme, k) {
         root = root.child(runs);
@@ -1099,6 +1518,11 @@ mod tests {
     fn click_at(rt: &mut Runtime<AppState>, x: f32, y: f32) {
         rt.pointer_down(x, y);
         rt.pointer_up(x, y);
+        rt.frame(0.016);
+        // Exit-motion ghosts linger ~1 frame and steal clicks from overlapping
+        // new buttons (probe-verified: Keep's center sat inside the exiting
+        // Delete's rect). Settle so the next query/click sees the clean tree.
+        rt.settle_all();
         rt.frame(0.016);
     }
 
@@ -1521,4 +1945,298 @@ mod tests {
         assert!(has_text(&rt, "paused"));
         assert!(has_text(&rt, "Resume"));
     }
+
+    // ---- P5 queue-forms: deferred forms (New-Job / Profiles / transport /
+    // session switcher). All headless; no network, injected state only. ----
+
+    #[test]
+    fn queue_new_job_form_dispatches_create_and_applies_outcome() {
+        let mut rt = boot("queue");
+        rt.state.gateway.online = true;
+        rt.state.queue_tab = Some("jobs".into());
+        refresh(&mut rt);
+        click_in_queue(&mut rt, "New Job");
+        assert!(rt.state.queue_new_job_open);
+        // Labeled inputs (web parity fields).
+        assert!(has_text(&rt, "Name (optional)"));
+        assert!(has_text(&rt, "Cron schedule"));
+        assert!(has_text(&rt, "Job prompt"));
+        rt.state.queue_job_name_edit.replace_text("Morning Digest");
+        rt.state
+            .queue_job_prompt_edit
+            .replace_text("Summarize overnight runs");
+        refresh(&mut rt);
+        click_in_queue(&mut rt, "Create Job");
+        assert!(rt.state.queue_job_busy);
+        let cmd = rt
+            .state
+            .pending_commands
+            .iter()
+            .find_map(|c| match c {
+                UiCommand::CreateJob {
+                    name,
+                    schedule,
+                    prompt,
+                } => Some((name.clone(), schedule.clone(), prompt.clone())),
+                _ => None,
+            })
+            .expect("CreateJob dispatched");
+        assert_eq!(
+            cmd,
+            (
+                "Morning Digest".to_string(),
+                "0 9 * * *".to_string(),
+                "Summarize overnight runs".to_string()
+            )
+        );
+        // Success outcome closes the form + clears name/prompt (schedule kept).
+        rt.state.queue_apply_job_outcome(Ok(()));
+        refresh(&mut rt);
+        assert!(!rt.state.queue_new_job_open);
+        assert!(!rt.state.queue_job_busy);
+        assert!(rt.state.queue_job_prompt_edit.text.is_empty());
+        assert!(rt.state.queue_job_name_edit.text.is_empty());
+        assert_eq!(rt.state.queue_job_schedule_edit.text, "0 9 * * *");
+        // Failure outcome surfaces the banner and re-enables submit.
+        rt.state.queue_new_job_open = true;
+        rt.state
+            .queue_apply_job_outcome(Err("job create HTTP 500".into()));
+        refresh(&mut rt);
+        assert!(has_text(&rt, "job create HTTP 500"));
+        assert!(!rt.state.queue_job_busy);
+    }
+
+    #[test]
+    fn queue_new_job_offline_submit_surfaces_error_without_command() {
+        let mut rt = boot("queue");
+        rt.state.gateway.online = false;
+        rt.state.queue_tab = Some("jobs".into());
+        rt.state.queue_new_job_open = true;
+        rt.state.queue_job_prompt_edit.replace_text("Do work");
+        refresh(&mut rt);
+        // Web parity: the New Job toggle is hidden while offline.
+        assert!(!has_text(&rt, "New Job"));
+        click_in_queue(&mut rt, "Create Job");
+        assert!(rt
+            .state
+            .queue_job_error
+            .as_deref()
+            .unwrap()
+            .contains("offline"));
+        assert!(!rt
+            .state
+            .pending_commands
+            .iter()
+            .any(|c| matches!(c, UiCommand::CreateJob { .. })));
+        assert!(has_text(
+            &rt,
+            "Gateway offline — connect before creating jobs."
+        ));
+    }
+
+    #[test]
+    fn queue_new_job_empty_prompt_is_rejected() {
+        let mut rt = boot("queue");
+        rt.state.gateway.online = true;
+        rt.state.queue_tab = Some("jobs".into());
+        rt.state.queue_new_job_open = true;
+        refresh(&mut rt);
+        rt.state.queue_submit_new_job();
+        refresh(&mut rt);
+        assert!(rt.state.queue_job_error.is_some());
+        assert!(!rt
+            .state
+            .pending_commands
+            .iter()
+            .any(|c| matches!(c, UiCommand::CreateJob { .. })));
+    }
+
+    #[test]
+    fn queue_add_profile_roundtrip_normalizes_and_redacts() {
+        let mut rt = boot("queue");
+        refresh(&mut rt);
+        // The "queue" scene has pending gates, so the view auto-selects the
+        // approvals tab (web parity, asserted by queue_tab_auto_selection).
+        // Profiles live on the runtime tab — reach them via the real tab
+        // click before opening the form.
+        click_key(&mut rt, "queue-tab-runtime");
+        click_in_queue(&mut rt, "Add Profile");
+        assert!(rt.state.queue_add_profile_open);
+        rt.state
+            .queue_profile_slug_edit
+            .replace_text("Coder Agent!");
+        rt.state
+            .queue_profile_key_edit
+            .replace_text("sk-secret-123");
+        refresh(&mut rt);
+        click_in_queue(&mut rt, "Save Profile");
+        // Normalized slug + redacted registration (boolean key presence only).
+        let reg = rt
+            .state
+            .queue_registered_profiles
+            .iter()
+            .find(|p| p.id == "coder-agent")
+            .expect("registered with normalized slug");
+        assert!(reg.has_api_key);
+        assert_eq!(reg.source, HermesProfileSource::Custom);
+        assert!(!rt.state.queue_add_profile_open);
+        assert!(rt.state.queue_profile_key_edit.text.is_empty());
+        let cmd = rt
+            .state
+            .pending_commands
+            .iter()
+            .find_map(|c| match c {
+                UiCommand::RegisterProfile { id, api_key, .. } => {
+                    Some((id.clone(), api_key.clone()))
+                }
+                _ => None,
+            })
+            .expect("RegisterProfile dispatched");
+        assert_eq!(cmd.0, "coder-agent");
+        // The raw key travels ONLY in the transient command payload.
+        assert_eq!(cmd.1, "sk-secret-123");
+        // Simulate the bridge drain: afterwards no raw key remains anywhere in
+        // state and nothing renders it.
+        rt.state.pending_commands.clear();
+        refresh(&mut rt);
+        // Redaction: no raw key in the registered catalog, the gateway profile
+        // list, or the (cleared) key draft — and nothing renders it.
+        assert!(!format!("{:?}", rt.state.queue_registered_profiles)
+            .contains("sk-secret-123"));
+        assert!(!format!("{:?}", rt.state.gateway_profiles).contains("sk-secret-123"));
+        assert!(!rt.state.queue_profile_key_edit.text.contains("sk-secret-123"));
+        assert!(rt.elements().iter().all(|e| !e
+            .text
+            .as_deref()
+            .unwrap_or("")
+            .contains("sk-secret-123")));
+        assert!(has_text(&rt, "@coder-agent"));
+        assert!(rt.elements().iter().any(|e| e
+            .text
+            .as_deref()
+            .unwrap_or("")
+            .contains("key: set")));
+    }
+
+    #[test]
+    fn queue_reserved_and_invalid_slugs_are_rejected() {
+        let mut rt = boot("queue");
+        // The rejection banner renders in the runtime tab's profiles
+        // section; the "queue" scene auto-selects approvals, so click over
+        // via the real tab path before asserting the feedback.
+        click_key(&mut rt, "queue-tab-runtime");
+        rt.state.queue_add_profile_open = true;
+        refresh(&mut rt);
+        // "!!!" collapses to empty -> "default" under normalizeProfileId and is
+        // rejected; "has space" would normalize to the VALID slug "has-space"
+        // (normalize-first submit semantics), so it is not a rejection case.
+        for bad in ["api", "v1", "default", "!!!"] {
+            rt.state.queue_profile_slug_edit.replace_text(bad);
+            rt.state.queue_submit_profile();
+            assert!(
+                rt.state.queue_profile_error.is_some(),
+                "slug {bad:?} must be rejected"
+            );
+            assert!(rt.state.queue_registered_profiles.is_empty());
+            assert!(!rt
+                .state
+                .pending_commands
+                .iter()
+                .any(|c| matches!(c, UiCommand::RegisterProfile { .. })));
+        }
+        refresh(&mut rt);
+        assert!(rt.elements().iter().any(|e| e
+            .text
+            .as_deref()
+            .unwrap_or("")
+            .contains("reserved")));
+    }
+
+    #[test]
+    fn queue_delete_profile_requires_confirm_and_roundtrips() {
+        let mut rt = boot("queue");
+        rt.state.queue_profile_slug_edit.replace_text("research");
+        rt.state.queue_submit_profile();
+        rt.state.pending_commands.clear();
+        refresh(&mut rt);
+        // Profile cards render on the runtime tab; the "queue" scene
+        // auto-selects approvals while gates are pending, so click over.
+        click_key(&mut rt, "queue-tab-runtime");
+        click_in_queue(&mut rt, "Delete");
+        assert_eq!(rt.state.queue_delete_confirm.as_deref(), Some("research"));
+        assert!(!rt
+            .state
+            .pending_commands
+            .iter()
+            .any(|c| matches!(c, UiCommand::DeleteProfile { .. })));
+        // Keep cancels without deleting.
+        click_in_queue(&mut rt, "Keep");
+        assert!(rt.state.queue_delete_confirm.is_none());
+        assert_eq!(rt.state.queue_registered_profiles.len(), 1);
+        // Confirm deletes the registration + dispatches the bridge command.
+        click_in_queue(&mut rt, "Delete");
+        click_in_queue(&mut rt, "Confirm Delete");
+        assert!(rt.state.queue_registered_profiles.is_empty());
+        assert!(rt.state.pending_commands.iter().any(
+            |c| matches!(c, UiCommand::DeleteProfile { id } if id == "research")
+        ));
+        // The default profile can never be deleted.
+        rt.state.queue_request_delete_profile("default");
+        assert!(rt.state.queue_delete_confirm.is_none());
+        rt.state.queue_delete_confirm = Some("default".into());
+        rt.state.queue_confirm_delete_profile();
+        assert!(rt.state.queue_profile_error.is_some());
+        assert!(!rt
+            .state
+            .pending_commands
+            .iter()
+            .any(|c| matches!(c, UiCommand::DeleteProfile { id } if id == "default")));
+    }
+
+    #[test]
+    fn queue_transport_toggle_dispatches_and_updates_state() {
+        let mut rt = boot("queue");
+        rt.state.gateway.active_transport = GatewayTransport::ChatCompletions;
+        refresh(&mut rt);
+        click_in_queue(&mut rt, "/v1/runs");
+        assert_eq!(rt.state.gateway.active_transport, GatewayTransport::Runs);
+        assert!(rt.state.pending_commands.iter().any(|c| matches!(
+            c,
+            UiCommand::SetTransportMode {
+                mode: GatewayTransport::Runs
+            }
+        )));
+        click_in_queue(&mut rt, "/sessions/stream");
+        assert_eq!(
+            rt.state.gateway.active_transport,
+            GatewayTransport::SessionStream
+        );
+        assert!(rt.state.pending_commands.iter().any(|c| matches!(
+            c,
+            UiCommand::SetTransportMode {
+                mode: GatewayTransport::SessionStream
+            }
+        )));
+    }
+
+    #[test]
+    fn queue_header_session_switcher_dispatches_switch() {
+        let mut rt = boot("queue");
+        let mut ch = rt.state.channels[0].clone();
+        ch.id = "ops".into();
+        ch.name = "Ops".into();
+        ch.session_id = "s-ops".into();
+        rt.state.channels.push(ch);
+        refresh(&mut rt);
+        assert!(rt.find("queue-session-switcher").is_some());
+        click_in_queue(&mut rt, "Ops");
+        assert_eq!(rt.state.active_channel_id, "ops");
+        assert!(rt.state.pending_commands.iter().any(
+            |c| matches!(c, UiCommand::SwitchSession { channel_id } if channel_id == "ops")
+        ));
+        // Unknown channels are ignored.
+        rt.state.queue_switch_session("ghost");
+        assert_eq!(rt.state.active_channel_id, "ops");
+    }
+
 }

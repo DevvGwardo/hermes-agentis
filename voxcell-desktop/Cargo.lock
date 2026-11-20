@@ -4858,6 +4858,7 @@ name = "voxcell-app"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "reqwest",
  "rune",
  "rune-notify",
  "serde_json",

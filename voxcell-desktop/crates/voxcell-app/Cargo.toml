@@ -19,6 +19,10 @@ rune.workspace = true
 rune-notify.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+# P5 queue-forms: POST /api/jobs through the gateway client seam
+# (fetch_with_429_retry takes a reqwest::RequestBuilder). Already locked via
+# voxcell-hermes/voxcell-audio — no new package versions.
+reqwest.workspace = true
 # P0-02 GPU halftone spike (examples/gpu_halftone_spike.rs) draws its own instanced
 # wgpu pass through rune's Compositor hook. Version/features mirror rune's own wgpu
 # dep (~30.0.1, no default features); backend features (dx12/metal/vulkan) unify in
