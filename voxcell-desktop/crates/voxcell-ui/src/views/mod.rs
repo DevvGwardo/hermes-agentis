@@ -22,6 +22,10 @@ use voxcell_core::motion::{
 };
 use voxcell_core::{ActiveView, SidebarPosition};
 
+/// Height of the in-app titlebar band (points). Shared with the native-chrome
+/// `Titlebar::new` declaration so the OS caption buttons line up with the row.
+pub const TITLEBAR_HEIGHT: f32 = 46.0;
+
 /// Titlebar tab order — matches `AppState::nav_tab_rects` indices and the
 /// Ctrl/Cmd+1..5 shortcuts.
 pub const NAV_TABS: [(ActiveView, &str); 5] = [
@@ -154,15 +158,23 @@ pub fn render_main_window(state: &AppState, cx: &mut Cx<AppState>) -> El {
     cx.reduced_motion(theme.reduced_motion);
     cx.caption_color(theme.text_muted);
     cx.foreground(theme.text);
+    // P5 native-chrome (spec P3-01 gap): declare the app-drawn titlebar band
+    // to rune while the toggle is on. The frame swap itself is creation-time
+    // (`App::titlebar` in main.rs, from the persisted flag); this keeps the
+    // band height in sync at runtime (`Cx::set_titlebar`). Off = native frame
+    // stays and nothing here changes.
+    if state.native_chrome {
+        cx.set_titlebar(rune::Titlebar::new(TITLEBAR_HEIGHT));
+    }
     let k = &theme.kit;
 
     // 1. Custom titlebar: workspace wordmark, sidebar toggle, nav tabs,
     //    gateway telemetry readout and window controls.
-    let top_bar = row()
+    let mut top_bar = row()
         .key("top-header")
         .role("toolbar")
         .w_full()
-        .h(46.0)
+        .h(TITLEBAR_HEIGHT)
         .px(14.0)
         .justify_between()
         .items_center()
@@ -262,6 +274,16 @@ pub fn render_main_window(state: &AppState, cx: &mut Cx<AppState>) -> El {
                         .build(k),
                 ),
         );
+
+    // P5 native-chrome: the titlebar row is the window drag region (rune keeps
+    // presses on hit targets inside it) and clears the OS caption buttons'
+    // trailing inset so Settings/Phone HUD never sit under them. Headless the
+    // inset is 0, so the row keeps its normal 14px padding.
+    if state.native_chrome {
+        top_bar = top_bar
+            .window_drag()
+            .pr(14.0 + cx.chrome_insets().trailing);
+    }
 
     // 2. Active Content Pane
     let main_pane = match state.active_view {
@@ -537,5 +559,44 @@ mod tests {
         rt.update(|s, _tx| s.phone_detached = false);
         settle(&mut rt, 2);
         assert!(rt.find("phone-floating-dock").is_some(), "dock returns when re-attached");
+    }
+
+    // ---- P5 native-chrome (headless chrome-branch tests) ----
+
+    #[test]
+    fn native_chrome_mode_renders_and_tabs_keep_working() {
+        let mut s = AppState::new();
+        s.apply_scene_preset("idle");
+        s.native_chrome = true;
+        s.ui_config.reduced_motion = true;
+        let mut rt = Runtime::new(s, render_main_window, (1280.0, 800.0), Env::new(true, 1.0));
+        settle(&mut rt, 3);
+        assert!(rt.find("top-header").is_some(), "titlebar renders frameless");
+        // Hit targets inside the `.window_drag()` region keep their presses.
+        click_text(&mut rt, "Canvas");
+        assert_eq!(rt.state.active_view, ActiveView::Canvas);
+        click_text(&mut rt, "Home");
+        assert_eq!(rt.state.active_view, ActiveView::Home);
+        // Settings dialog still opens over the frameless chrome.
+        click_text(&mut rt, "Settings");
+        assert!(rt.state.settings_open);
+        assert!(rt.find("settings-dialog").is_some());
+    }
+
+    #[test]
+    fn native_chrome_toggle_flips_between_modes_without_panic() {
+        let mut rt = boot("idle");
+        assert!(!rt.state.native_chrome, "default off = current behavior");
+        assert!(rt.find("top-header").is_some());
+        rt.update(|s, _tx| s.native_chrome = true);
+        settle(&mut rt, 2);
+        assert!(rt.find("top-header").is_some(), "chrome-on branch renders");
+        assert!(rt.find("nav-tab-home").is_some());
+        rt.update(|s, _tx| s.native_chrome = false);
+        settle(&mut rt, 2);
+        assert!(rt.find("top-header").is_some(), "chrome-off branch renders");
+        // Default mode unchanged: tabs still switch views.
+        click_text(&mut rt, "Thread");
+        assert_eq!(rt.state.active_view, ActiveView::Thread);
     }
 }

@@ -484,6 +484,31 @@ fn render_studio_section(state: &AppState, theme: &VoxcellTheme) -> El {
                 .build(k),
         );
 
+    // P5 native-chrome (spec P3-01 gap): frameless OS-chrome switch. The frame
+    // swap applies at next launch (rune's `App::titlebar` is creation-time);
+    // main.rs persists the flag through its local config seam, so no ui_config
+    // patch / bridge command is needed here.
+    let native_chrome_row = row()
+        .key("native-chrome-row")
+        .gap(10.0)
+        .items_center()
+        .child(
+            Switch::new(state.native_chrome)
+                .label("Native Window Chrome")
+                .web()
+                .on_toggle(|s: &mut AppState| {
+                    s.native_chrome = !s.native_chrome;
+                })
+                .build(k)
+                .key("native-chrome-toggle")
+                .label("Native Window Chrome"),
+        )
+        .child(
+            text("Frameless OS titlebar — applies on next launch")
+                .font(theme.mono_sm)
+                .color(theme.text_faint),
+        );
+
     let mut section = col()
         .key("settings-section-studio")
         .w_full()
@@ -510,6 +535,7 @@ fn render_studio_section(state: &AppState, theme: &VoxcellTheme) -> El {
         .child(bloom_row)
         .child(horizon_row)
         .child(layout_row)
+        .child(native_chrome_row)
 }
 
 /// Ambient backdrop picker: all 7 web presets + opacity/blur steppers.
@@ -1602,5 +1628,28 @@ mod tests {
         assert_eq!(format_compact_time(now as i64 - 120_000, now), "2m ago");
         // 1_700_000_000_000 ms = 2023-11-14 22:13:20 UTC.
         assert_eq!(format_compact_time(1_700_000_000_000, now), "Nov 14 22:13");
+    }
+
+    // ---- P5 native-chrome toggle (headless) ----
+
+    #[test]
+    fn native_chrome_toggle_flips_state_and_renders_both_modes() {
+        let mut rt = boot_settings();
+        settle(&mut rt, 2);
+        assert!(!rt.state.native_chrome, "default off");
+        assert!(rt.find("native-chrome-toggle").is_some(), "toggle row present");
+        assert!(rt.find("native-chrome-row").is_some());
+        // A11y: the switch surfaces its name in the accessibility tree.
+        let a11y = rt.accessibility_json().to_string();
+        assert!(a11y.contains("Native Window Chrome"), "switch named for a11y");
+        click_key(&mut rt, "native-chrome-toggle");
+        assert!(rt.state.native_chrome, "toggle flips on");
+        settle(&mut rt, 2);
+        assert!(rt.find("settings-dialog").is_some(), "chrome-on mode renders");
+        assert!(rt.find("native-chrome-toggle").is_some());
+        click_key(&mut rt, "native-chrome-toggle");
+        assert!(!rt.state.native_chrome, "toggle flips back off");
+        settle(&mut rt, 2);
+        assert!(rt.find("settings-dialog").is_some(), "chrome-off mode renders");
     }
 }

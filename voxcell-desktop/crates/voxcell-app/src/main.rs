@@ -8,6 +8,8 @@ fn init_state() -> AppState {
     let mut s = AppState::new();
     // P3-03 handoff: GPU compositor is attached in main() below.
     s.home_gpu_halftone = true;
+    // P5 native-chrome: restore the persisted frameless-chrome flag.
+    s.native_chrome = load_native_chrome_from(&native_chrome_config_path());
     s
 }
 
@@ -41,6 +43,9 @@ fn poll_app(state: &mut AppState, t_seconds: f64, tx: &mut Tx) -> bool {
     if !rune::is_headless() {
         let _ = bridge::poll_bridge(state, dt);
     }
+
+    // P5 native-chrome: persist the settings toggle when it changes.
+    persist_native_chrome_if_changed(state);
 
     // Drive 60Hz character portrait, horizon FFT, and active task pulse
     state.step_animations(dt);
@@ -168,6 +173,65 @@ fn scene_phone(s: &mut AppState) {
     s.apply_scene_preset("phone");
 }
 
+// ---- P5 native-chrome persistence (main.rs-local seam) ----
+// `UiCustomizationConfig` has no spare knob and core/store/bridge are
+// foreign-owned, so the flag persists through a one-key JSON in the app's
+// per-user config dir. The frame swap itself is creation-time: rune's
+// `Cx::set_titlebar` only reshapes an already-declared `App::titlebar`, so a
+// toggle takes full effect on the next launch (the view's drag-region branch
+// switches live).
+
+fn native_chrome_config_path() -> std::path::PathBuf {
+    let base = if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA").map(std::path::PathBuf::from)
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME")
+            .map(|h| std::path::PathBuf::from(h).join("Library").join("Application Support"))
+    } else {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
+    };
+    base.unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("dev.voxcell.desktop")
+        .join("native-chrome.json")
+}
+
+fn load_native_chrome_from(path: &std::path::Path) -> bool {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("nativeChrome").and_then(|b| b.as_bool()))
+        .unwrap_or(false)
+}
+
+fn save_native_chrome_to(path: &std::path::Path, enabled: bool) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(path, serde_json::json!({ "nativeChrome": enabled }).to_string())
+}
+
+/// Persist the toggle when it changes (live app only; headless runs never
+/// touch the real config). The last-written value lives in a thread-local —
+/// `poll_app` runs on the app thread.
+fn persist_native_chrome_if_changed(state: &AppState) {
+    if rune::is_headless() {
+        return;
+    }
+    thread_local! {
+        static LAST: std::cell::RefCell<Option<bool>> = const { std::cell::RefCell::new(None) };
+    }
+    LAST.with(|last| {
+        let mut last = last.borrow_mut();
+        if *last != Some(state.native_chrome)
+            && save_native_chrome_to(&native_chrome_config_path(), state.native_chrome).is_ok()
+        {
+            *last = Some(state.native_chrome);
+        }
+    });
+}
+
 fn main() {
     rune::set_app_id("dev.voxcell.desktop");
 
@@ -205,10 +269,17 @@ fn main() {
     // rune reports/retains registration errors (headless registers virtually);
     // the bridge classifies failures into a StatusNote and the focused-window
     // Cmd/Ctrl+Shift+Space fallback in `on_key` keeps working regardless.
-    rune::App::new(spec)
+    let mut app = rune::App::new(spec)
         .compositor(voxcell_ui::views::home::HomeHalftoneCompositor::new())
-        .global_shortcut(bridge::ptt_accelerator(), bridge::ptt_shortcut_handler)
-        .run();
+        .global_shortcut(bridge::ptt_accelerator(), bridge::ptt_shortcut_handler);
+    // P5 native-chrome (spec P3-01 gap): when the persisted flag is on, declare
+    // the app-drawn 46px titlebar — rune takes the native titlebar away and
+    // keeps the window's controls over it (Windows: resize edges, Aero Snap,
+    // caption buttons; macOS: traffic lights). Off = native frame, unchanged.
+    if load_native_chrome_from(&native_chrome_config_path()) {
+        app = app.titlebar(rune::Titlebar::new(voxcell_ui::views::TITLEBAR_HEIGHT));
+    }
+    app.run();
 }
 
 #[cfg(test)]
@@ -410,5 +481,37 @@ mod tests {
         assert!(handle_shortcut(&mut s, &chord(Key::Text(" ".into()), true, false, true)));
         assert!(s.voice.hands_free_vad);
         assert!(s.pending_commands.iter().any(|c| matches!(c, voxcell_ui::UiCommand::ToggleMic(true))));
+    }
+
+    // ---- P5 native-chrome (headless) ----
+
+    #[test]
+    fn native_chrome_config_roundtrip_defaults_off() {
+        let dir = std::env::temp_dir().join(format!("voxcell-native-chrome-{}", std::process::id()));
+        let path = dir.join("native-chrome.json");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!load_native_chrome_from(&path), "missing config defaults to off");
+        save_native_chrome_to(&path, true).expect("save on");
+        assert!(load_native_chrome_from(&path), "roundtrip on");
+        save_native_chrome_to(&path, false).expect("save off");
+        assert!(!load_native_chrome_from(&path), "roundtrip off");
+        // Corrupt JSON degrades to off, never panics.
+        std::fs::write(&path, "{not json").unwrap();
+        assert!(!load_native_chrome_from(&path));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn render_root_renders_both_chrome_modes_headless() {
+        for native in [false, true] {
+            let mut s = AppState::new();
+            s.apply_scene_preset("idle");
+            s.native_chrome = native;
+            let mut rt = Runtime::new(s, render_root, (1280.0, 800.0), Env::new(true, 1.0));
+            rt.frame(0.0);
+            rt.frame(0.016);
+            assert!(rt.find("top-header").is_some(), "chrome mode {native}");
+            assert!(rt.find("nav-tab-home").is_some(), "tabs in mode {native}");
+        }
     }
 }
