@@ -1,0 +1,233 @@
+# RUNE Desktop release CI — voxcell-desktop (spec P4-05 / packaging/README.md).
+#
+# Pipeline: test (ubuntu) -> package (windows/macos/linux matrix) -> release (v* tags only).
+#   - checkout with the pinned RUNE submodule (third_party/rune, recursive)
+#   - Rust stable + Swatinem/rust-cache (keyed on voxcell-desktop/Cargo.lock)
+#   - platform scripts run from voxcell-desktop/; artifacts land in
+#     dist/<platform>/ and are uploaded per platform (actions/upload-artifact)
+#   - on v* tags: download all artifacts, generate SHA256SUMS, publish a
+#     GitHub Release with everything attached (softprops/action-gh-release)
+#
+# Signing: the packaging scripts gate their signing hooks on VOXCELL_SIGN_CERT /
+# VOXCELL_SIGN_PASSWORD (windows) and APPLE_SIGN_IDENTITY / APPLE_ID /
+# APPLE_TEAM_ID / APPLE_APP_PASSWORD (macos). Those secrets are passed through
+# as env below; when unset they are empty and the scripts skip signing
+# gracefully -> unsigned artifacts (the expected output; no certs in this env).
+name: RUNE Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ------------------------------------------------------------------ test
+  test:
+    name: cargo test --workspace (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: voxcell-desktop
+    steps:
+      - name: Checkout (with pinned RUNE submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      # Same native libs as rune-desktop.yml: alsa-sys (cpal), bindgen/clang,
+      # fontconfig, xkbcommon; lavapipe for headless software Vulkan.
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config \
+            libasound2-dev \
+            libclang-dev \
+            libfontconfig1-dev \
+            libxkbcommon-dev \
+            libvulkan1 \
+            mesa-vulkan-drivers
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: voxcell-desktop
+
+      # Headless: rune's headless Runtime needs no display server / GPU window.
+      - name: cargo test --workspace (headless)
+        run: cargo test --workspace --locked
+
+  # --------------------------------------------------------------- package
+  package:
+    name: package (${{ matrix.platform }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-latest
+            platform: linux
+    defaults:
+      run:
+        working-directory: voxcell-desktop
+    env:
+      # Signing credentials per packaging/README.md. Empty when the repo
+      # secret is absent -> scripts skip their signing hooks gracefully.
+      VOXCELL_SIGN_CERT: ${{ secrets.VOXCELL_SIGN_CERT }}
+      VOXCELL_SIGN_PASSWORD: ${{ secrets.VOXCELL_SIGN_PASSWORD }}
+      APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+    steps:
+      - name: Checkout (with pinned RUNE submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install Linux build + packaging dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config \
+            libasound2-dev \
+            libclang-dev \
+            libfontconfig1-dev \
+            libxkbcommon-dev \
+            libvulkan1 \
+            mesa-vulkan-drivers \
+            libfuse2 \
+            dpkg-dev \
+            file
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: voxcell-desktop
+
+      # On v* tags the tag (minus leading v) overrides the workspace version;
+      # on workflow_dispatch the scripts default to Cargo.toml's version.
+      - name: Derive VOXCELL_VERSION from tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VOXCELL_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          fi
+
+      # Optional: materialize a base64-encoded PFX secret into a file so the
+      # script's signtool hook gets a real path (contract: VOXCELL_SIGN_CERT =
+      # pfx path). Skipped entirely when the secret is absent; never fakes a
+      # signature — on any problem it clears the var and builds unsigned.
+      - name: Prepare Windows signing certificate (optional)
+        if: matrix.platform == 'windows' && env.VOXCELL_SIGN_CERT != ''
+        shell: bash
+        run: |
+          if [ -f "$VOXCELL_SIGN_CERT" ]; then
+            echo "Using existing certificate path: $VOXCELL_SIGN_CERT"
+          elif printf '%s' "$VOXCELL_SIGN_CERT" | base64 -d > "$RUNNER_TEMP/voxcell-sign.pfx" 2>/dev/null && [ -s "$RUNNER_TEMP/voxcell-sign.pfx" ]; then
+            echo "VOXCELL_SIGN_CERT=$RUNNER_TEMP/voxcell-sign.pfx" >> "$GITHUB_ENV"
+          else
+            echo "::warning::VOXCELL_SIGN_CERT is set but is neither a readable path nor a valid base64 PFX; building unsigned."
+            echo "VOXCELL_SIGN_CERT=" >> "$GITHUB_ENV"
+          fi
+
+      # Invocation per build.ps1 header (Windows PowerShell 5.1-compatible).
+      - name: Package (Windows)
+        if: matrix.platform == 'windows'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging/windows/build.ps1
+
+      # macos-latest is arm64 -> Voxcell-<version>-arm64.dmg (script detects arch).
+      - name: Package (macOS)
+        if: matrix.platform == 'macos'
+        run: bash packaging/macos/build.sh
+
+      # APPIMAGE_EXTRACT_AND_RUN lets appimagetool run without FUSE on runners.
+      - name: Package (Linux)
+        if: matrix.platform == 'linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: bash packaging/linux/build.sh
+
+      # Upload the finished artifacts only. The scripts also leave a staging
+      # tree in dist/<platform>/stage/ (unpacked app + assets) — exclude it.
+      # Directory upload keeps whatever the platform script emits (zip/msi/exe,
+      # dmg + SHA256SUMS, AppImage/deb + SHA256SUMS per the contract).
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxcell-${{ matrix.platform }}
+          path: |
+            voxcell-desktop/dist/${{ matrix.platform }}/
+            !voxcell-desktop/dist/${{ matrix.platform }}/stage/**
+          if-no-files-found: error
+          retention-days: 14
+
+  # --------------------------------------------------------------- release
+  release:
+    name: GitHub Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Flat merge: all platforms' files land directly in dist/ (artifact names
+      # are platform-distinct, no collisions). Per-platform SHA256SUMS written
+      # by the macos/linux scripts are replaced by ONE consolidated SHA256SUMS
+      # covering every release asset, so `sha256sum -c SHA256SUMS` works in a
+      # plain download directory.
+      - name: Generate SHA256SUMS
+        shell: bash
+        run: |
+          cd dist
+          rm -f SHA256SUMS
+          count=$(find . -maxdepth 1 -type f | wc -l)
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No artifacts downloaded; refusing to publish an empty release."
+            exit 1
+          fi
+          find . -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
