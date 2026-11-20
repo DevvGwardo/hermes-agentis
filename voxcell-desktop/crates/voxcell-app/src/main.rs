@@ -195,11 +195,11 @@ fn main() {
         setup: Some(setup_app),
         poll: Some(poll_app),
         on_key: Some(on_key),
+        // P4-05: embedded OFL fonts (seam per rune's font_swap integration test).
+        fonts: voxcell_ui::fonts::APP_FONTS,
+        families: voxcell_ui::fonts::FAMILIES,
         ..AppSpec::new("Hermes Duet // Voxcell", win_size, init_state, render_root)
     };
-
-    // P4-05 (fonts-assets handoff): register bundled fonts before the app boots.
-    voxcell_ui::fonts::register_fonts();
 
     // P4-03 (phone-tray handoff): register the global PTT hotkey at startup.
     // rune reports/retains registration errors (headless registers virtually);
