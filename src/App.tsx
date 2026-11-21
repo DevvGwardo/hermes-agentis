@@ -10,9 +10,15 @@ import {
   ONBOARDING_COMPLETED_EVENT,
   loadOnboardingCompleted,
 } from './onboarding/trigger';
+import { QuickJumpModal } from './components/QuickJumpModal';
 import { SidebarWorkspace } from './components/SidebarWorkspace';
 import { UiCustomizerStudio, type StudioTab } from './components/UiCustomizerStudio';
 import { VoiceWorkspacePane, type WorkspacePanelView } from './components/VoiceWorkspacePane';
+import {
+  buildQuickJumpItems,
+  resolveWorkspaceShortcut,
+  type QuickJumpItem,
+} from './utils/navigationModel';
 import { useHermesAgent, hermesItemToEntry } from './hooks/useHermesAgent';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
 import type {
@@ -185,6 +191,7 @@ export default function App() {
   } | null>(null);
   const [uiConfig, setUiConfig] = useState<UiCustomizationConfig>(INITIAL_UI_CONFIG);
   const [customizerOpen, setCustomizerOpen] = useState(false);
+  const [quickJumpOpen, setQuickJumpOpen] = useState(false);
   const [customizerTab, setCustomizerTab] = useState<StudioTab>('theme');
   const [canUndoUi, setCanUndoUi] = useState(false);
   const uiHistoryRef = useRef<Array<{ uiConfig: UiCustomizationConfig; bg: BackgroundSettings }>>([]);
@@ -2132,6 +2139,137 @@ export default function App() {
     [hermesConnected, loadChannelHistory]
   );
 
+  const handleChangePanelView = useCallback((view: WorkspacePanelView) => {
+    setHomeCommandOutput(null);
+    if (view === 'home') {
+      setSelectedItemId(null);
+      setHomeSessionDraft(true);
+      setLastSpokenLineState(
+        'New Hermes Agent session ready — type or speak a prompt to begin.'
+      );
+    } else if (view === 'voice') {
+      setHomeSessionDraft(false);
+      setThreadVisitNonce((n) => n + 1);
+    }
+    setPanelView(view);
+    setMobileSidebarOpen(false);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    applyAgentUiPatch({ sidebarVisible: !stateRef.current.uiConfig.sidebarVisible }, 'studio');
+  }, [applyAgentUiPatch]);
+
+  const quickJumpItems = useMemo(() => {
+    const pendingCount = approvals.filter((a) => a.status === 'pending').length;
+    const activeRunningCount = effectiveTasks.filter(
+      (t) => t.channelId === activeChannel && t.status === 'running'
+    ).length;
+    return buildQuickJumpItems({
+      activeView: panelView,
+      activeChannel,
+      sidebarVisible: uiConfig.sidebarVisible,
+      isMuted: voice.voiceState.isMuted,
+      gatewayConnected: Boolean(gatewayStatus?.connected),
+      pendingApprovalCount: pendingCount,
+      activeRunningTaskCount: activeRunningCount,
+      sessions: canvasSessions,
+      thinkingByChannel,
+    });
+  }, [
+    activeChannel,
+    approvals,
+    canvasSessions,
+    effectiveTasks,
+    gatewayStatus?.connected,
+    panelView,
+    thinkingByChannel,
+    uiConfig.sidebarVisible,
+    voice.voiceState.isMuted,
+  ]);
+
+  const handleExecuteQuickJump = useCallback(
+    (item: QuickJumpItem) => {
+      const { action } = item;
+      if (action.type === 'view') {
+        handleChangePanelView(action.view);
+        return;
+      }
+      if (action.type === 'session') {
+        const target = canvasSessions.find((s) => s.id === action.sessionId);
+        if (target) {
+          setSelectedItemId(target.id);
+          handleOpenSessionThread(target);
+        } else {
+          handleSelectChannel(action.channelId, { openThread: true });
+        }
+        return;
+      }
+      switch (action.command) {
+        case 'new-session':
+          handleStartNewHomeSession();
+          break;
+        case 'toggle-sidebar':
+          handleToggleSidebar();
+          break;
+        case 'open-settings':
+          setCustomizerOpen(true);
+          break;
+        case 'toggle-mute':
+          voice.toggleMute();
+          break;
+        case 'retry-gateway':
+          void refreshGateway();
+          break;
+      }
+    },
+    [
+      canvasSessions,
+      handleChangePanelView,
+      handleOpenSessionThread,
+      handleSelectChannel,
+      handleStartNewHomeSession,
+      handleToggleSidebar,
+      refreshGateway,
+      voice,
+    ]
+  );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditableTarget =
+        Boolean(target?.isContentEditable) ||
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select';
+      const intent = resolveWorkspaceShortcut({
+        key: e.key,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        altKey: e.altKey,
+        shiftKey: e.shiftKey,
+        isEditableTarget,
+      });
+      if (!intent) return;
+      e.preventDefault();
+      if (intent.type === 'toggle-quick-jump') {
+        setCustomizerOpen(false);
+        setQuickJumpOpen((prev) => !prev);
+      } else if (intent.type === 'toggle-sidebar') {
+        handleToggleSidebar();
+      } else if (intent.type === 'open-settings') {
+        setQuickJumpOpen(false);
+        setCustomizerOpen((prev) => !prev);
+      } else if (intent.type === 'switch-view') {
+        setQuickJumpOpen(false);
+        handleChangePanelView(intent.view);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleChangePanelView, handleToggleSidebar]);
+
   const rootDensityPadding =
     uiConfig.density === 'compact'
       ? 'p-1 sm:p-2'
@@ -2215,6 +2353,16 @@ export default function App() {
                 setPanelView((prev) => (prev === 'queue' ? 'home' : 'queue'));
                 setMobileSidebarOpen(false);
               }}
+              onOpenCanvas={() => handleChangePanelView('canvas')}
+              onOpenQuickJump={() => {
+                setMobileSidebarOpen(false);
+                setQuickJumpOpen(true);
+              }}
+              onOpenStudio={() => {
+                setMobileSidebarOpen(false);
+                setCustomizerOpen(true);
+              }}
+              onCollapseSidebar={handleToggleSidebar}
               onCloseMobile={() => setMobileSidebarOpen(false)}
               workspaceTitle={uiConfig.workspaceTitle}
               gatewayStatus={gatewayStatus}
@@ -2239,25 +2387,13 @@ export default function App() {
             mood={mood}
             onCycleMood={handleCycleMood}
             panelView={panelView}
-            onChangePanelView={(view) => {
-              setHomeCommandOutput(null);
-              if (view === 'home') {
-                setSelectedItemId(null);
-                setHomeSessionDraft(true);
-                setLastSpokenLineState(
-                  'New Hermes Agent session ready — type or speak a prompt to begin.'
-                );
-              } else if (view === 'voice') {
-                setHomeSessionDraft(false);
-                setThreadVisitNonce((n) => n + 1);
-              }
-              setPanelView(view);
-              setMobileSidebarOpen(false);
-            }}
+            onChangePanelView={handleChangePanelView}
             threadVisitNonce={threadVisitNonce}
             onOpenMobileSidebar={
               uiConfig.sidebarVisible ? () => setMobileSidebarOpen(true) : undefined
             }
+            onToggleSidebar={handleToggleSidebar}
+            onOpenQuickJump={() => setQuickJumpOpen(true)}
             voiceState={voice.voiceState}
             lastSpokenLine={lastSpokenLine}
             animateSpeechLine={animateSpeechLine}
@@ -2381,6 +2517,14 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <QuickJumpModal
+        open={quickJumpOpen}
+        onClose={() => setQuickJumpOpen(false)}
+        items={quickJumpItems}
+        onExecute={handleExecuteQuickJump}
+        isMuted={voice.voiceState.isMuted}
+      />
 
       <UiCustomizerStudio
         open={customizerOpen}

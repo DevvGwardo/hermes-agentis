@@ -74,7 +74,6 @@
 
 .ui-drawer-shell {
   background-color: rgba(var(--ui-surface-rgb), 0.985);
-  backdrop-filter: blur(20px);
   border-color: rgba(var(--ui-accent-rgb), clamp(0.16, calc(var(--ui-border-alpha) * 0.45), 0.5));
 }
 

@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Pin, Plus, Search, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronRight,
+  LayoutGrid,
+  MessageSquarePlus,
+  PanelLeftClose,
+  Pin,
+  Plus,
+  Search,
+  Settings,
+  X,
+} from 'lucide-react';
 import type {
   ApprovalCard,
   BackgroundTask,
@@ -59,6 +70,10 @@ interface SidebarWorkspaceProps {
   onSelectBrief: (item: BriefDecision) => void;
   onNewTask: () => void;
   onOpenQueue: () => void;
+  onOpenCanvas?: () => void;
+  onOpenQuickJump?: () => void;
+  onOpenStudio?: () => void;
+  onCollapseSidebar?: () => void;
   onCloseMobile?: () => void;
   workspaceTitle?: string;
   gatewayStatus?: HermesGatewayStatus | null;
@@ -98,6 +113,10 @@ export function SidebarWorkspace({
   onSelectBrief,
   onNewTask,
   onOpenQueue,
+  onOpenCanvas,
+  onOpenQuickJump,
+  onOpenStudio,
+  onCollapseSidebar,
   onCloseMobile,
   workspaceTitle = 'Hermes',
   gatewayStatus,
@@ -296,19 +315,34 @@ export function SidebarWorkspace({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onNewTask}
-          aria-pressed={homeSessionDraft}
-          className={`ui-tactile flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap px-2 py-1 rounded-md shrink-0 ${
-            homeSessionDraft
-              ? 'bg-[rgba(var(--ui-accent-rgb),0.16)] text-white border border-[rgba(var(--ui-accent-rgb),0.36)]'
-              : 'text-zinc-200 hover:text-white hover:bg-white/[0.06]'
-          }`}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New</span>
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onNewTask}
+            aria-pressed={homeSessionDraft}
+            className={`ui-tactile flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap px-2 py-1 rounded-md shrink-0 ${
+              homeSessionDraft
+                ? 'bg-[rgba(var(--ui-accent-rgb),0.16)] text-white border border-[rgba(var(--ui-accent-rgb),0.36)]'
+                : 'text-zinc-200 hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New</span>
+          </button>
+
+          {onCollapseSidebar && (
+            <button
+              type="button"
+              onClick={onCollapseSidebar}
+              data-testid="sidebar-collapse-btn"
+              aria-label="Hide sidebar"
+              title="Hide sidebar (⌘B)"
+              className="hidden lg:inline-flex w-7 h-7 items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0"
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Reactive Agent Companion & Task Status Card */}
@@ -368,9 +402,14 @@ export function SidebarWorkspace({
                 </span>
               </div>
 
-              <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                {charState.gatewayLine}
-              </p>
+              <div className="flex items-center justify-between gap-1 mt-0.5 min-w-0">
+                <p className="text-[11px] text-zinc-400 truncate">
+                  {charState.gatewayLine
+                    .replace('Gateway offline · Open Ops', 'Open Queue & Gateway')
+                    .replace('Open Ops', 'Open Queue')}
+                </p>
+                <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" aria-hidden="true" />
+              </div>
 
               {(isSpeaking || isListening || (charState.mode === 'working' && charState.activeTask)) && (
                 <div className="mt-1 flex items-center justify-between gap-2 min-w-0">
@@ -602,22 +641,46 @@ export function SidebarWorkspace({
             Queue hidden in UI layout
           </div>
         ) : effectiveScopeTab === 'workspace' && workspaceCount === 0 && pendingApprovals.length === 0 && openBrief.length === 0 ? (
-          <div className="px-2.5 py-5 text-left space-y-1.5">
-            <p className="text-[12px] font-medium text-zinc-300">No sessions created yet</p>
-            <p className="text-[11px] text-zinc-500 leading-relaxed">
-              {externalCount > 0
-                ? 'Start a fresh prompt on Home, or inspect external CLI & API runs in Gateway.'
-                : 'Start a prompt on Home or add a Dot on Canvas to begin.'}
-            </p>
-            {externalCount > 0 && (
+          <div className="px-2 py-4 text-left space-y-3">
+            <div className="space-y-1 px-0.5">
+              <p className="text-[12px] font-medium text-zinc-200">No sessions yet</p>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                {externalCount > 0
+                  ? 'Start a prompt below or browse external Gateway runs.'
+                  : 'Start a conversation or map parallel agents on Canvas.'}
+              </p>
+            </div>
+            <div className="space-y-1.5">
               <button
                 type="button"
-                onClick={() => setScopeTab('external')}
-                className="text-[11px] font-mono text-[var(--ui-accent-soft)] hover:text-white underline underline-offset-4 cursor-pointer"
+                data-testid="sidebar-empty-new-prompt"
+                onClick={onNewTask}
+                className="ui-tactile w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-white/[0.09] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 text-xs font-medium text-zinc-100 transition-colors cursor-pointer"
               >
-                Browse {externalCount} gateway {externalCount === 1 ? 'session' : 'sessions'}
+                <MessageSquarePlus className="w-3.5 h-3.5 text-[var(--ui-accent-soft)] shrink-0" />
+                <span className="truncate">Start on Home</span>
               </button>
-            )}
+              {onOpenCanvas && (
+                <button
+                  type="button"
+                  data-testid="sidebar-empty-open-canvas"
+                  onClick={onOpenCanvas}
+                  className="ui-tactile w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-white/[0.08] bg-transparent hover:bg-white/[0.05] hover:border-white/18 text-xs font-medium text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                  <span className="truncate">Open Canvas</span>
+                </button>
+              )}
+              {externalCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setScopeTab('external')}
+                  className="px-1 pt-0.5 text-[11px] font-mono text-[var(--ui-accent-soft)] hover:text-white underline underline-offset-4 cursor-pointer"
+                >
+                  Browse {externalCount} gateway {externalCount === 1 ? 'session' : 'sessions'}
+                </button>
+              )}
+            </div>
           </div>
         ) : visibleSessions.length === 0 ? (
           <div className="px-2.5 py-5 text-left space-y-2">
@@ -748,6 +811,37 @@ export function SidebarWorkspace({
           </>
         )}
       </div>
+
+      {/* Quiet Navigation Footer: Quick Jump & Settings */}
+      {(onOpenQuickJump || onOpenStudio) && (
+        <div className="px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-1.5 shrink-0">
+          {onOpenQuickJump && (
+            <button
+              type="button"
+              data-testid="sidebar-quick-jump-btn"
+              onClick={onOpenQuickJump}
+              className="ui-tactile flex-1 min-w-0 h-8 px-2.5 rounded-lg border border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.06] hover:border-white/20 flex items-center justify-between gap-2 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <span className="inline-flex items-center gap-1.5 min-w-0 truncate">
+                <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span className="truncate">Quick jump</span>
+              </span>
+              <kbd className="font-mono text-[10px] text-zinc-400 shrink-0">⌘K</kbd>
+            </button>
+          )}
+          {onOpenStudio && (
+            <button
+              type="button"
+              onClick={onOpenStudio}
+              aria-label="Open Settings"
+              title="Settings (⌘,)"
+              className="ui-tactile w-8 h-8 rounded-lg border border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.06] hover:border-white/20 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

@@ -28,6 +28,8 @@ import {
   Maximize2,
   Pencil,
   CornerDownRight,
+  Home,
+  MessageSquare,
 } from 'lucide-react';
 import type {
   ApprovalCard,
@@ -119,6 +121,8 @@ interface VoiceWorkspacePaneProps {
   panelView: WorkspacePanelView;
   onChangePanelView: (view: WorkspacePanelView) => void;
   onOpenMobileSidebar?: () => void;
+  onToggleSidebar?: () => void;
+  onOpenQuickJump?: () => void;
   voiceState: VoiceState;
   lastSpokenLine: string;
   animateSpeechLine: boolean;
@@ -210,6 +214,8 @@ export function VoiceWorkspacePane({
   panelView,
   onChangePanelView,
   onOpenMobileSidebar,
+  onToggleSidebar,
+  onOpenQuickJump,
   voiceState,
   lastSpokenLine,
   animateSpeechLine,
@@ -1057,20 +1063,22 @@ export function VoiceWorkspacePane({
 
   const navTabItems: MorphTabItem<WorkspacePanelView>[] = useMemo(
     () => [
-      { id: 'home', label: 'Home' },
-      { id: 'canvas', label: 'Canvas' },
+      { id: 'home', label: 'Home', icon: <Home className="w-3.5 h-3.5 shrink-0 opacity-80" /> },
+      { id: 'canvas', label: 'Canvas', icon: <LayoutGrid className="w-3.5 h-3.5 shrink-0 opacity-80" /> },
       {
         id: 'voice',
         label:
           activeChannelRunningTaskCount > 0
             ? `Thread (${activeChannelRunningTaskCount})`
             : 'Thread',
+        icon: <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-80" />,
       },
       {
         id: 'queue',
         label: pendingApprovals.length > 0 ? `Queue (${pendingApprovals.length})` : 'Queue',
+        icon: <ListChecks className="w-3.5 h-3.5 shrink-0 opacity-80" />,
       },
-      { id: 'cli', label: 'CLI' },
+      { id: 'cli', label: 'CLI', icon: <Terminal className="w-3.5 h-3.5 shrink-0 opacity-80" /> },
     ],
     [activeChannelRunningTaskCount, pendingApprovals.length]
   );
@@ -1181,7 +1189,7 @@ export function VoiceWorkspacePane({
 
           {/* Mobile 2nd Row Toolbar: Thumb-Zone Utility Pills + Voice/Send */}
           <div className="flex items-center justify-between gap-2 lg:justify-end shrink-0">
-            {/* Left Tool Cluster (Mobile only; desktop uses top tabs & sidebar) */}
+            {/* Left Tool Cluster (Mobile only: clean Commands trigger since views live in top bar) */}
             <div className="flex lg:hidden items-center gap-1.5">
               <button
                 type="button"
@@ -1193,56 +1201,14 @@ export function VoiceWorkspacePane({
                 aria-expanded={slashPaletteOpen}
                 aria-label="Browse Hermes slash commands"
                 title="Commands (/)"
-                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                className={`h-9 px-2.5 rounded-full border flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer ${
                   slashPaletteOpen
                     ? 'bg-[rgba(var(--ui-accent-rgb),0.20)] border-[rgba(var(--ui-accent-rgb),0.55)] text-[var(--ui-accent-soft)]'
                     : 'bg-white/[0.06] border-white/10 text-zinc-300 hover:text-white'
                 }`}
               >
-                <Slash className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onChangePanelView(panelView === 'cli' ? 'voice' : 'cli')}
-                aria-label="Toggle CLI view"
-                title="CLI"
-                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
-                  panelView === 'cli'
-                    ? 'bg-[rgba(var(--ui-accent-rgb),0.20)] border-[rgba(var(--ui-accent-rgb),0.55)] text-[var(--ui-accent-soft)]'
-                    : 'bg-white/[0.06] border-white/10 text-zinc-300 hover:text-white'
-                }`}
-              >
-                <Terminal className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onChangePanelView(panelView === 'queue' ? 'voice' : 'queue')}
-                aria-label="Toggle Queue and Approvals"
-                title="Queue & Ops"
-                className={`relative w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
-                  panelView === 'queue'
-                    ? 'bg-[rgba(var(--ui-accent-rgb),0.20)] border-[rgba(var(--ui-accent-rgb),0.55)] text-[var(--ui-accent-soft)]'
-                    : 'bg-white/[0.06] border-white/10 text-zinc-300 hover:text-white'
-                }`}
-              >
-                <ListChecks className="w-4 h-4" />
-                {pendingApprovals.length > 0 && (
-                  <span className="ui-accent-btn absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full font-mono text-[9.5px] font-bold flex items-center justify-center tabular-nums">
-                    {pendingApprovals.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onChangePanelView('canvas')}
-                aria-label="Switch to Canvas"
-                title="Canvas"
-                className="w-9 h-9 rounded-full bg-white/[0.06] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <LayoutGrid className="w-4 h-4" />
+                <Slash className="w-3.5 h-3.5" />
+                <span>Commands</span>
               </button>
             </div>
 
@@ -1336,6 +1302,7 @@ export function VoiceWorkspacePane({
         onChangePanelView={onChangePanelView}
         onSelectChannel={onSelectChannel}
         onOpenMobileSidebar={onOpenMobileSidebar}
+        onOpenQuickJump={onOpenQuickJump}
         onResetSession={onResetSession}
         onCycleMood={onCycleMood}
         onToggleMute={onToggleMute}
@@ -1347,16 +1314,17 @@ export function VoiceWorkspacePane({
       {/* Unified Clean Top Bar (Desktop lg+) */}
       {uiConfig.showTopNav ? (
         <div className="hidden lg:flex items-center justify-between gap-3 xl:gap-6 px-4 xl:px-6 pt-3 pb-2 border-b border-white/6 z-30 shrink-0">
-          <div className="flex items-center gap-4 min-w-0 overflow-x-auto cyber-scroll">
-            {onOpenMobileSidebar && (
+          <div className="flex items-center gap-3 min-w-0 overflow-x-auto cyber-scroll">
+            {!uiConfig.sidebarVisible && onToggleSidebar && (
               <button
                 type="button"
-                onClick={onOpenMobileSidebar}
-                aria-label="Open tasks and lanes"
-                className="lg:hidden inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white transition-colors shrink-0 cursor-pointer"
+                onClick={onToggleSidebar}
+                data-testid="topbar-expand-sidebar"
+                aria-label="Show sidebar"
+                title="Show sidebar (⌘B)"
+                className="ui-tactile w-8 h-8 rounded-lg border border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25 inline-flex items-center justify-center transition-colors shrink-0 cursor-pointer"
               >
                 <PanelLeft className="w-3.5 h-3.5" />
-                <span>Tasks</span>
               </button>
             )}
 
@@ -1370,31 +1338,56 @@ export function VoiceWorkspacePane({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {(panelView === 'home' || panelView === 'voice') && (
+            {onOpenQuickJump && (
               <button
                 type="button"
-                data-testid="inline-hermes-trigger"
-                aria-expanded={hermesInspectorOpen}
-                onClick={() => setHermesInspectorOpen((v) => !v)}
-                title="Inline Hermes Agent controls (profiles, skills, toolsets, transport & cron)"
-                className={`ui-tactile h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  hermesInspectorOpen
-                    ? 'border-[rgba(var(--ui-accent-rgb),0.5)] bg-[rgba(var(--ui-accent-rgb),0.16)] text-white'
-                    : 'border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25'
-                }`}
+                data-testid="topbar-quick-jump"
+                onClick={onOpenQuickJump}
+                aria-label="Quick jump navigation"
+                title="Quick jump to any view, session, or action (⌘K)"
+                className="ui-tactile h-8 px-2.5 rounded-lg border border-white/10 bg-white/[0.03] text-xs font-medium text-zinc-300 hover:text-white hover:border-white/25 inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                <StatusPulse
-                  state={gatewayStatus?.connected ? 'live' : 'error'}
-                  size="sm"
-                />
-                <span>Hermes</span>
-                {(skills?.length ?? 0) + (toolsets?.length ?? 0) > 0 && (
-                  <span className="font-mono text-[10px] text-zinc-400 tabular-nums">
-                    {(skills?.length ?? 0) + (toolsets?.length ?? 0)}
-                  </span>
-                )}
+                <Search className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="hidden xl:inline">Jump</span>
+                <kbd className="font-mono text-[10px] text-zinc-400">⌘K</kbd>
               </button>
             )}
+
+            <button
+              type="button"
+              data-testid="inline-hermes-trigger"
+              aria-expanded={
+                (panelView === 'home' || panelView === 'voice') ? hermesInspectorOpen : undefined
+              }
+              onClick={() => {
+                if (panelView === 'home' || panelView === 'voice') {
+                  setHermesInspectorOpen((v) => !v);
+                } else {
+                  onChangePanelView('queue');
+                }
+              }}
+              title={
+                panelView === 'home' || panelView === 'voice'
+                  ? 'Inline Hermes Agent controls (profiles, skills, toolsets, transport & cron)'
+                  : 'Open Queue & Gateway status'
+              }
+              className={`ui-tactile h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                (panelView === 'home' || panelView === 'voice') && hermesInspectorOpen
+                  ? 'border-[rgba(var(--ui-accent-rgb),0.5)] bg-[rgba(var(--ui-accent-rgb),0.16)] text-white'
+                  : 'border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25'
+              }`}
+            >
+              <StatusPulse
+                state={gatewayStatus?.connected ? 'live' : 'error'}
+                size="sm"
+              />
+              <span>Hermes</span>
+              {(skills?.length ?? 0) + (toolsets?.length ?? 0) > 0 && (
+                <span className="font-mono text-[10px] text-zinc-400 tabular-nums">
+                  {(skills?.length ?? 0) + (toolsets?.length ?? 0)}
+                </span>
+              )}
+            </button>
 
             <button
               type="button"
@@ -1820,8 +1813,19 @@ export function VoiceWorkspacePane({
                 {panelView === 'voice' ? (
                   <div className="relative z-10 w-full max-w-[740px] mx-auto px-8 mt-0.5 flex items-center justify-between gap-3 text-[11.5px] font-medium text-zinc-300">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <StatusPulse size="sm" state={statusPulseState} />
-                      <span className="text-white/95 shrink-0">{statusText}</span>
+                      <StatusPulse
+                        size="sm"
+                        state={gatewayStatus && !gatewayStatus.connected ? 'error' : statusPulseState}
+                      />
+                      <span
+                        className={
+                          gatewayStatus && !gatewayStatus.connected
+                            ? 'font-mono text-rose-200/90 shrink-0'
+                            : 'text-white/95 shrink-0'
+                        }
+                      >
+                        {gatewayStatus && !gatewayStatus.connected ? 'Gateway offline' : statusText}
+                      </span>
                       <span aria-hidden="true" className="text-zinc-600 shrink-0">·</span>
                       <button
                         type="button"
@@ -2652,14 +2656,16 @@ export function VoiceWorkspacePane({
                     {timelineBlocks.length === 0 && !activeIsThinking && !voiceState.interimTranscript && (
                       <div
                         data-testid="thread-empty-guide"
-                        className="my-auto pt-8 sm:pt-12 pb-6 flex flex-col items-center text-center space-y-5"
+                        className="my-auto pt-6 sm:pt-10 pb-6 flex flex-col items-center text-center space-y-5"
                       >
                         <div className="space-y-1.5">
                           <h2 className="text-[15px] font-medium text-white/95">
-                            Start in {activeDotLabel?.primaryLabel ?? activeHermesSessionId}
+                            {activeChannel
+                              ? `Thread · ${activeDotLabel?.primaryLabel ?? activeHermesSessionId}`
+                              : 'Ready for a new thread'}
                           </h2>
                           <p className="text-xs text-zinc-400">
-                            Ask a question below, or press <span className="font-mono text-zinc-200">/</span> for Hermes commands.
+                            Messages, live activity traces, and run tasks appear here. Type below or press <span className="font-mono text-zinc-200">/</span> for commands.
                           </p>
                         </div>
 

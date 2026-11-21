@@ -375,13 +375,15 @@ export function UiCustomizerStudio({
                   <div className="text-xs font-medium text-zinc-300">
                     Themes
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {CURATED_UI_PRESETS.map((preset) => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {CURATED_UI_PRESETS.map((preset, idx) => {
                       const presetAccent = preset.config.accentHex ?? '#94A3B8';
                       const active =
                         config.accentHex === presetAccent &&
                         config.surfaceHex === (preset.config.surfaceHex ?? config.surfaceHex) &&
                         config.cornerRadius === (preset.config.cornerRadius ?? config.cornerRadius);
+                      const isTrailingOdd =
+                        CURATED_UI_PRESETS.length % 2 === 1 && idx === CURATED_UI_PRESETS.length - 1;
                       return (
                         <button
                           key={preset.id}
@@ -389,23 +391,30 @@ export function UiCustomizerStudio({
                           data-testid={`ui-preset-${preset.id}`}
                           title={preset.subtitle}
                           onClick={() => onApplyPatch({ presetId: preset.id }, 'studio')}
-                          className={`text-left rounded-lg border px-2.5 py-2 flex items-center justify-between gap-2 transition-colors cursor-pointer min-w-0 ${
+                          className={`text-left rounded-xl border px-3 py-2 flex items-center justify-between gap-2.5 transition-colors cursor-pointer min-w-0 ${
+                            isTrailingOdd ? 'sm:col-span-2' : ''
+                          } ${
                             active
                               ? 'ui-active-card'
                               : 'border-white/10 bg-white/[0.02] hover:border-white/25'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="flex h-3 w-3 rounded-full overflow-hidden border border-white/20 shrink-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="flex h-4 w-4 rounded-full overflow-hidden border border-white/20 shrink-0">
                               <span className="flex-1" style={{ backgroundColor: presetAccent }} />
                               <span
                                 className="flex-1"
                                 style={{ backgroundColor: preset.config.surfaceHex ?? '#11141B' }}
                               />
                             </span>
-                            <span className="text-xs font-medium text-white truncate">
-                              {preset.name}
-                            </span>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-white truncate">
+                                {preset.name}
+                              </div>
+                              <div className="text-[10.5px] text-zinc-400 truncate">
+                                {preset.subtitle}
+                              </div>
+                            </div>
                           </div>
                           {active && <Check className="w-3.5 h-3.5 text-[var(--ui-accent-soft)] shrink-0" />}
                         </button>
