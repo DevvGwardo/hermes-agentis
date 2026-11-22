@@ -24,6 +24,13 @@ export const SLASH_COMMAND_CATALOG: readonly SlashCommandSpec[] = [
     action: 'run',
   },
   {
+    command: '/recall',
+    usage: '/recall [on|off]',
+    category: 'hermes',
+    summary: 'Toggle Jev × uniichat-recall accuracy projection graph & SKILL.md',
+    action: 'run',
+  },
+  {
     command: '/toolsets',
     usage: '/toolsets',
     category: 'hermes',

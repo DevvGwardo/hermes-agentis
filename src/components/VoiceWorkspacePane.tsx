@@ -30,6 +30,7 @@ import {
   CornerDownRight,
   Home,
   MessageSquare,
+  Activity,
 } from 'lucide-react';
 import type {
   ApprovalCard,
@@ -95,6 +96,7 @@ import { BrailleSessionsCanvas } from './BrailleSessionsCanvas';
 import { DecodedText } from './DecodedText';
 import { HermesOperationsPanel } from './HermesOperationsPanel';
 import { InlineHermesPopover } from './InlineHermesPopover';
+import { JevRecallMonitor } from './JevRecallMonitor';
 import { CommandTerminal } from './CommandTerminal';
 import { MobileWorkspaceBar } from './MobileWorkspaceBar';
 import { SlashCommandPalette } from './SlashCommandPalette';
@@ -202,6 +204,7 @@ interface VoiceWorkspacePaneProps {
   onDeleteProfile?: (profileId: string) => Promise<unknown>;
   uiConfig?: UiCustomizationConfig;
   onOpenStudio?: () => void;
+  onToggleJevRecall?: () => void;
   updateAvailable?: boolean;
 }
 
@@ -282,6 +285,7 @@ export function VoiceWorkspacePane({
   onDeleteProfile,
   uiConfig = DEFAULT_UI_CONFIG,
   onOpenStudio,
+  onToggleJevRecall,
   updateAvailable = false,
 }: VoiceWorkspacePaneProps) {
   const [tick, setTick] = useState(0);
@@ -1390,6 +1394,24 @@ export function VoiceWorkspacePane({
               )}
             </button>
 
+            {onToggleJevRecall && (
+              <button
+                type="button"
+                data-testid="topbar-jev-recall-toggle"
+                aria-pressed={uiConfig.showJevRecall}
+                onClick={onToggleJevRecall}
+                title="Toggle Jev × uniichat-recall accuracy projection graph & Hermes SKILL.md"
+                className={`ui-tactile h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  uiConfig.showJevRecall
+                    ? 'border-[rgba(var(--ui-accent-rgb),0.55)] bg-[rgba(var(--ui-accent-rgb),0.18)] text-white'
+                    : 'border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5 text-[var(--ui-accent-soft)] shrink-0" />
+                <span>Recall</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onToggleMute}
@@ -1446,6 +1468,31 @@ export function VoiceWorkspacePane({
             </button>
           </div>
         )
+      )}
+
+      {/* Toggleable TypeSafe Jev × uniichat-recall Accuracy Projection & Hermes SKILL.md Overlay */}
+      {uiConfig.showJevRecall && (
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 z-30 w-[min(780px,calc(100%-1.5rem))] max-h-[calc(100%-8.5rem)] overflow-y-auto cyber-scroll ${
+            uiConfig.showTopNav ? 'top-14 lg:top-[58px]' : 'top-3'
+          }`}
+        >
+          <JevRecallMonitor
+            sessionId={activeHermesSessionId}
+            entries={scopedEntries}
+            compact={panelView === 'voice' || panelView === 'canvas'}
+            onClose={() => onToggleJevRecall?.()}
+            onStartNewSession={
+              onStartNewSession
+                ? () => {
+                    onStartNewSession();
+                  }
+                : activeChannel
+                ? () => onResetSession(activeChannel)
+                : undefined
+            }
+          />
+        </div>
       )}
 
       {/* Center Stage: Simplified Character Home View OR Compact Header + Thread/Queue/CLI */}
@@ -1954,6 +2001,26 @@ export function VoiceWorkspacePane({
                                   {showThinking ? 'On' : 'Off'}
                                 </span>
                               </button>
+                              {onToggleJevRecall && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  data-testid="thread-jev-recall-toggle"
+                                  onClick={() => {
+                                    onToggleJevRecall();
+                                    setThreadMoreMenuOpen(false);
+                                  }}
+                                  className="w-full px-2.5 py-1.5 rounded-lg text-zinc-200 hover:bg-white/[0.07] hover:text-white flex items-center justify-between gap-2 cursor-pointer"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <Activity className="w-3.5 h-3.5 text-zinc-400" />
+                                    <span>Jev recall graph</span>
+                                  </span>
+                                  <span className="font-mono text-[10px] text-zinc-400">
+                                    {uiConfig.showJevRecall ? 'On' : 'Off'}
+                                  </span>
+                                </button>
+                              )}
                               {visibleMessages.length > 0 && (
                                 <button
                                   type="button"
@@ -2444,6 +2511,8 @@ export function VoiceWorkspacePane({
                     gatewayStatus={gatewayStatus}
                     onRefreshGateway={onRefreshGateway}
                     skills={skills}
+                    showJevRecall={uiConfig.showJevRecall}
+                    onToggleJevRecall={onToggleJevRecall}
                     toolsets={toolsets}
                     cronJobs={cronJobs}
                     transportMode={transportMode}

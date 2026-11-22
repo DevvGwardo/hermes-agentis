@@ -40,6 +40,8 @@ interface HermesOperationsPanelProps {
   gatewayStatus?: HermesGatewayStatus | null;
   onRefreshGateway?: () => Promise<unknown> | void;
   skills?: HermesSkill[];
+  showJevRecall?: boolean;
+  onToggleJevRecall?: () => void;
   toolsets?: HermesToolset[];
   cronJobs?: HermesCronJob[];
   transportMode?: HermesTransportMode;
@@ -77,6 +79,8 @@ export function HermesOperationsPanel({
   gatewayStatus,
   onRefreshGateway,
   skills = [],
+  showJevRecall = false,
+  onToggleJevRecall,
   toolsets = [],
   cronJobs = [],
   transportMode = 'auto',
@@ -974,19 +978,47 @@ export function HermesOperationsPanel({
               )}
             </div>
 
-            {/* Skills from GET /v1/skills */}
-            <div className="py-3 space-y-1.5">
+            {/* Skills from GET /v1/skills + Bundled Hermes SKILL.md */}
+            <div className="py-3 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-xs font-semibold text-white">
                   Skills
                 </h3>
                 <span className="font-mono text-[10.5px] text-zinc-500 tabular-nums">
-                  {skills.length} loaded · GET /v1/skills
+                  {skills.length + 1} available · GET /v1/skills + local SKILL.md
                 </span>
               </div>
+
+              {/* Bundled uniichat-recall-jev Hermes SKILL.md */}
+              <div className="text-xs border-b border-white/[0.06] pb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
+                  <span className="text-[var(--ui-accent-soft)] font-semibold">
+                    uniichat-recall-jev
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-zinc-500">
+                      skills/hermes/uniichat-recall-jev/SKILL.md
+                    </span>
+                    {onToggleJevRecall && (
+                      <button
+                        type="button"
+                        data-testid="ops-toggle-jev-recall"
+                        onClick={onToggleJevRecall}
+                        className="px-2 py-0.5 rounded-md border border-white/12 bg-white/[0.04] hover:bg-white/[0.09] text-[10.5px] text-zinc-200 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {showJevRecall ? 'Hide graph' : 'Open graph & SKILL.md'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-zinc-400 mt-0.5">
+                  Audits DevvGwardo/uniichat-recall accuracy (93.3% hit@1) with TypeSafe Jev System One primitives and projects when to start a new session.
+                </p>
+              </div>
+
               {skills.length === 0 ? (
                 <p className="font-mono text-[11.5px] text-zinc-400">
-                  {isConnected ? '0 skills returned by gateway.' : 'Offline — start hermes gateway to inspect /v1/skills.'}
+                  {isConnected ? '0 additional gateway skills returned.' : 'Gateway offline — start hermes gateway to inspect remote /v1/skills.'}
                 </p>
               ) : (
                 <div className="space-y-1.5">

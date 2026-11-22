@@ -66,6 +66,14 @@ import {
   summarizePreservedCategories,
   type UpdateStepResult,
 } from "./src/utils/settingsSnapshot.ts";
+import {
+  JEV_CONTEXT_LIMITS,
+  analyzeSessionEntries,
+  buildCalibratedBaselineEvaluation,
+  buildTypeSafeJevRequestPayload,
+  parseTypeSafeJevResponse,
+  type UniichatRetrievalMode,
+} from "./src/utils/jevRecallEngine.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1689,6 +1697,196 @@ async function createServer() {
       res.status(503).json({
         error: err instanceof Error ? err.message : "Gateway unreachable",
         skills: [],
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // TypeSafe AI Jev × DevvGwardo/uniichat-recall Hermes Skill & Proxy Routes
+  // -------------------------------------------------------------------------
+  const REPO_JEV_SKILL_PATH = path.join(
+    __dirname,
+    "skills",
+    "hermes",
+    "uniichat-recall-jev",
+    "SKILL.md"
+  );
+
+  function resolveLocalHermesSkillInstallPath(): string {
+    const hermesHomeRoot = process.env.HERMES_HOME_ROOT || path.join(os.homedir(), ".hermes");
+    return path.join(hermesHomeRoot, "skills", "memory", "uniichat-recall-jev", "SKILL.md");
+  }
+
+  app.get("/api/hermes/jev/skill", (_req, res) => {
+    try {
+      const markdown = fs.existsSync(REPO_JEV_SKILL_PATH)
+        ? fs.readFileSync(REPO_JEV_SKILL_PATH, "utf8")
+        : "";
+      const installedPath = resolveLocalHermesSkillInstallPath();
+      const isInstalledLocally = fs.existsSync(installedPath);
+      const liveJevConfigured = Boolean(process.env.TYPESAFE_API_KEY?.trim());
+      const jevModel = process.env.TYPESAFE_JEV_MODEL?.trim() || JEV_CONTEXT_LIMITS.defaultModel;
+      res.json({
+        skillName: "uniichat-recall-jev",
+        repoPath: "skills/hermes/uniichat-recall-jev/SKILL.md",
+        installedPath,
+        isInstalledLocally,
+        liveJevConfigured,
+        jevModel,
+        endpoint: process.env.TYPESAFE_API_URL?.trim() || JEV_CONTEXT_LIMITS.endpoint,
+        markdown,
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "Failed to load Hermes skill file",
+      });
+    }
+  });
+
+  app.post("/api/hermes/jev/skill/install", (_req, res) => {
+    try {
+      if (!fs.existsSync(REPO_JEV_SKILL_PATH)) {
+        res.status(404).json({ error: "Bundled uniichat-recall-jev SKILL.md not found." });
+        return;
+      }
+      const markdown = fs.readFileSync(REPO_JEV_SKILL_PATH, "utf8");
+      const targetPath = resolveLocalHermesSkillInstallPath();
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.writeFileSync(targetPath, markdown, "utf8");
+      res.json({
+        installed: true,
+        skillName: "uniichat-recall-jev",
+        installedPath: targetPath,
+      });
+    } catch (err) {
+      res.status(500).json({
+        installed: false,
+        error: err instanceof Error ? err.message : "Unable to write skill into ~/.hermes/skills",
+      });
+    }
+  });
+
+  app.post("/api/hermes/jev/evaluate", async (req, res) => {
+    const startedAt = Date.now();
+    try {
+      const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
+      const sessionId =
+        typeof body.sessionId === "string" && body.sessionId.trim()
+          ? body.sessionId.trim().slice(0, 120)
+          : "active-session";
+      const rawMode = typeof body.mode === "string" ? body.mode : "coverage-rerank";
+      const mode: UniichatRetrievalMode =
+        rawMode === "coverage-rerank" ||
+        rawMode === "keyword-first-pass" ||
+        rawMode === "bm25-only" ||
+        rawMode === "original-hermes"
+          ? rawMode
+          : "coverage-rerank";
+      const queryExpansion = body.queryExpansion !== false;
+      const resetThreshold =
+        typeof body.resetThreshold === "number" && Number.isFinite(body.resetThreshold)
+          ? Math.max(0.55, Math.min(0.92, body.resetThreshold))
+          : 0.78;
+      const simulatedTurnOffset =
+        typeof body.simulatedTurnOffset === "number" && Number.isFinite(body.simulatedTurnOffset)
+          ? Math.max(0, Math.min(40, Math.round(body.simulatedTurnOffset)))
+          : 0;
+
+      const rawEntries = Array.isArray(body.entries) ? body.entries : [];
+      const sanitizedEntries = rawEntries.slice(-80).map((item, idx) => {
+        const rec = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        const role =
+          rec.role === "user" || rec.role === "hermes" || rec.role === "command" || rec.role === "activity"
+            ? rec.role
+            : "user";
+        return {
+          id: typeof rec.id === "string" ? rec.id : `e-${idx}`,
+          role,
+          text: typeof rec.text === "string" ? rec.text.slice(0, 2400) : "",
+          timestamp: typeof rec.timestamp === "string" ? rec.timestamp : "",
+        };
+      });
+
+      const baseSnapshot = analyzeSessionEntries(sanitizedEntries);
+      const snapshot =
+        simulatedTurnOffset > 0
+          ? {
+              ...baseSnapshot,
+              turnCount: baseSnapshot.turnCount + simulatedTurnOffset,
+              estimatedTokens:
+                baseSnapshot.estimatedTokens + simulatedTurnOffset * baseSnapshot.avgTokensPerTurn,
+              topicDriftRatio: Math.min(0.88, Math.max(0.12, baseSnapshot.topicDriftRatio + simulatedTurnOffset * 0.016)),
+            }
+          : baseSnapshot;
+
+      const apiKey = process.env.TYPESAFE_API_KEY?.trim();
+      const apiUrl = process.env.TYPESAFE_API_URL?.trim() || JEV_CONTEXT_LIMITS.endpoint;
+      const jevModel = process.env.TYPESAFE_JEV_MODEL?.trim() || JEV_CONTEXT_LIMITS.defaultModel;
+
+      if (apiKey) {
+        const payload = buildTypeSafeJevRequestPayload({
+          sessionId,
+          mode,
+          queryExpansion,
+          resetThreshold,
+          snapshot,
+          model: jevModel,
+        });
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try {
+          const upstream = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (upstream.ok) {
+            const json = await upstream.json().catch(() => null);
+            const parsed = parseTypeSafeJevResponse(json, Date.now() - startedAt, jevModel);
+            if (parsed) {
+              res.json({ evaluation: parsed, liveJevConfigured: true });
+              return;
+            }
+          }
+          const errText = await upstream.text().catch(() => "");
+          const fallback = buildCalibratedBaselineEvaluation({
+            mode,
+            queryExpansion,
+            resetThreshold,
+            snapshot,
+          });
+          fallback.note = `TypeSafe Jev API returned HTTP ${upstream.status}${errText ? ` (${errText.slice(0, 80)})` : ""} · fell back to benchmark curve`;
+          res.json({ evaluation: fallback, liveJevConfigured: true });
+          return;
+        } catch (err) {
+          clearTimeout(timer);
+          const fallback = buildCalibratedBaselineEvaluation({
+            mode,
+            queryExpansion,
+            resetThreshold,
+            snapshot,
+          });
+          fallback.note = `TypeSafe Jev unreachable (${err instanceof Error ? err.message : "network error"}) · using benchmark curve`;
+          res.json({ evaluation: fallback, liveJevConfigured: true });
+          return;
+        }
+      }
+
+      const evaluation = buildCalibratedBaselineEvaluation({
+        mode,
+        queryExpansion,
+        resetThreshold,
+        snapshot,
+      });
+      res.json({ evaluation, liveJevConfigured: false });
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "Evaluation failed",
       });
     }
   });

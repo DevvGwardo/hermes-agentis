@@ -545,6 +545,13 @@ export function UiCustomizerStudio({
                   onToggle={(next) => onApplyPatch({ showTopNav: next }, 'studio')}
                   testId="ui-toggle-topnav"
                 />
+                <ToggleRow
+                  label="Jev recall accuracy monitor"
+                  hint="uniichat-recall projection graph & Hermes SKILL.md"
+                  checked={config.showJevRecall}
+                  onToggle={(next) => onApplyPatch({ showJevRecall: next }, 'studio')}
+                  testId="ui-toggle-jev-recall"
+                />
               </div>
 
               <div className="space-y-3 pt-2 border-t border-white/8">

@@ -2473,6 +2473,9 @@ export default function App() {
             onDeleteProfile={deleteProfile}
             uiConfig={uiConfig}
             onOpenStudio={() => setCustomizerOpen(true)}
+            onToggleJevRecall={() =>
+              applyAgentUiPatch({ showJevRecall: !uiConfig.showJevRecall }, 'topbar')
+            }
             updateAvailable={Boolean(updateStatus?.updateAvailable)}
           />
         </div>

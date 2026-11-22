@@ -79,6 +79,7 @@ export const AVAILABLE_COMMANDS = [
   '/brief',
   '/tasks',
   '/skills',
+  '/recall',
   '/toolsets',
   '/memory',
   '/cron',
@@ -317,6 +318,22 @@ export function executeCliInput(rawInput: string, ctx: CliContext): CliExecution
         mood: 'focused',
         spokenText: `${skills.filter((s) => s.enabled).length} skills loaded from GET /v1/skills.`,
         output: ['HERMES AGENT // GET /v1/skills', ...lines].join('\n'),
+      };
+    }
+
+    case '/recall': {
+      const arg = rest.trim().toLowerCase();
+      const nextShow = arg === 'off' || arg === 'hide' || arg === 'close' ? false : true;
+      return {
+        type: 'handled',
+        mood: 'focused',
+        spokenText: nextShow
+          ? 'Opened Jev uniichat-recall accuracy projection monitor.'
+          : 'Closed Jev uniichat-recall accuracy projection monitor.',
+        output: nextShow
+          ? 'HERMES SKILL // uniichat-recall-jev\n  Jev recall accuracy monitor enabled (DevvGwardo/uniichat-recall · 93.3% hit@1 baseline · TypeSafe System One).'
+          : 'HERMES SKILL // uniichat-recall-jev\n  Jev recall accuracy monitor hidden.',
+        uiPatch: { showJevRecall: nextShow },
       };
     }
 
