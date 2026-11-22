@@ -1,6 +1,9 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { ExpressionMood, MouthViseme } from '../types/hermes';
-import { evaluateNaturalBlinkCurve } from '../utils/asciiPortraitEngine';
+import {
+  evaluateNaturalBlinkCurve,
+  type PortraitSourceField,
+} from '../utils/asciiPortraitEngine';
 import {
   resolveIdleSetForShape,
   type IdleAnimationSetId,
@@ -20,6 +23,11 @@ import {
   type BrailleDotProfile,
   type TonalDotBucketSpec,
 } from '../utils/brailleCanvasRaster';
+import { renderCompanionPortraitFrame } from '../utils/companionPortraitProcessor';
+import {
+  getCachedCompanionPortrait,
+  loadCompanionPortrait,
+} from './companionPortraitAssets';
 
 interface BrailleShapeCanvasProps {
   shape: BrailleShapeKind;
@@ -66,6 +74,25 @@ export function BrailleShapeCanvas({
 }: BrailleShapeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const resolvedSet = idleSet ?? resolveIdleSetForShape(shape);
+  const [portraitField, setPortraitField] = useState<PortraitSourceField | null>(() =>
+    getCachedCompanionPortrait(shape)
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const cached = getCachedCompanionPortrait(shape);
+    setPortraitField(cached);
+    if (!cached) {
+      void loadCompanionPortrait(shape).then((loaded) => {
+        if (!cancelled && loaded) {
+          setPortraitField(loaded);
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [shape]);
 
   const stateRef = useRef({
     shape,
@@ -85,6 +112,7 @@ export function BrailleShapeCanvas({
     bloom,
     blinkPhaseOffset,
     gazeRef,
+    portraitField,
   });
   stateRef.current = {
     shape,
@@ -104,6 +132,7 @@ export function BrailleShapeCanvas({
     bloom,
     blinkPhaseOffset,
     gazeRef,
+    portraitField,
   };
 
   useEffect(() => {
@@ -113,9 +142,9 @@ export function BrailleShapeCanvas({
     if (!ctx) return;
 
     const isPreview = variant === 'preview';
-    const cols = isPreview ? 32 : 52;
-    const rows = isPreview ? 18 : 30;
-    const width = isPreview ? 76 : 142;
+    const cols = isPreview ? 42 : 66;
+    const rows = isPreview ? 23 : 36;
+    const width = isPreview ? 82 : 146;
     const height = isPreview ? 84 : 154;
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -127,8 +156,8 @@ export function BrailleShapeCanvas({
     const cellH = height / rows;
     const dotW = cellW / 2;
     const dotH = cellH / 4;
-    const dotRadius = Math.min(dotW, dotH) * (isPreview ? 0.43 : 0.42);
-    const dotDiameter = Math.max(0.98, dotRadius * 1.94);
+    const dotRadius = Math.min(dotW, dotH) * (isPreview ? 0.44 : 0.42);
+    const dotDiameter = Math.max(0.92, dotRadius * 1.92);
 
     const systemReduced =
       typeof window !== 'undefined' &&
@@ -255,28 +284,42 @@ export function BrailleShapeCanvas({
         canvas.dataset.blink = '0.00';
       }
 
-      const frame = renderBrailleShape({
-        shape: s.shape,
-        cols,
-        rows,
-        time: elapsed + s.blinkPhaseOffset * 0.7,
-        mood: s.mood,
-        eyeState: s.eyeStyle,
-        viseme: s.viseme,
-        energy: smoothEnergy,
-        isSpeaking: s.isSpeaking,
-        isThinking: s.isThinking,
-        isDragging: s.isDragging,
-        gazeX: motion ? motion.gazeX : 0,
-        gazeY: motion ? motion.gazeY : 0,
-        motion,
-      });
+      const activeSource = s.portraitField ?? getCachedCompanionPortrait(s.shape);
+      const frame = activeSource
+        ? renderCompanionPortraitFrame({
+            sourceField: activeSource,
+            cols,
+            rows,
+            time: elapsed + s.blinkPhaseOffset * 0.7,
+            energy: smoothEnergy,
+            isSpeaking: s.isSpeaking,
+            isThinking: s.isThinking,
+            gazeX: motion ? motion.gazeX : 0,
+            gazeY: motion ? motion.gazeY : 0,
+            motion,
+          })
+        : renderBrailleShape({
+            shape: s.shape,
+            cols,
+            rows,
+            time: elapsed + s.blinkPhaseOffset * 0.7,
+            mood: s.mood,
+            eyeState: s.eyeStyle,
+            viseme: s.viseme,
+            energy: smoothEnergy,
+            isSpeaking: s.isSpeaking,
+            isThinking: s.isThinking,
+            isDragging: s.isDragging,
+            gazeX: motion ? motion.gazeX : 0,
+            gazeY: motion ? motion.gazeY : 0,
+            motion,
+          });
 
       const palette = BRAILLE_TINT_PALETTE[s.tint];
       packSubpixelDotsToTonalBuckets(
         frame,
         buckets,
-        [64, 112, 160, 206],
+        activeSource ? [58, 108, 158, 204] : [64, 112, 160, 206],
         cellW,
         cellH,
         dotRadius
@@ -322,7 +365,8 @@ export function BrailleShapeCanvas({
       const s = stateRef.current;
       const isReduced = Boolean(systemReduced || s.reducedMotionOverride);
       if (isReduced) {
-        const reducedKey = `${s.shape}|${s.tint}|${s.mood}|${s.eyeStyle}|${s.viseme}|${Math.round(
+        const hasPortrait = Boolean(s.portraitField ?? getCachedCompanionPortrait(s.shape));
+        const reducedKey = `${s.shape}|${hasPortrait}|${s.tint}|${s.mood}|${s.eyeStyle}|${s.viseme}|${Math.round(
           s.energy * 100
         )}|${s.isSpeaking}|${s.isThinking}|${s.isDragging}|${s.isHovered}|${s.dotProfile}|${s.bloom.toFixed(2)}`;
         if (reducedKey !== lastReducedKey) {
@@ -353,12 +397,12 @@ export function BrailleShapeCanvas({
         s.isHovered ||
         activeIdleBusy;
       const minInterval = isPreview
-        ? 34
+        ? 64
         : fastMotion
         ? 16
         : activeMotion
-        ? 18
-        : 26;
+        ? 22
+        : 32;
       if (now - lastDraw >= minInterval) {
         drawFrame(now);
       }
@@ -370,17 +414,18 @@ export function BrailleShapeCanvas({
       window.cancelAnimationFrame(rafId);
       if (hiddenTimerId) window.clearTimeout(hiddenTimerId);
     };
-  }, [variant]);
+  }, [variant, portraitField]);
 
   return (
     <canvas
       ref={canvasRef}
       aria-hidden="true"
       data-anim-set={resolvedSet}
+      data-portrait-loaded={portraitField ? 'true' : 'false'}
       className={
         variant === 'preview'
-          ? `block w-[76px] h-[84px] pointer-events-none ${className}`
-          : `block w-[142px] h-[154px] pointer-events-none ${className}`
+          ? `block w-[82px] h-[84px] pointer-events-none ${className}`
+          : `block w-[146px] h-[154px] pointer-events-none ${className}`
       }
     />
   );
