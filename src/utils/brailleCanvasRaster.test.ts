@@ -1,13 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BLUE_NOISE_8X8_RANKS,
   mixHexColors,
+  packSubpixelDotsToTonalBuckets,
   parseHexRgb,
   rasterizeDotBucketsToSurface,
   rasterizeTonalDotBucketsToSurface,
   resolvePortraitTonePalette,
   resolveShapeTonePalette,
   type BrailleRasterSurface,
+  type TonalDotBucketSpec,
 } from './brailleCanvasRaster';
 
 function makeFakeSurface(width: number, height: number): BrailleRasterSurface {
@@ -163,5 +166,72 @@ test('rasterizeTonalDotBucketsToSurface uses source-over compositing so bright f
 
   assert.ok(a > 230, `Expected high combined alpha at overlapped dot core, got ${a}`);
   assert.ok(r > 235 && g > 235 && b > 235, `Expected bright white core to dominate over dim halo, got rgb(${r},${g},${b})`);
+});
+
+test('BLUE_NOISE_8X8_RANKS is a complete 64-element permutation of 0..63', () => {
+  assert.equal(BLUE_NOISE_8X8_RANKS.length, 64);
+  const sorted = [...BLUE_NOISE_8X8_RANKS].sort((a, b) => a - b);
+  for (let i = 0; i < 64; i++) {
+    assert.equal(sorted[i], i, `Missing or duplicate rank at index ${i}`);
+  }
+});
+
+test('packSubpixelDotsToTonalBuckets separates per-dot luminance tiers within a single Braille cell', () => {
+  const makeBuckets = (): [
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+  ] => [
+    { xy: new Float32Array(32), len: 0, hex: '#444444', alpha: 0.5 },
+    { xy: new Float32Array(32), len: 0, hex: '#777777', alpha: 0.7 },
+    { xy: new Float32Array(32), len: 0, hex: '#aaaaaa', alpha: 0.85 },
+    { xy: new Float32Array(32), len: 0, hex: '#dddddd', alpha: 0.95 },
+    { xy: new Float32Array(32), len: 0, hex: '#ffffff', alpha: 1.0 },
+  ];
+
+  // Single Braille cell with top-left dot (0x01) + top-right dot (0x08) active -> U+2809
+  const char = String.fromCharCode(0x2800 + 0x09);
+  const subLum = new Uint8Array(2 * 4);
+  subLum[0] = 30;  // top-left dot -> tier 0 (shadow)
+  subLum[1] = 240; // top-right dot -> tier 4 (specular highlight)
+
+  const buckets = makeBuckets();
+  packSubpixelDotsToTonalBuckets(
+    {
+      cols: 1,
+      rows: 1,
+      lines: [char],
+      cells: new Uint8Array([120]),
+      subLum,
+    },
+    buckets,
+    [60, 110, 160, 210],
+    8,
+    16,
+    1
+  );
+
+  assert.equal(buckets[0].len, 2, 'Shadow dot should land in tier 0');
+  assert.equal(buckets[4].len, 2, 'Highlight dot should land in tier 4');
+  assert.equal(buckets[2].len, 0, 'Coarse cell average (120) must not override per-dot subLum');
+
+  // Without subLum, falls back cleanly to coarse cell average (120 -> tier 2)
+  const fallbackBuckets = makeBuckets();
+  packSubpixelDotsToTonalBuckets(
+    {
+      cols: 1,
+      rows: 1,
+      lines: [char],
+      cells: new Uint8Array([120]),
+    },
+    fallbackBuckets,
+    [60, 110, 160, 210],
+    8,
+    16,
+    1
+  );
+  assert.equal(fallbackBuckets[2].len, 4, 'Both dots should fall back to cell tier 2');
 });
 

@@ -3336,10 +3336,15 @@ async function createServer() {
   let vite: { close: () => Promise<void>; middlewares: express.RequestHandler } | null = null;
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
-    const hmrConfig = process.env.DISABLE_HMR === "true" ? false : { server: httpServer };
+    const disableHmr = process.env.DISABLE_HMR === "true";
+    const hmrConfig = disableHmr ? false : { server: httpServer };
     vite = await createViteServer({
       root: __dirname,
-      server: { middlewareMode: true, hmr: hmrConfig },
+      server: {
+        middlewareMode: true,
+        hmr: hmrConfig,
+        ...(disableHmr ? { watch: null } : {}),
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -3392,7 +3397,8 @@ async function createServer() {
     httpServer.close(() => {
       void vite?.close().finally(() => process.exit(0));
     });
-    setTimeout(() => process.exit(0), 2000).unref();
+    httpServer.closeAllConnections?.();
+    setTimeout(() => process.exit(0), 1500).unref();
   };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);

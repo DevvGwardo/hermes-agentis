@@ -8,6 +8,7 @@ import {
 import {
   createRasterSurface,
   mixHexColors,
+  packSubpixelDotsToTonalBuckets,
   rasterizeTonalDotBucketsToSurface,
   type BrailleDotProfile,
   type BrailleRasterSurface,
@@ -27,17 +28,6 @@ interface BrailleHorizonCanvasProps {
   tintHex?: string | null;
   className?: string;
 }
-
-const SUBPIXEL_BITS: ReadonlyArray<readonly [number, number, number]> = [
-  [0, 0, 0x01],
-  [1, 0, 0x08],
-  [0, 1, 0x02],
-  [1, 1, 0x10],
-  [0, 2, 0x04],
-  [1, 2, 0x20],
-  [0, 3, 0x40],
-  [1, 3, 0x80],
-];
 
 export function BrailleHorizonCanvas({
   energy,
@@ -101,9 +91,9 @@ export function BrailleHorizonCanvas({
         width = Math.round(rect.width);
         height = Math.round(rect.height);
       }
-      rows = height < 64 ? 6 : Math.max(15, Math.min(36, Math.round(height / 8.4)));
-      const dotPitch = Math.max(1.95, height / (rows * 4));
-      cols = Math.max(76, Math.min(300, Math.round(width / (dotPitch * 2))));
+      rows = height < 64 ? 7 : Math.max(17, Math.min(34, Math.round(height / 8.0)));
+      const dotPitch = Math.max(1.92, height / (rows * 4));
+      cols = Math.max(84, Math.min(296, Math.round(width / (dotPitch * 2))));
       dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = width * dpr;
       canvas.height = height * dpr;
@@ -143,10 +133,10 @@ export function BrailleHorizonCanvas({
       TonalDotBucketSpec,
       TonalDotBucketSpec,
     ] = [
-      { xy: b0XY, len: 0, hex: cachedLow, alpha: 0.42, diameterScale: 0.68 },
-      { xy: b1XY, len: 0, hex: cachedLow, alpha: 0.58, diameterScale: 0.80 },
-      { xy: b2XY, len: 0, hex: cachedAccent, alpha: 0.70, diameterScale: 0.90 },
-      { xy: b3XY, len: 0, hex: cachedAccentHigh, alpha: 0.84, diameterScale: 1.00 },
+      { xy: b0XY, len: 0, hex: cachedLow, alpha: 0.36, diameterScale: 0.62 },
+      { xy: b1XY, len: 0, hex: cachedLow, alpha: 0.54, diameterScale: 0.76 },
+      { xy: b2XY, len: 0, hex: cachedAccent, alpha: 0.70, diameterScale: 0.88 },
+      { xy: b3XY, len: 0, hex: cachedAccentHigh, alpha: 0.84, diameterScale: 0.99 },
       { xy: b4XY, len: 0, hex: '#F8FAFC', alpha: 0.97, diameterScale: 1.08 },
     ];
 
@@ -204,15 +194,8 @@ export function BrailleHorizonCanvas({
       const cellH = height / frame.rows;
       const dotW = cellW / 2;
       const dotH = cellH / 4;
-      const dotRadius = Math.max(0.64, Math.min(dotW, dotH) * 0.35);
-
-      let len0 = 0;
-      let len1 = 0;
-      let len2 = 0;
-      let len3 = 0;
-      let len4 = 0;
-
-      const dotDiameter = Math.max(1.10, dotRadius * 1.88);
+      const dotRadius = Math.max(0.58, Math.min(dotW, dotH) * 0.35);
+      const dotDiameter = Math.max(1.02, dotRadius * 1.86);
       const needed = frame.cols * frame.rows * 16;
       if (b0XY.length < needed) {
         b0XY = new Float32Array(needed);
@@ -227,62 +210,14 @@ export function BrailleHorizonCanvas({
         buckets[4].xy = b4XY;
       }
 
-      for (let r = 0; r < frame.rows; r++) {
-        const line = frame.lines[r];
-        const baseY = r * cellH;
-        const rowOff = r * frame.cols;
-        for (let c = 0; c < frame.cols; c++) {
-          const ch = line[c];
-          if (ch === ' ') continue;
-          const bits = ch.charCodeAt(0) - 0x2800;
-          if (bits <= 0 || bits > 0xff) continue;
-
-          const bright = frame.cells[rowOff + c] / 255;
-          const baseX = c * cellW;
-
-          if (bright > 0.74) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b4XY[len4++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b4XY[len4++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.56) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b3XY[len3++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b3XY[len3++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.38) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b2XY[len2++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b2XY[len2++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.20) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b1XY[len1++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b1XY[len1++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b0XY[len0++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b0XY[len0++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          }
-        }
-      }
+      packSubpixelDotsToTonalBuckets(
+        frame,
+        buckets,
+        [52, 98, 146, 194],
+        cellW,
+        cellH,
+        dotRadius
+      );
 
       if (!surface || surface.width !== canvas.width || surface.height !== canvas.height) {
         surface = createRasterSurface(ctx, canvas.width, canvas.height);
@@ -294,25 +229,21 @@ export function BrailleHorizonCanvas({
       const midHex = mixHexColors(baseLow, baseAccent, 0.52);
       const highGlowHex = s.isActive ? highHex : mixHexColors(baseAccent, '#FFFFFF', 0.32);
 
-      buckets[0].len = len0;
+      const narrowDamp = width < 480 ? 0.84 : 1;
       buckets[0].hex = baseLow;
-      buckets[0].alpha = s.isActive ? 0.46 : 0.40;
+      buckets[0].alpha = (s.isActive ? 0.42 : 0.34) * narrowDamp;
 
-      buckets[1].len = len1;
       buckets[1].hex = midHex;
-      buckets[1].alpha = s.isActive ? 0.62 : 0.54;
+      buckets[1].alpha = (s.isActive ? 0.60 : 0.52) * narrowDamp;
 
-      buckets[2].len = len2;
       buckets[2].hex = baseAccent;
-      buckets[2].alpha = s.isActive ? 0.74 : 0.64;
+      buckets[2].alpha = (s.isActive ? 0.74 : 0.66) * narrowDamp;
 
-      buckets[3].len = len3;
       buckets[3].hex = highGlowHex;
-      buckets[3].alpha = s.isActive ? 0.88 : 0.78;
+      buckets[3].alpha = (s.isActive ? 0.88 : 0.80) * narrowDamp;
 
-      buckets[4].len = len4;
       buckets[4].hex = s.isActive ? '#FFFFFF' : '#F8FAFC';
-      buckets[4].alpha = s.isActive ? 0.98 : 0.92;
+      buckets[4].alpha = (s.isActive ? 0.98 : 0.93) * narrowDamp;
 
       rasterizeTonalDotBucketsToSurface(surface, buckets, dpr, dotDiameter, {
         dotProfile: s.dotProfile,
@@ -354,7 +285,7 @@ export function BrailleHorizonCanvas({
 
       const active = s.isActive;
       const hasPointer = Boolean(look);
-      const interval = active || hasPointer ? 16 : 24;
+      const interval = active || hasPointer ? 20 : 32;
       if (now - lastDraw >= interval) {
         drawFrame(now);
       }

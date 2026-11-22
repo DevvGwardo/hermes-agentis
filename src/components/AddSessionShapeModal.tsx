@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { ChevronDown, Plus, SlidersHorizontal, X } from 'lucide-react';
 import type { ExpressionMood, HermesProfileSummary } from '../types/hermes';
 import type { BrailleDotProfile } from '../utils/brailleCanvasRaster';
 import {
@@ -76,11 +76,13 @@ export function AddSessionShapeModal({
   const [topic, setTopic] = useState('');
   const [persona, setPersona] = useState(defaultMeta.defaultAgentPersona);
   const [personaEdited, setPersonaEdited] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (open) {
       setProfile(defaultProfile);
+      setShowAdvanced(false);
     }
   }, [open, defaultProfile]);
 
@@ -173,10 +175,10 @@ export function AddSessionShapeModal({
             id="add-braille-session-title"
             className="text-base font-semibold text-white"
           >
-            Dot &amp; Character Studio
+            New Canvas Dot
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Design an autonomous hermes-agent Dot with isolated sandbox, trigger cadence, and anime silhouette
+            Name your agent session and pick a live Braille companion silhouette
           </p>
         </div>
 
@@ -254,7 +256,7 @@ export function AddSessionShapeModal({
                 <span className="block text-[11px] font-medium text-zinc-300">
                   Phosphor Tint · {activePalette.label}
                 </span>
-                <div className="flex items-center justify-between gap-1 py-0.5">
+                <div className="grid grid-cols-9 gap-1.5 py-0.5 w-full place-items-center">
                   {TINT_KEYS.map((tintKey) => {
                     const palette = BRAILLE_TINT_PALETTE[tintKey];
                     const active = tintKey === selectedTint;
@@ -266,7 +268,7 @@ export function AddSessionShapeModal({
                         aria-label={`Tint ${palette.label}`}
                         aria-pressed={active}
                         title={palette.label}
-                        className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer shrink-0 ${
+                        className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
                           active ? 'border-white scale-110' : 'border-white/15 hover:scale-105'
                         }`}
                         style={{ backgroundColor: palette.mid }}
@@ -315,43 +317,53 @@ export function AddSessionShapeModal({
               </div>
             </div>
 
-            {/* Right Column: Starter Template, Silhouette Picker, Autonomy & Persona */}
+            {/* Right Column: Primary Identity + Silhouette Picker + Progressive Advanced Options */}
             <div className="min-w-0 space-y-3.5">
-              {/* Starter Templates */}
-              <div className="space-y-1.5">
-                <span className="block text-xs font-medium text-zinc-200">
-                  Dot Starter Template
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {DOT_STARTER_TEMPLATES.map((tpl) => {
-                    const active = selectedTemplateId === tpl.id;
-                    return (
-                      <button
-                        key={tpl.id}
-                        type="button"
-                        onClick={() => handleApplyTemplate(tpl.id)}
-                        className={`min-w-0 px-3 py-1.5 rounded-lg border text-left cursor-pointer ${
-                          active
-                            ? 'ui-active-card'
-                            : 'border-white/10 bg-white/[0.03] hover:border-white/25'
-                        }`}
-                      >
-                        <div className="text-[11.5px] font-semibold text-white truncate">
-                          {tpl.label}
-                        </div>
-                        <div className="text-[10px] text-zinc-400 truncate">
-                          {tpl.scheduleLabel} · {tpl.subtitle}
-                        </div>
-                      </button>
-                    );
-                  })}
+              {/* Step 1: Session Identity (at top so autoFocus never scrolls preview off-screen) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="canvas-session-name" className="block text-xs font-medium text-zinc-200">
+                    Dot Name
+                  </label>
+                  <input
+                    id="canvas-session-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (error) setError('');
+                    }}
+                    placeholder="e.g. kitsune-lab"
+                    autoFocus
+                    className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="canvas-session-topic" className="block text-xs font-medium text-zinc-200">
+                    Focus or Role (optional)
+                  </label>
+                  <input
+                    id="canvas-session-topic"
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder={activeMeta.tagline}
+                    className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+                  />
                 </div>
               </div>
 
-              {/* 9 Anime Character Braille Picker */}
+              {error && (
+                <p role="alert" className="text-xs text-rose-300">
+                  {error}
+                </p>
+              )}
+
+              {/* Step 2: 9 Anime Character Braille Picker */}
               <div className="space-y-1.5">
                 <span className="block text-xs font-medium text-zinc-200">
-                  Anime Character Silhouette
+                  Braille Companion Silhouette
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {BRAILLE_SHAPE_CATALOG.map((meta) => {
@@ -392,144 +404,164 @@ export function AddSessionShapeModal({
                 </div>
               </div>
 
-              {/* Session Identity */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label htmlFor="canvas-session-name" className="block text-xs font-medium text-zinc-200">
-                    Dot Name
-                  </label>
-                  <input
-                    id="canvas-session-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      if (error) setError('');
-                    }}
-                    placeholder="e.g. kitsune-lab"
-                    autoFocus
-                    className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="canvas-session-topic" className="block text-xs font-medium text-zinc-200">
-                    Focus or Role (optional)
-                  </label>
-                  <input
-                    id="canvas-session-topic"
-                    type="text"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder={activeMeta.tagline}
-                    className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Autonomy Cadence & Portable Skills */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <span className="block text-xs font-medium text-zinc-200">
-                    Autonomy &amp; Sandbox
+              {/* Step 3: Progressive Disclosure for Templates, Autonomy, Skills & Profile */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
+                <button
+                  type="button"
+                  data-testid="add-dot-advanced-toggle"
+                  aria-expanded={showAdvanced}
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-white/[0.03] transition-colors cursor-pointer"
+                >
+                  <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-200 min-w-0">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span>Templates &amp; advanced options</span>
                   </span>
-                  <div className="flex items-center gap-1 p-1 rounded-lg bg-white/[0.04] border border-white/10">
-                    {(
-                      [
-                        { id: 'manual', label: 'Manual' },
-                        { id: 'scheduled', label: 'Scheduled' },
-                        { id: 'watch', label: 'Watch' },
-                      ] as const
-                    ).map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleSetAutonomy(opt.id)}
-                        className={`flex-1 py-1 px-2 rounded-md text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                          autonomyMode === opt.id
-                            ? 'ui-accent-btn font-semibold'
-                            : 'text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="block text-xs font-medium text-zinc-200">
-                    Portable Skills
+                  <span className="inline-flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-[10.5px] text-zinc-400 hidden sm:inline">
+                      {formatAutonomyLabel(autonomyMode, scheduleLabel)} · {skills.length} skills · @{profile}
+                    </span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-150 ${
+                        showAdvanced ? 'rotate-180' : ''
+                      }`}
+                    />
                   </span>
-                  <div className="flex flex-wrap gap-1">
-                    {AVAILABLE_DOT_SKILLS.map((sk) => {
-                      const active = skills.includes(sk.id);
-                      return (
-                        <button
-                          key={sk.id}
-                          type="button"
-                          onClick={() => handleToggleSkill(sk.id)}
-                          aria-pressed={active}
-                          className={`px-2 py-1 rounded-md border text-[10.5px] transition-colors cursor-pointer whitespace-nowrap ${
-                            active
-                              ? 'ui-active-tab'
-                              : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'
-                          }`}
+                </button>
+
+                {showAdvanced && (
+                  <div className="px-3 pb-3 pt-2 border-t border-white/8 space-y-3">
+                    {/* Starter Templates */}
+                    <div className="space-y-1.5">
+                      <span className="block text-[11px] font-medium text-zinc-300">
+                        Starter Templates
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {DOT_STARTER_TEMPLATES.map((tpl) => {
+                          const active = selectedTemplateId === tpl.id;
+                          return (
+                            <button
+                              key={tpl.id}
+                              type="button"
+                              onClick={() => handleApplyTemplate(tpl.id)}
+                              className={`min-w-0 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer ${
+                                active
+                                  ? 'ui-active-card'
+                                  : 'border-white/10 bg-white/[0.03] hover:border-white/25'
+                              }`}
+                            >
+                              <div className="text-[11px] font-semibold text-white truncate">
+                                {tpl.label}
+                              </div>
+                              <div className="text-[10px] text-zinc-400 truncate">
+                                {tpl.scheduleLabel} · {tpl.subtitle}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Autonomy Cadence & Portable Skills */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <span className="block text-[11px] font-medium text-zinc-300">
+                          Autonomy &amp; Sandbox
+                        </span>
+                        <div className="flex items-center gap-1 p-1 rounded-lg bg-white/[0.04] border border-white/10">
+                          {(
+                            [
+                              { id: 'manual', label: 'Manual' },
+                              { id: 'scheduled', label: 'Scheduled' },
+                              { id: 'watch', label: 'Watch' },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => handleSetAutonomy(opt.id)}
+                              className={`flex-1 py-1 px-2 rounded-md text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                                autonomyMode === opt.id
+                                  ? 'ui-accent-btn font-semibold'
+                                  : 'text-zinc-400 hover:text-white'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="block text-[11px] font-medium text-zinc-300">
+                          Portable Skills
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {AVAILABLE_DOT_SKILLS.map((sk) => {
+                            const active = skills.includes(sk.id);
+                            return (
+                              <button
+                                key={sk.id}
+                                type="button"
+                                onClick={() => handleToggleSkill(sk.id)}
+                                aria-pressed={active}
+                                className={`px-2 py-1 rounded-md border text-[10.5px] transition-colors cursor-pointer whitespace-nowrap ${
+                                  active
+                                    ? 'ui-active-tab'
+                                    : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'
+                                }`}
+                              >
+                                {sk.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label htmlFor="canvas-session-profile" className="block text-[11px] font-medium text-zinc-300">
+                          Hermes Profile
+                        </label>
+                        <select
+                          id="canvas-session-profile"
+                          data-testid="add-dot-profile-select"
+                          value={profile}
+                          onChange={(e) => setProfile(e.target.value)}
+                          className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-xs font-mono text-white focus:outline-none"
                         >
-                          {sk.label}
-                        </button>
-                      );
-                    })}
+                          {(profiles.length > 0
+                            ? profiles
+                            : [{ id: defaultProfile || 'default', label: defaultProfile || 'default' }]
+                          ).map((p) => (
+                            <option key={p.id} value={p.id}>
+                              @{p.id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label htmlFor="canvas-session-persona" className="block text-[11px] font-medium text-zinc-300">
+                          System Persona
+                        </label>
+                        <input
+                          id="canvas-session-persona"
+                          type="text"
+                          value={persona}
+                          onChange={(e) => {
+                            setPersona(e.target.value);
+                            setPersonaEdited(true);
+                          }}
+                          placeholder={activeMeta.defaultAgentPersona}
+                          className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-xs font-mono text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label htmlFor="canvas-session-profile" className="block text-xs font-medium text-zinc-200">
-                    Hermes Profile
-                  </label>
-                  <select
-                    id="canvas-session-profile"
-                    data-testid="add-dot-profile-select"
-                    value={profile}
-                    onChange={(e) => setProfile(e.target.value)}
-                    className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-xs font-mono text-white focus:outline-none"
-                  >
-                    {(profiles.length > 0
-                      ? profiles
-                      : [{ id: defaultProfile || 'default', label: defaultProfile || 'default' }]
-                    ).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        @{p.id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="canvas-session-persona" className="block text-xs font-medium text-zinc-200">
-                    hermes-agent System Persona
-                  </label>
-                  <input
-                    id="canvas-session-persona"
-                    type="text"
-                    value={persona}
-                    onChange={(e) => {
-                      setPersona(e.target.value);
-                      setPersonaEdited(true);
-                    }}
-                    placeholder={activeMeta.defaultAgentPersona}
-                    className="w-full rounded-lg bg-[#0D1016] border border-white/15 focus:border-[var(--ui-accent)] px-3 py-1.5 text-xs font-mono text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <p role="alert" className="text-xs text-rose-300">
-                  {error}
-                </p>
-              )}
             </div>
           </div>
         </div>

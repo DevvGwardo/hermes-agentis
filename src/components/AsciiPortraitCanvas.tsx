@@ -17,6 +17,7 @@ import {
 } from '../utils/portraitLoadingEngine';
 import {
   createRasterSurface,
+  packSubpixelDotsToTonalBuckets,
   rasterizeTonalDotBucketsToSurface,
   resolvePortraitTonePalette,
   type BrailleDotProfile,
@@ -54,7 +55,7 @@ function loadReferencePortraitField(): Promise<PortraitSourceField | null> {
         return;
       }
       try {
-        const size = 160;
+        const size = 224;
         const offscreen = document.createElement('canvas');
         offscreen.width = size;
         offscreen.height = size;
@@ -114,7 +115,7 @@ function loadReferenceSpriteBank(): Promise<PortraitSourceField[] | null> {
         }
         octx.drawImage(img, 0, 0, w, h);
         const rgba = octx.getImageData(0, 0, w, h).data;
-        const bank = buildPortraitBankFromSpriteSheet(rgba, w, h, 160);
+        const bank = buildPortraitBankFromSpriteSheet(rgba, w, h, 224);
         if (bank.length >= 12) {
           cachedSpriteBank = bank;
           portraitAssetStatus = 'ready';
@@ -186,18 +187,6 @@ interface AsciiPortraitCanvasProps {
   onStatusChange?: (status: PortraitAssetStatus) => void;
   onClick?: () => void;
 }
-
-// Bitmask lookup order matching standard Unicode Braille U+2800..U+28FF
-const SUBPIXEL_BITS: ReadonlyArray<readonly [number, number, number]> = [
-  [0, 0, 0x01],
-  [1, 0, 0x08],
-  [0, 1, 0x02],
-  [1, 1, 0x10],
-  [0, 2, 0x04],
-  [1, 2, 0x20],
-  [0, 3, 0x40],
-  [1, 3, 0x80],
-];
 
 export function AsciiPortraitCanvas({
   variant = 'hero',
@@ -310,8 +299,8 @@ export function AsciiPortraitCanvas({
     const isSidebar = variant === 'sidebar';
     const isCompact = variant === 'compact';
     const isStage = variant === 'stage';
-    const cols = isThumb ? 22 : isSidebar ? 44 : isCompact ? 48 : isStage ? 92 : 62;
-    const rows = isThumb ? 11 : isSidebar ? 20 : isCompact ? 22 : isStage ? 42 : 28;
+    const cols = isThumb ? 26 : isSidebar ? 44 : isCompact ? 50 : isStage ? 96 : 70;
+    const rows = isThumb ? 13 : isSidebar ? 20 : isCompact ? 23 : isStage ? 44 : 32;
     const defaultW = isThumb ? 42 : isSidebar ? 72 : isCompact ? 116 : isStage ? 360 : 216;
     const defaultH = isThumb ? 42 : isSidebar ? 66 : isCompact ? 106 : isStage ? 330 : 198;
 
@@ -334,8 +323,8 @@ export function AsciiPortraitCanvas({
     let dotW = cellW / 2;
     let dotH = cellH / 4;
     let dotRadius = isThumb
-      ? 0.42
-      : Math.min(dotW, dotH) * (isStage || isSidebar || isCompact ? 0.435 : 0.42);
+      ? 0.40
+      : Math.min(dotW, dotH) * (isStage ? 0.41 : isSidebar || isCompact ? 0.42 : 0.41);
 
     const syncStageSurface = () => {
       if (!isStage) return;
@@ -353,7 +342,7 @@ export function AsciiPortraitCanvas({
       cellH = height / rows;
       dotW = cellW / 2;
       dotH = cellH / 4;
-      dotRadius = Math.min(dotW, dotH) * 0.44;
+      dotRadius = Math.min(dotW, dotH) * 0.41;
     };
 
     const resizeObserver =
@@ -393,11 +382,11 @@ export function AsciiPortraitCanvas({
       TonalDotBucketSpec,
       TonalDotBucketSpec,
     ] = [
-      { xy: b0XY, len: 0, hex: '#94A3B8', alpha: 0.48, diameterScale: 0.76 },
-      { xy: b1XY, len: 0, hex: '#CBD5E1', alpha: 0.68, diameterScale: 0.85 },
-      { xy: b2XY, len: 0, hex: '#E2E8F0', alpha: 0.84, diameterScale: 0.94 },
-      { xy: b3XY, len: 0, hex: '#F1F5F9', alpha: 0.94, diameterScale: 1.02 },
-      { xy: b4XY, len: 0, hex: '#FFFFFF', alpha: 0.99, diameterScale: 1.08 },
+      { xy: b0XY, len: 0, hex: '#94A3B8', alpha: 0.48, diameterScale: 0.68 },
+      { xy: b1XY, len: 0, hex: '#CBD5E1', alpha: 0.68, diameterScale: 0.80 },
+      { xy: b2XY, len: 0, hex: '#E2E8F0', alpha: 0.84, diameterScale: 0.91 },
+      { xy: b3XY, len: 0, hex: '#F1F5F9', alpha: 0.94, diameterScale: 1.00 },
+      { xy: b4XY, len: 0, hex: '#FFFFFF', alpha: 0.99, diameterScale: 1.07 },
     ];
 
     const drawFrame = (now: number) => {
@@ -501,70 +490,15 @@ export function AsciiPortraitCanvas({
         }
       }
 
-      let len0 = 0;
-      let len1 = 0;
-      let len2 = 0;
-      let len3 = 0;
-      let len4 = 0;
-
-      const dotDiameter = Math.max(1.15, dotRadius * 1.96);
-
-      for (let r = 0; r < frame.rows; r++) {
-        const line = frame.lines[r];
-        const baseY = r * cellH;
-        const rowOff = r * frame.cols;
-        for (let c = 0; c < frame.cols; c++) {
-          const ch = line[c];
-          if (ch === ' ') continue;
-          const bits = ch.charCodeAt(0) - 0x2800;
-          if (bits <= 0 || bits > 0xff) continue;
-
-          const bright = frame.cells[rowOff + c] / 255;
-          const baseX = c * cellW;
-
-          if (bright > 0.82) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b4XY[len4++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b4XY[len4++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.64) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b3XY[len3++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b3XY[len3++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.44) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b2XY[len2++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b2XY[len2++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.24) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b1XY[len1++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b1XY[len1++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b0XY[len0++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b0XY[len0++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          }
-        }
-      }
+      const dotDiameter = Math.max(1.02, dotRadius * 1.92);
+      packSubpixelDotsToTonalBuckets(
+        frame,
+        buckets,
+        [62, 114, 166, 212],
+        cellW,
+        cellH,
+        dotRadius
+      );
 
       const tone = resolvePortraitTonePalette({
         mood: s.mood,
@@ -576,9 +510,7 @@ export function AsciiPortraitCanvas({
         tintHex: s.tintHex,
       });
 
-      const lens = [len0, len1, len2, len3, len4];
       for (let i = 0; i < 5; i++) {
-        buckets[i].len = lens[i];
         buckets[i].hex = tone.hexes[i];
         buckets[i].alpha = tone.alphas[i];
       }
@@ -653,7 +585,6 @@ export function AsciiPortraitCanvas({
         isBlinkingRef.current ||
         blinkLookahead;
 
-      // Fluid VSync cadence (60fps active/materialize/blink/thinking, ~42fps idle stage/hero, ~33fps sidebar idle)
       const minIntervalMs = isReduced
         ? 220
         : isMaterializing
@@ -661,8 +592,8 @@ export function AsciiPortraitCanvas({
         : activeMotion
         ? 16
         : isSidebar
-        ? 30
-        : 24;
+        ? 42
+        : 28;
       if (now - lastDraw >= minIntervalMs) {
         drawFrame(now);
       }

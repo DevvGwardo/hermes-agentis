@@ -1,3 +1,5 @@
+import { BLUE_NOISE_8X8_RANKS } from './brailleCanvasRaster';
+
 export type BrailleHorizonStyle = 'silk' | 'peaks' | 'pulse' | 'ribbon';
 
 export interface HorizonMotionState {
@@ -34,22 +36,18 @@ export interface BrailleHorizonFrame {
   lines: string[];
   /** Per-cell normalized intensity 0..255 */
   cells: Uint8Array;
+  /** Per-subpixel (2*cols x 4*rows) normalized intensity 0..255 */
+  subLum?: Uint8Array;
 }
 
 const BRAILLE_CHAR_TABLE: string[] = Array.from({ length: 256 }, (_, i) =>
   i === 0 ? ' ' : String.fromCharCode(0x2800 + i)
 );
 
-const BAYER_8X8 = [
-  0 / 64, 32 / 64, 8 / 64, 40 / 64, 2 / 64, 34 / 64, 10 / 64, 42 / 64,
-  48 / 64, 16 / 64, 56 / 64, 24 / 64, 50 / 64, 18 / 64, 58 / 64, 26 / 64,
-  12 / 64, 44 / 64, 4 / 64, 36 / 64, 14 / 64, 46 / 64, 6 / 64, 38 / 64,
-  60 / 64, 28 / 64, 52 / 64, 20 / 64, 62 / 64, 30 / 64, 54 / 64, 22 / 64,
-  3 / 64, 35 / 64, 11 / 64, 43 / 64, 1 / 64, 33 / 64, 9 / 64, 41 / 64,
-  51 / 64, 19 / 64, 59 / 64, 27 / 64, 49 / 64, 17 / 64, 57 / 64, 25 / 64,
-  15 / 64, 47 / 64, 7 / 64, 39 / 64, 13 / 64, 45 / 64, 5 / 64, 37 / 64,
-  63 / 64, 31 / 64, 55 / 64, 23 / 64, 61 / 64, 29 / 64, 53 / 64, 21 / 64,
-];
+const FIELD_DITHER_THRESH = Float32Array.from(
+  BLUE_NOISE_8X8_RANKS,
+  (rank) => 0.11 + ((rank + 0.5) / 64) * 0.72
+);
 
 const FIELD_EXP_MAX = 8;
 const FIELD_EXP_SIZE = 512;
@@ -492,44 +490,44 @@ export function renderBrailleHorizon(params: BrailleHorizonParams): BrailleHoriz
       const line4 = s4 < 2.83 ? fastFieldExpNeg(s4 * s4) * 0.54 : 0;
       const line5 = s5 < 2.83 ? fastFieldExpNeg(s5 * s5) * 0.46 : 0;
 
-      // Quantized vertical sample-and-hold stems + bright crest sample pins every sampleStep columns
+      // Quantized vertical sample-and-hold stems + crisp crest sample pins every sampleStep columns
       let telemetryStem = 0;
       let samplePin = 0;
       if (sx % sampleStep === 0) {
         const upperSpan = Math.min(crest1, crest2);
         const lowerSpan = Math.max(crest1, crest2);
-        if (uy >= upperSpan && uy <= lowerSpan && sy % 3 === 0) {
-          telemetryStem = 0.44;
+        if (uy >= upperSpan && uy <= lowerSpan && sy % 4 === 0) {
+          telemetryStem = 0.24;
         }
-        if (d1 < invSubH * 0.9 || d2 < invSubH * 0.8) {
-          samplePin = 0.98;
+        if (d1 < invSubH * 0.85 || d2 < invSubH * 0.75) {
+          samplePin = 0.94;
         }
       }
 
-      // Precision optical oscilloscope graticule: evenly-spaced '+' crosshairs & subtle dashed axis rules
+      // Whisper-quiet precision optical graticule: evenly-spaced '+' crosshairs so waves stay primary
       let graticule = 0;
       const modX = sx % gridStepX;
       if (isGridRow && modX === 0) {
-        graticule = 0.46;
+        graticule = 0.28;
       } else if ((isGridRow && (modX === 1 || modX === gridStepX - 1)) || (isCrossArmY && modX === 0)) {
-        graticule = 0.26;
-      } else if (isBaselineRule && sx % 4 === 0) {
-        graticule = 0.22;
-      } else if (sx % gridStepX === 0 && sy % 4 === 0) {
-        graticule = 0.20;
+        graticule = 0.16;
+      } else if (isBaselineRule && sx % 6 === 0) {
+        graticule = 0.14;
+      } else if (sx % gridStepX === 0 && sy % 6 === 0) {
+        graticule = 0.12;
       }
 
       // Precision vertical cursor-lock tracking reticle at active pointer column
       let cursorTick = 0;
       if (Math.abs(sx - ptrSubX) <= 0 && sy % 2 === 0 && uy >= Math.max(0.14, crest1 - 0.10) && uy <= crest2 + 0.08) {
-        cursorTick = 0.74;
+        cursorTick = 0.64;
       }
 
-      // Quantized FFT micro-spectrum needles anchored along the bottom floor (uy ~ 0.85..0.985)
+      // Quantized FFT micro-spectrum needles anchored along the bottom floor (uy ~ 0.88..0.985)
       let spectrumNeedle = 0;
       if (sx % 6 === 0 && uy >= colSpectrumTop[sx] && uy <= 0.985) {
         const isTip = uy - colSpectrumTop[sx] < invSubH * 1.4;
-        spectrumNeedle = isTip ? 0.86 : sy % 2 === 0 ? 0.54 : 0;
+        spectrumNeedle = isTip ? 0.78 : sy % 2 === 0 ? 0.42 : 0;
       }
 
       // Subtle rising mist spray when voice energy spikes
@@ -574,6 +572,8 @@ export function renderBrailleHorizon(params: BrailleHorizonParams): BrailleHoriz
     }
   }
 
+  const subLumOut = new Uint8Array(subW * subH);
+
   for (let r = 0; r < rows; r++) {
     const syBase = r * 4;
     const r0 = syBase * subW;
@@ -612,14 +612,38 @@ export function renderBrailleHorizon(params: BrailleHorizonParams): BrailleHoriz
       if (l31 > maxSub) maxSub = l31;
 
       let bits = 0;
-      if (l00 > 0.11 + BAYER_8X8[bRow0 + bx0] * 0.72) bits |= 0x01;
-      if (l01 > 0.11 + BAYER_8X8[bRow0 + bx1] * 0.72) bits |= 0x08;
-      if (l10 > 0.11 + BAYER_8X8[bRow1 + bx0] * 0.72) bits |= 0x02;
-      if (l11 > 0.11 + BAYER_8X8[bRow1 + bx1] * 0.72) bits |= 0x10;
-      if (l20 > 0.11 + BAYER_8X8[bRow2 + bx0] * 0.72) bits |= 0x04;
-      if (l21 > 0.11 + BAYER_8X8[bRow2 + bx1] * 0.72) bits |= 0x20;
-      if (l30 > 0.11 + BAYER_8X8[bRow3 + bx0] * 0.72) bits |= 0x40;
-      if (l31 > 0.11 + BAYER_8X8[bRow3 + bx1] * 0.72) bits |= 0x80;
+      if (l00 > FIELD_DITHER_THRESH[bRow0 + bx0]) {
+        bits |= 0x01;
+        subLumOut[r0 + c2] = (l00 * 255 + 0.5) | 0;
+      }
+      if (l01 > FIELD_DITHER_THRESH[bRow0 + bx1]) {
+        bits |= 0x08;
+        subLumOut[r0 + c2_1] = (l01 * 255 + 0.5) | 0;
+      }
+      if (l10 > FIELD_DITHER_THRESH[bRow1 + bx0]) {
+        bits |= 0x02;
+        subLumOut[r1 + c2] = (l10 * 255 + 0.5) | 0;
+      }
+      if (l11 > FIELD_DITHER_THRESH[bRow1 + bx1]) {
+        bits |= 0x10;
+        subLumOut[r1 + c2_1] = (l11 * 255 + 0.5) | 0;
+      }
+      if (l20 > FIELD_DITHER_THRESH[bRow2 + bx0]) {
+        bits |= 0x04;
+        subLumOut[r2 + c2] = (l20 * 255 + 0.5) | 0;
+      }
+      if (l21 > FIELD_DITHER_THRESH[bRow2 + bx1]) {
+        bits |= 0x20;
+        subLumOut[r2 + c2_1] = (l21 * 255 + 0.5) | 0;
+      }
+      if (l30 > FIELD_DITHER_THRESH[bRow3 + bx0]) {
+        bits |= 0x40;
+        subLumOut[r3 + c2] = (l30 * 255 + 0.5) | 0;
+      }
+      if (l31 > FIELD_DITHER_THRESH[bRow3 + bx1]) {
+        bits |= 0x80;
+        subLumOut[r3 + c2_1] = (l31 * 255 + 0.5) | 0;
+      }
 
       // Peak-weighted cell brightness keeps sharp wave crests luminous while subtler bathymetry stays soft
       const cellIntensity = (lumSum * 0.125) * 0.52 + maxSub * 0.48;
@@ -629,5 +653,5 @@ export function renderBrailleHorizon(params: BrailleHorizonParams): BrailleHoriz
     lines[r] = rowChars.join('');
   }
 
-  return { cols, rows, lines, cells };
+  return { cols, rows, lines, cells, subLum: subLumOut };
 }

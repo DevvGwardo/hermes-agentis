@@ -263,6 +263,226 @@ export function rasterizeDotBucketsToSurface(
   }
 }
 
+/**
+ * Precomputed 8x8 void-and-cluster blue-noise rank matrix (complete permutation of 0..63).
+ * Produces organic, isotropic stippled halftones without Bayer's geometric checkerboard/crosshatch
+ * artifacts while staying 100% deterministic across frames (zero liquid dot-boiling).
+ */
+export const BLUE_NOISE_8X8_RANKS: readonly number[] = [
+  34, 29, 17, 21, 30, 35, 12,  6,
+  59, 48, 40,  7,  2, 52, 43, 25,
+  10, 23, 14, 55, 62, 19, 32, 57,
+  45, 37,  4, 27, 46, 39,  9, 15,
+  61, 51, 18, 63,  1, 54, 22, 49,
+   3, 13, 31, 36, 42, 16, 28,  5,
+  56, 44, 24,  8, 58, 50, 60, 38,
+  20, 33, 47, 53, 11, 26,  0, 41,
+];
+
+export interface BrailleFrameLike {
+  cols: number;
+  rows: number;
+  lines: string[];
+  /** Per-cell normalized brightness 0..255 */
+  cells: Uint8Array;
+  /** Optional per-subpixel (2*cols x 4*rows) brightness 0..255 for 8x finer per-dot tonal precision */
+  subLum?: Uint8Array;
+}
+
+/**
+ * Unpacks Unicode Braille cells into 5 tonal dot coordinate buckets.
+ * When `frame.subLum` is present, each individual 2x4 dot is classified by its own exact
+ * subpixel luminance instead of the coarse 2x4 cell average—eliminating blocky 2x4 tone bleed.
+ */
+export function packSubpixelDotsToTonalBuckets(
+  frame: BrailleFrameLike,
+  buckets: readonly [
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+    TonalDotBucketSpec,
+  ],
+  thresholds: readonly [number, number, number, number],
+  cellW: number,
+  cellH: number,
+  dotRadius: number
+): void {
+  const b0XY = buckets[0].xy;
+  const b1XY = buckets[1].xy;
+  const b2XY = buckets[2].xy;
+  const b3XY = buckets[3].xy;
+  const b4XY = buckets[4].xy;
+  let len0 = 0;
+  let len1 = 0;
+  let len2 = 0;
+  let len3 = 0;
+  let len4 = 0;
+
+  const t1 = thresholds[0];
+  const t2 = thresholds[1];
+  const t3 = thresholds[2];
+  const t4 = thresholds[3];
+
+  const dotW = cellW * 0.5;
+  const dotH = cellH * 0.25;
+  const xOff0 = 0.5 * dotW - dotRadius;
+  const xOff1 = 1.5 * dotW - dotRadius;
+  const yOff0 = 0.5 * dotH - dotRadius;
+  const yOff1 = 1.5 * dotH - dotRadius;
+  const yOff2 = 2.5 * dotH - dotRadius;
+  const yOff3 = 3.5 * dotH - dotRadius;
+
+  const cols = frame.cols;
+  const rows = frame.rows;
+  const lines = frame.lines;
+  const subW = cols << 1;
+  const subLum = frame.subLum && frame.subLum.length >= subW * (rows << 2) ? frame.subLum : null;
+
+  if (subLum) {
+    for (let r = 0; r < rows; r++) {
+      const line = lines[r];
+      const baseY = r * cellH;
+      const y0 = baseY + yOff0;
+      const y1 = baseY + yOff1;
+      const y2 = baseY + yOff2;
+      const y3 = baseY + yOff3;
+      const syRow0 = (r << 2) * subW;
+      const syRow1 = syRow0 + subW;
+      const syRow2 = syRow1 + subW;
+      const syRow3 = syRow2 + subW;
+
+      for (let c = 0; c < cols; c++) {
+        const code = line.charCodeAt(c);
+        if (code <= 0x2800 || code > 0x28ff) continue;
+        const bits = code - 0x2800;
+
+        const baseX = c * cellW;
+        const x0 = baseX + xOff0;
+        const x1 = baseX + xOff1;
+        const sx0 = c << 1;
+        const sx1 = sx0 + 1;
+
+        if (bits & 0x01) {
+          const lum = subLum[syRow0 + sx0];
+          if (lum >= t4) { b4XY[len4++] = x0; b4XY[len4++] = y0; }
+          else if (lum >= t3) { b3XY[len3++] = x0; b3XY[len3++] = y0; }
+          else if (lum >= t2) { b2XY[len2++] = x0; b2XY[len2++] = y0; }
+          else if (lum >= t1) { b1XY[len1++] = x0; b1XY[len1++] = y0; }
+          else { b0XY[len0++] = x0; b0XY[len0++] = y0; }
+        }
+        if (bits & 0x08) {
+          const lum = subLum[syRow0 + sx1];
+          if (lum >= t4) { b4XY[len4++] = x1; b4XY[len4++] = y0; }
+          else if (lum >= t3) { b3XY[len3++] = x1; b3XY[len3++] = y0; }
+          else if (lum >= t2) { b2XY[len2++] = x1; b2XY[len2++] = y0; }
+          else if (lum >= t1) { b1XY[len1++] = x1; b1XY[len1++] = y0; }
+          else { b0XY[len0++] = x1; b0XY[len0++] = y0; }
+        }
+        if (bits & 0x02) {
+          const lum = subLum[syRow1 + sx0];
+          if (lum >= t4) { b4XY[len4++] = x0; b4XY[len4++] = y1; }
+          else if (lum >= t3) { b3XY[len3++] = x0; b3XY[len3++] = y1; }
+          else if (lum >= t2) { b2XY[len2++] = x0; b2XY[len2++] = y1; }
+          else if (lum >= t1) { b1XY[len1++] = x0; b1XY[len1++] = y1; }
+          else { b0XY[len0++] = x0; b0XY[len0++] = y1; }
+        }
+        if (bits & 0x10) {
+          const lum = subLum[syRow1 + sx1];
+          if (lum >= t4) { b4XY[len4++] = x1; b4XY[len4++] = y1; }
+          else if (lum >= t3) { b3XY[len3++] = x1; b3XY[len3++] = y1; }
+          else if (lum >= t2) { b2XY[len2++] = x1; b2XY[len2++] = y1; }
+          else if (lum >= t1) { b1XY[len1++] = x1; b1XY[len1++] = y1; }
+          else { b0XY[len0++] = x1; b0XY[len0++] = y1; }
+        }
+        if (bits & 0x04) {
+          const lum = subLum[syRow2 + sx0];
+          if (lum >= t4) { b4XY[len4++] = x0; b4XY[len4++] = y2; }
+          else if (lum >= t3) { b3XY[len3++] = x0; b3XY[len3++] = y2; }
+          else if (lum >= t2) { b2XY[len2++] = x0; b2XY[len2++] = y2; }
+          else if (lum >= t1) { b1XY[len1++] = x0; b1XY[len1++] = y2; }
+          else { b0XY[len0++] = x0; b0XY[len0++] = y2; }
+        }
+        if (bits & 0x20) {
+          const lum = subLum[syRow2 + sx1];
+          if (lum >= t4) { b4XY[len4++] = x1; b4XY[len4++] = y2; }
+          else if (lum >= t3) { b3XY[len3++] = x1; b3XY[len3++] = y2; }
+          else if (lum >= t2) { b2XY[len2++] = x1; b2XY[len2++] = y2; }
+          else if (lum >= t1) { b1XY[len1++] = x1; b1XY[len1++] = y2; }
+          else { b0XY[len0++] = x1; b0XY[len0++] = y2; }
+        }
+        if (bits & 0x40) {
+          const lum = subLum[syRow3 + sx0];
+          if (lum >= t4) { b4XY[len4++] = x0; b4XY[len4++] = y3; }
+          else if (lum >= t3) { b3XY[len3++] = x0; b3XY[len3++] = y3; }
+          else if (lum >= t2) { b2XY[len2++] = x0; b2XY[len2++] = y3; }
+          else if (lum >= t1) { b1XY[len1++] = x0; b1XY[len1++] = y3; }
+          else { b0XY[len0++] = x0; b0XY[len0++] = y3; }
+        }
+        if (bits & 0x80) {
+          const lum = subLum[syRow3 + sx1];
+          if (lum >= t4) { b4XY[len4++] = x1; b4XY[len4++] = y3; }
+          else if (lum >= t3) { b3XY[len3++] = x1; b3XY[len3++] = y3; }
+          else if (lum >= t2) { b2XY[len2++] = x1; b2XY[len2++] = y3; }
+          else if (lum >= t1) { b1XY[len1++] = x1; b1XY[len1++] = y3; }
+          else { b0XY[len0++] = x1; b0XY[len0++] = y3; }
+        }
+      }
+    }
+  } else {
+    const cells = frame.cells;
+    for (let r = 0; r < rows; r++) {
+      const line = lines[r];
+      const baseY = r * cellH;
+      const y0 = baseY + yOff0;
+      const y1 = baseY + yOff1;
+      const y2 = baseY + yOff2;
+      const y3 = baseY + yOff3;
+      const rowOff = r * cols;
+
+      for (let c = 0; c < cols; c++) {
+        const code = line.charCodeAt(c);
+        if (code <= 0x2800 || code > 0x28ff) continue;
+        const bits = code - 0x2800;
+
+        const baseX = c * cellW;
+        const x0 = baseX + xOff0;
+        const x1 = baseX + xOff1;
+        const lum = cells[rowOff + c];
+
+        let target: Float32Array;
+        let len: number;
+        if (lum >= t4) { target = b4XY; len = len4; }
+        else if (lum >= t3) { target = b3XY; len = len3; }
+        else if (lum >= t2) { target = b2XY; len = len2; }
+        else if (lum >= t1) { target = b1XY; len = len1; }
+        else { target = b0XY; len = len0; }
+
+        if (bits & 0x01) { target[len++] = x0; target[len++] = y0; }
+        if (bits & 0x08) { target[len++] = x1; target[len++] = y0; }
+        if (bits & 0x02) { target[len++] = x0; target[len++] = y1; }
+        if (bits & 0x10) { target[len++] = x1; target[len++] = y1; }
+        if (bits & 0x04) { target[len++] = x0; target[len++] = y2; }
+        if (bits & 0x20) { target[len++] = x1; target[len++] = y2; }
+        if (bits & 0x40) { target[len++] = x0; target[len++] = y3; }
+        if (bits & 0x80) { target[len++] = x1; target[len++] = y3; }
+
+        if (lum >= t4) len4 = len;
+        else if (lum >= t3) len3 = len;
+        else if (lum >= t2) len2 = len;
+        else if (lum >= t1) len1 = len;
+        else len0 = len;
+      }
+    }
+  }
+
+  buckets[0].len = len0;
+  buckets[1].len = len1;
+  buckets[2].len = len2;
+  buckets[3].len = len3;
+  buckets[4].len = len4;
+}
+
 export interface TonalDotBucketSpec extends DotBucketSpec {
   /** Relative diameter scale for halftone dot-size modulation (e.g. 0.68 shadows .. 1.18 highlights). */
   diameterScale?: number;
@@ -272,8 +492,8 @@ export interface TonalDotBucketSpec extends DotBucketSpec {
 
 /**
  * Multi-tier halftone rasterizer with per-bucket dot-size modulation, squared-radial
- * circular anti-aliasing (zero per-pixel sqrt), and optional soft phosphor corona bloom
- * for luminous eyes, crests, and anime rim highlights.
+ * circular anti-aliasing (zero per-pixel sqrt), crisp micro-pitch separation, and optional
+ * soft phosphor corona bloom for luminous eyes, crests, and anime rim highlights.
  */
 export function rasterizeTonalDotBucketsToSurface(
   surface: BrailleRasterSurface,
@@ -287,13 +507,14 @@ export function rasterizeTonalDotBucketsToSurface(
 
   const profile = options?.dotProfile ?? 'balanced';
   const bloom = Math.max(0, Math.min(1.5, options?.bloom ?? 0));
-  const profileScale = profile === 'crisp' ? 0.76 : profile === 'phosphor' ? 1.04 : 0.84;
-  const softEdgeCut = profile === 'crisp' ? 0.58 : profile === 'phosphor' ? 0.32 : 0.52;
-  const invEdgeSpan = 1 / (1.3225 - softEdgeCut); // (1.15)^2 = 1.3225
+  const profileScale = profile === 'crisp' ? 0.72 : profile === 'phosphor' ? 0.98 : 0.81;
+  const softEdgeCut = profile === 'crisp' ? 0.58 : profile === 'phosphor' ? 0.30 : 0.48;
+  const edgeLimit = 1.24;
+  const invEdgeSpan = 1 / (edgeLimit - softEdgeCut);
 
-  const baseDotPx = Math.max(0.72, baseDotDiameterCss * dpr * profileScale);
+  const baseDotPx = Math.max(0.70, baseDotDiameterCss * dpr * profileScale);
 
-  // Pass 1 (optional): Restrained precision halo beneath top-tier highlight dots
+  // Pass 1 (optional): Precision phosphor halo beneath top-tier highlight dots
   if (bloom > 0.04) {
     const startBloomBucket = Math.max(0, buckets.length - 2);
     for (let bIdx = startBloomBucket; bIdx < buckets.length; bIdx++) {
@@ -301,10 +522,10 @@ export function rasterizeTonalDotBucketsToSurface(
       const len = bucket.len;
       if (len <= 0) continue;
 
-      const tierGain = bIdx === buckets.length - 1 ? 1.0 : 0.40;
+      const tierGain = bIdx === buckets.length - 1 ? 1.0 : 0.36;
       const haloAlphaMax = Math.min(
-        76,
-        Math.round(bucket.alpha * bloom * tierGain * (bucket.bloomWeight ?? 1) * 44)
+        72,
+        Math.round(bucket.alpha * bloom * tierGain * (bucket.bloomWeight ?? 1) * 40)
       );
       if (haloAlphaMax <= 2) continue;
 
@@ -312,7 +533,7 @@ export function rasterizeTonalDotBucketsToSurface(
       const scale = bucket.diameterScale ?? 1;
       const dotPx = Math.max(0.65, baseDotPx * scale);
       const centerShift = (baseDotPx - dotPx) * 0.5;
-      const haloRadius = dotPx * (0.86 + bloom * 0.26);
+      const haloRadius = dotPx * (0.82 + bloom * 0.28);
       const invHaloR2 = 1 / (haloRadius * haloRadius);
       const packedRgb = (b << 16) | (g << 8) | r;
       const xy = bucket.xy;
@@ -357,7 +578,7 @@ export function rasterizeTonalDotBucketsToSurface(
                 bytes[off + 3] = covA;
               }
             } else {
-              const nextA = prevA + covA > 210 ? 210 : prevA + covA;
+              const nextA = prevA + covA > 205 ? 205 : prevA + covA;
               const nr = bytes[off] + ((r * covA) >> 8);
               const ng = bytes[off + 1] + ((g * covA) >> 8);
               const nb = bytes[off + 2] + ((b * covA) >> 8);
@@ -372,7 +593,7 @@ export function rasterizeTonalDotBucketsToSurface(
     }
   }
 
-  // Pass 2: Crisp circular anti-aliased halftone dot cores
+  // Pass 2: Crisp circular anti-aliased halftone dot cores with micro-pitch separation
   for (let bIdx = 0; bIdx < buckets.length; bIdx++) {
     const bucket = buckets[bIdx];
     const len = bucket.len;
@@ -383,11 +604,11 @@ export function rasterizeTonalDotBucketsToSurface(
     if (baseA === 0) continue;
 
     const scale = bucket.diameterScale ?? 1;
-    const dotPx = Math.max(0.65, baseDotPx * scale);
+    const dotPx = Math.max(0.62, baseDotPx * scale);
     const radius = dotPx * 0.5;
     // Slight centering shift so varying dot diameters stay aligned on their subpixel center
     const centerShift = (baseDotPx - dotPx) * 0.5;
-    const effRadius = radius + 0.45;
+    const effRadius = radius + 0.30;
     const invRadius2 = 1 / (effRadius * effRadius);
     const xy = bucket.xy;
     const packedRgb = (b << 16) | (g << 8) | r;
@@ -400,13 +621,13 @@ export function rasterizeTonalDotBucketsToSurface(
       const x1 = x0 + dotPx;
       const y1 = y0 + dotPx;
 
-      let ix0 = (x0 - 0.35) | 0;
+      let ix0 = (x0 - 0.30) | 0;
       if (ix0 < 0) ix0 = 0;
-      let iy0 = (y0 - 0.35) | 0;
+      let iy0 = (y0 - 0.30) | 0;
       if (iy0 < 0) iy0 = 0;
-      let ix1 = (x1 + 0.35) | 0;
+      let ix1 = (x1 + 0.30) | 0;
       if (ix1 >= width) ix1 = width - 1;
-      let iy1 = (y1 + 0.35) | 0;
+      let iy1 = (y1 + 0.30) | 0;
       if (iy1 >= height) iy1 = height - 1;
 
       for (let py = iy0; py <= iy1; py++) {
@@ -417,10 +638,14 @@ export function rasterizeTonalDotBucketsToSurface(
         for (let px = ix0; px <= ix1; px++) {
           const dx = px + 0.5 - cx;
           const norm2 = (dx * dx + dy2) * invRadius2;
-          if (norm2 >= 1.3225) continue;
+          if (norm2 >= edgeLimit) continue;
 
           // Smooth circular anti-aliased kernel without per-pixel sqrt
-          const radialCov = norm2 <= softEdgeCut ? 1 : (1.3225 - norm2) * invEdgeSpan;
+          let radialCov = 1;
+          if (norm2 > softEdgeCut) {
+            const u = (edgeLimit - norm2) * invEdgeSpan;
+            radialCov = u * u * (3 - 2 * u);
+          }
           const covA = (baseA * radialCov + 0.5) | 0;
           if (covA <= 0) continue;
 
@@ -428,27 +653,25 @@ export function rasterizeTonalDotBucketsToSurface(
           const off = pIdx << 2;
           const prevA = bytes[off + 3];
 
+          const cA = covA > 255 ? 255 : covA;
           if (prevA === 0) {
             if (IS_LITTLE_ENDIAN) {
-              u32[pIdx] = ((covA > 255 ? 255 : covA) << 24) | packedRgb;
+              u32[pIdx] = (cA << 24) | packedRgb;
             } else {
               bytes[off] = r;
               bytes[off + 1] = g;
               bytes[off + 2] = b;
-              bytes[off + 3] = covA > 255 ? 255 : covA;
+              bytes[off + 3] = cA;
             }
           } else {
-            const srcA = (covA > 255 ? 255 : covA) / 255;
-            const dstA = prevA / 255;
-            const invSrcA = 1 - srcA;
-            const outA = srcA + dstA * invSrcA;
+            const dstTerm = (prevA * (255 - cA) + 127) >> 8;
+            const outA = cA + dstTerm;
             if (outA > 0) {
-              const dstW = (dstA * invSrcA) / outA;
-              const srcW = srcA / outA;
-              bytes[off] = (bytes[off] * dstW + r * srcW + 0.5) | 0;
-              bytes[off + 1] = (bytes[off + 1] * dstW + g * srcW + 0.5) | 0;
-              bytes[off + 2] = (bytes[off + 2] * dstW + b * srcW + 0.5) | 0;
-              bytes[off + 3] = Math.min(255, (outA * 255 + 0.5) | 0);
+              const invOut = 1 / outA;
+              bytes[off] = ((bytes[off] * dstTerm + r * cA) * invOut + 0.5) | 0;
+              bytes[off + 1] = ((bytes[off + 1] * dstTerm + g * cA) * invOut + 0.5) | 0;
+              bytes[off + 2] = ((bytes[off + 2] * dstTerm + b * cA) * invOut + 0.5) | 0;
+              bytes[off + 3] = outA > 255 ? 255 : outA;
             }
           }
         }

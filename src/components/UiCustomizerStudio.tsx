@@ -375,13 +375,15 @@ export function UiCustomizerStudio({
                   <div className="text-xs font-medium text-zinc-300">
                     Themes
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {CURATED_UI_PRESETS.map((preset) => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {CURATED_UI_PRESETS.map((preset, idx) => {
                       const presetAccent = preset.config.accentHex ?? '#94A3B8';
                       const active =
                         config.accentHex === presetAccent &&
                         config.surfaceHex === (preset.config.surfaceHex ?? config.surfaceHex) &&
                         config.cornerRadius === (preset.config.cornerRadius ?? config.cornerRadius);
+                      const isTrailingOdd =
+                        CURATED_UI_PRESETS.length % 2 === 1 && idx === CURATED_UI_PRESETS.length - 1;
                       return (
                         <button
                           key={preset.id}
@@ -389,23 +391,30 @@ export function UiCustomizerStudio({
                           data-testid={`ui-preset-${preset.id}`}
                           title={preset.subtitle}
                           onClick={() => onApplyPatch({ presetId: preset.id }, 'studio')}
-                          className={`text-left rounded-lg border px-2.5 py-2 flex items-center justify-between gap-2 transition-colors cursor-pointer min-w-0 ${
+                          className={`text-left rounded-xl border px-3 py-2 flex items-center justify-between gap-2.5 transition-colors cursor-pointer min-w-0 ${
+                            isTrailingOdd ? 'sm:col-span-2' : ''
+                          } ${
                             active
                               ? 'ui-active-card'
                               : 'border-white/10 bg-white/[0.02] hover:border-white/25'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="flex h-3 w-3 rounded-full overflow-hidden border border-white/20 shrink-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="flex h-4 w-4 rounded-full overflow-hidden border border-white/20 shrink-0">
                               <span className="flex-1" style={{ backgroundColor: presetAccent }} />
                               <span
                                 className="flex-1"
                                 style={{ backgroundColor: preset.config.surfaceHex ?? '#11141B' }}
                               />
                             </span>
-                            <span className="text-xs font-medium text-white truncate">
-                              {preset.name}
-                            </span>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-white truncate">
+                                {preset.name}
+                              </div>
+                              <div className="text-[10.5px] text-zinc-400 truncate">
+                                {preset.subtitle}
+                              </div>
+                            </div>
                           </div>
                           {active && <Check className="w-3.5 h-3.5 text-[var(--ui-accent-soft)] shrink-0" />}
                         </button>
@@ -634,9 +643,99 @@ export function UiCustomizerStudio({
 
           {activeTab === 'stage' && (
             <>
-              <div className="space-y-2">
+              <div className="space-y-3" data-testid="braille-optics-section">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-zinc-200">
+                    Braille &amp; dot optics
+                  </div>
+                  <span className="text-[10.5px] text-zinc-400">
+                    Subpixel blue-noise halftone
+                  </span>
+                </div>
+
+                <SegmentedRow<BrailleDotProfile>
+                  label="Dot rendering profile"
+                  value={config.brailleDotProfile}
+                  options={[
+                    { id: 'crisp', label: 'Crisp' },
+                    { id: 'balanced', label: 'Balanced' },
+                    { id: 'phosphor', label: 'Phosphor' },
+                  ]}
+                  onChange={(val) => onApplyPatch({ brailleDotProfile: val }, 'studio')}
+                />
+                <SegmentedRow<BrailleHorizonStyle>
+                  label="Horizon wave mode"
+                  value={config.horizonStyle}
+                  options={[
+                    { id: 'silk', label: 'Silk' },
+                    { id: 'peaks', label: 'Peaks' },
+                    { id: 'pulse', label: 'Pulse' },
+                  ]}
+                  onChange={(val) => onApplyPatch({ horizonStyle: val, horizonVisible: true }, 'studio')}
+                />
+                <SliderRow
+                  label="Phosphor dot bloom"
+                  valueLabel={`${Math.round(config.brailleBloom * 100)}%`}
+                  min={0}
+                  max={1.5}
+                  step={0.05}
+                  value={config.brailleBloom}
+                  onChange={(val) => onApplyPatch({ brailleBloom: val }, 'studio')}
+                />
+
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-zinc-300">Portrait halftone tint</span>
+                    <button
+                      type="button"
+                      onClick={() => onApplyPatch({ portraitTintHex: null }, 'studio')}
+                      className="text-[10.5px] font-mono text-[var(--ui-accent-soft)] hover:underline cursor-pointer"
+                    >
+                      {config.portraitTintHex ? 'Reset Auto' : 'Auto'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(
+                      [
+                        { hex: null, label: 'Auto' },
+                        { hex: '#FFFFFF', label: 'Ivory' },
+                        { hex: '#94A3B8', label: 'Slate' },
+                        { hex: '#6EE7B7', label: 'Emerald' },
+                        { hex: '#D8B4FE', label: 'Violet' },
+                        { hex: '#FCD34D', label: 'Amber' },
+                        { hex: '#7DD3FC', label: 'Sky' },
+                        { hex: '#FDA4AF', label: 'Rose' },
+                      ] as const
+                    ).map(({ hex, label }) => {
+                      const active = config.portraitTintHex === hex;
+                      return (
+                        <button
+                          key={hex ?? 'auto'}
+                          type="button"
+                          onClick={() => onApplyPatch({ portraitTintHex: hex }, 'studio')}
+                          className={`px-2 h-7 rounded-lg border text-[11px] cursor-pointer transition-colors flex items-center justify-center gap-1.5 ${
+                            active
+                              ? 'border-white bg-white/15 text-white font-medium'
+                              : 'border-white/12 bg-white/[0.03] text-zinc-300 hover:border-white/25'
+                          }`}
+                        >
+                          {hex && (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/30"
+                              style={{ backgroundColor: hex }}
+                            />
+                          )}
+                          <span className="truncate">{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-white/8">
                 <div className="text-xs font-medium text-zinc-300">
-                  Character &amp; wave stage
+                  Stage visibility &amp; motion
                 </div>
                 <ToggleRow
                   label="Character portrait"
@@ -675,7 +774,7 @@ export function UiCustomizerStudio({
                 />
               </div>
 
-              <div className="space-y-3 pt-2 border-t border-white/8">
+              <div className="space-y-3 pt-3 border-t border-white/8">
                 <SliderRow
                   label="Portrait scale"
                   valueLabel={`${Math.round(config.portraitScale * 100)}%`}
@@ -695,15 +794,6 @@ export function UiCustomizerStudio({
                   onChange={(val) => onApplyPatch({ horizonOpacity: val }, 'studio')}
                 />
                 <SliderRow
-                  label="Phosphor dot bloom"
-                  valueLabel={`${Math.round(config.brailleBloom * 100)}%`}
-                  min={0}
-                  max={1.5}
-                  step={0.05}
-                  value={config.brailleBloom}
-                  onChange={(val) => onApplyPatch({ brailleBloom: val }, 'studio')}
-                />
-                <SliderRow
                   label="Animation speed"
                   valueLabel={`${config.animationSpeed.toFixed(2)}x`}
                   min={0.3}
@@ -712,71 +802,6 @@ export function UiCustomizerStudio({
                   value={config.animationSpeed}
                   onChange={(val) => onApplyPatch({ animationSpeed: val }, 'studio')}
                 />
-                <SegmentedRow<BrailleDotProfile>
-                  label="Braille dot matrix optics"
-                  value={config.brailleDotProfile}
-                  options={[
-                    { id: 'crisp', label: 'Crisp' },
-                    { id: 'balanced', label: 'Balanced' },
-                    { id: 'phosphor', label: 'Phosphor' },
-                  ]}
-                  onChange={(val) => onApplyPatch({ brailleDotProfile: val }, 'studio')}
-                />
-                <SegmentedRow<BrailleHorizonStyle>
-                  label="Horizon wave mode"
-                  value={config.horizonStyle}
-                  options={[
-                    { id: 'silk', label: 'Silk' },
-                    { id: 'peaks', label: 'Peaks' },
-                    { id: 'pulse', label: 'Pulse' },
-                  ]}
-                  onChange={(val) => onApplyPatch({ horizonStyle: val, horizonVisible: true }, 'studio')}
-                />
-              </div>
-
-              <div className="space-y-2.5 pt-2 border-t border-white/8">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-zinc-300">Portrait halftone tint</span>
-                  <button
-                    type="button"
-                    onClick={() => onApplyPatch({ portraitTintHex: null }, 'studio')}
-                    className="text-[10.5px] font-mono text-[var(--ui-accent-soft)] hover:underline cursor-pointer"
-                  >
-                    {config.portraitTintHex ? 'Reset Auto' : 'Auto'}
-                  </button>
-                </div>
-                <div className="flex items-center flex-wrap gap-2">
-                  {[null, '#FFFFFF', '#94A3B8', '#6EE7B7', '#D8B4FE', '#FCD34D', '#7DD3FC', '#FDA4AF'].map(
-                    (tint) => {
-                      const active = config.portraitTintHex === tint;
-                      return (
-                        <button
-                          key={tint ?? 'auto'}
-                          type="button"
-                          onClick={() => onApplyPatch({ portraitTintHex: tint }, 'studio')}
-                          className={`px-2.5 h-7 rounded-lg border text-[10.5px] font-mono cursor-pointer transition-colors ${
-                            active
-                              ? 'border-white bg-white/15 text-white'
-                              : 'border-white/12 bg-white/[0.03] text-zinc-300 hover:border-white/25'
-                          }`}
-                        >
-                          {tint ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span
-                                className="w-2.5 h-2.5 rounded-sm"
-                                style={{ backgroundColor: tint }}
-                              />
-                              <span>{tint}</span>
-                            </span>
-                          ) : (
-                            'Auto'
-                          )}
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
-
                 <SegmentedRow<ExpressionMood>
                   label="Hermes expression mood"
                   value={mood}

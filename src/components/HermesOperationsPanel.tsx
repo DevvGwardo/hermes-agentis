@@ -238,14 +238,12 @@ export function HermesOperationsPanel({
     >
       {/* Clean Single-Line Header & Underline Navigation */}
       <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2">
-        <div className="flex items-baseline gap-2.5 min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 min-w-0">
           <h1 className="text-base font-semibold text-white tracking-tight shrink-0">
-            Operations
+            Queue &amp; Operations
           </h1>
-          <span className="font-mono text-[11px] text-zinc-400 truncate">
-            {activeScopeTitle}
-            <span aria-hidden="true" className="text-zinc-600"> · </span>
-            {gatewayStatus?.sessionKeyHeader || 'X-Hermes-Session-Key'}
+          <span className="text-xs text-zinc-400 truncate">
+            {activeChannelObj ? activeScopeTitle : 'Gateway health, approvals & scheduled jobs'}
           </span>
         </div>
 

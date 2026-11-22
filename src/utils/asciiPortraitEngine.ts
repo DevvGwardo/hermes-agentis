@@ -1,4 +1,5 @@
 import type { ExpressionMood, EyeState, MouthViseme } from '../types/hermes';
+import { BLUE_NOISE_8X8_RANKS } from './brailleCanvasRaster';
 
 export type DitherStyle = 'braille';
 
@@ -71,25 +72,16 @@ export interface PortraitFrame {
   lines: string[];
   /** Per-row intensity values (0..255) matching each character */
   cells: Uint8Array;
+  /** Per-subpixel (2*cols x 4*rows) luminance 0..255 for exact per-dot tonal shading */
+  subLum?: Uint8Array;
 }
 
-const BAYER_8X8_RANKS = [
-   0, 32,  8, 40,  2, 34, 10, 42,
-  48, 16, 56, 24, 50, 18, 58, 26,
-  12, 44,  4, 36, 14, 46,  6, 38,
-  60, 28, 52, 20, 62, 30, 54, 22,
-   3, 35, 11, 43,  1, 33,  9, 41,
-  51, 19, 59, 27, 49, 17, 57, 25,
-  15, 47,  7, 39, 13, 45,  5, 37,
-  63, 31, 55, 23, 61, 29, 53, 21,
-];
-
-// Deterministic ordered 8x8 Bayer halftone thresholds in [0.065, 0.935]
-// Prevents serpentine error-diffusion dot-boiling/liquid shimmer during subtle motion
-// while keeping deep anime ink (<0.065) cleanly empty and specular highlights (>=0.94) solid.
+// Deterministic 8x8 blue-noise halftone thresholds in [0.06, 0.935].
+// Eliminates Bayer's geometric checkerboard/crosshatch patterns while preserving
+// zero frame-to-frame dot-boiling and clean deep-ink blacks (<0.06).
 const BAYER_THRESH_8X8 = Float32Array.from(
-  BAYER_8X8_RANKS,
-  (rank) => 0.065 + ((rank + 0.5) / 64) * 0.87
+  BLUE_NOISE_8X8_RANKS,
+  (rank) => 0.06 + ((rank + 0.5) / 64) * 0.875
 );
 
 // Standard 2x4 Unicode Braille lookup table (U+2800..U+28FF)
@@ -2384,8 +2376,9 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
     }
   }
 
-  // 3. Deterministic Ordered 8x8 Bayer Halftone Packing into Unicode Braille (U+2800..U+28FF)
-  // Zero serpentine error-diffusion cascade -> zero liquid dot-boiling across frames.
+  // 3. Deterministic Ordered 8x8 Blue-Noise Halftone Packing into Unicode Braille (U+2800..U+28FF)
+  // Plus per-subpixel luminance output so every dot renders at its exact tonal tier.
+  const subLum = new Uint8Array(subW * subH);
   const rLo = activeMaxY >= activeMinY ? Math.max(0, activeMinY >> 2) : rows;
   const rHi = activeMaxY >= activeMinY ? Math.min(rows - 1, (activeMaxY + 1) >> 2) : -1;
   const cLo = activeMaxX >= activeMinX ? Math.max(0, (activeMinX - 1) >> 1) : cols;
@@ -2437,17 +2430,50 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
         continue;
       }
 
+      const w00 = work[r0 + c2];
+      const w01 = work[r0 + c2 + 1];
+      const w10 = work[r1 + c2];
+      const w11 = work[r1 + c2 + 1];
+      const w20 = work[r2 + c2];
+      const w21 = work[r2 + c2 + 1];
+      const w30 = work[r3 + c2];
+      const w31 = work[r3 + c2 + 1];
+
       const bx0 = c2 & 7;
       const bx1 = (c2 + 1) & 7;
       let bits = 0;
-      if (work[r0 + c2] >= BAYER_THRESH_8X8[bRow0 + bx0]) bits |= 0x01;
-      if (work[r0 + c2 + 1] >= BAYER_THRESH_8X8[bRow0 + bx1]) bits |= 0x08;
-      if (work[r1 + c2] >= BAYER_THRESH_8X8[bRow1 + bx0]) bits |= 0x02;
-      if (work[r1 + c2 + 1] >= BAYER_THRESH_8X8[bRow1 + bx1]) bits |= 0x10;
-      if (work[r2 + c2] >= BAYER_THRESH_8X8[bRow2 + bx0]) bits |= 0x04;
-      if (work[r2 + c2 + 1] >= BAYER_THRESH_8X8[bRow2 + bx1]) bits |= 0x20;
-      if (work[r3 + c2] >= BAYER_THRESH_8X8[bRow3 + bx0]) bits |= 0x40;
-      if (work[r3 + c2 + 1] >= BAYER_THRESH_8X8[bRow3 + bx1]) bits |= 0x80;
+      if (w00 >= BAYER_THRESH_8X8[bRow0 + bx0]) {
+        bits |= 0x01;
+        subLum[r0 + c2] = (w00 * 255 + 0.5) | 0;
+      }
+      if (w01 >= BAYER_THRESH_8X8[bRow0 + bx1]) {
+        bits |= 0x08;
+        subLum[r0 + c2 + 1] = (w01 * 255 + 0.5) | 0;
+      }
+      if (w10 >= BAYER_THRESH_8X8[bRow1 + bx0]) {
+        bits |= 0x02;
+        subLum[r1 + c2] = (w10 * 255 + 0.5) | 0;
+      }
+      if (w11 >= BAYER_THRESH_8X8[bRow1 + bx1]) {
+        bits |= 0x10;
+        subLum[r1 + c2 + 1] = (w11 * 255 + 0.5) | 0;
+      }
+      if (w20 >= BAYER_THRESH_8X8[bRow2 + bx0]) {
+        bits |= 0x04;
+        subLum[r2 + c2] = (w20 * 255 + 0.5) | 0;
+      }
+      if (w21 >= BAYER_THRESH_8X8[bRow2 + bx1]) {
+        bits |= 0x20;
+        subLum[r2 + c2 + 1] = (w21 * 255 + 0.5) | 0;
+      }
+      if (w30 >= BAYER_THRESH_8X8[bRow3 + bx0]) {
+        bits |= 0x40;
+        subLum[r3 + c2] = (w30 * 255 + 0.5) | 0;
+      }
+      if (w31 >= BAYER_THRESH_8X8[bRow3 + bx1]) {
+        bits |= 0x80;
+        subLum[r3 + c2 + 1] = (w31 * 255 + 0.5) | 0;
+      }
 
       cells[cellRowOff + c] = (lumSum * 31.875 + 0.5) | 0;
       rowChars[c] = BRAILLE_CHAR_TABLE[bits];
@@ -2455,5 +2481,5 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
     lines[r] = rowChars.join('');
   }
 
-  return { cols, rows, lines, cells };
+  return { cols, rows, lines, cells, subLum };
 }
