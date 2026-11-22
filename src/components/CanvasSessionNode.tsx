@@ -264,10 +264,10 @@ export function CanvasSessionNode({
         aria-expanded={isChatOpen}
         className={`group relative flex flex-col items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ui-accent)] rounded-2xl transition-transform duration-200 ease-out ${
           isDragged
-            ? 'scale-110 -translate-y-1.5 cursor-grabbing'
+            ? 'scale-[1.06] -translate-y-1 cursor-grabbing'
             : isSelected || isChatOpen
-            ? 'scale-[1.04] cursor-grab hover:scale-108'
-            : 'cursor-grab hover:scale-105'
+            ? 'scale-[1.02] cursor-grab hover:scale-[1.035]'
+            : 'cursor-grab hover:scale-[1.02]'
         }`}
       >
         {/* Optical Ambient Corona + Floor Selection Reticle */}
@@ -289,7 +289,7 @@ export function CanvasSessionNode({
           <svg
             aria-hidden="true"
             viewBox="0 0 120 36"
-            className="pointer-events-none absolute bottom-[38px] w-28 h-8 opacity-85"
+            className="pointer-events-none absolute bottom-[34px] w-28 h-8 opacity-85"
           >
             <ellipse
               cx="60"

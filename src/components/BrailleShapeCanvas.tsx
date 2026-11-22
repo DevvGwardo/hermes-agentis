@@ -23,7 +23,11 @@ import {
   type BrailleDotProfile,
   type TonalDotBucketSpec,
 } from '../utils/brailleCanvasRaster';
-import { renderCompanionPortraitFrame } from '../utils/companionPortraitProcessor';
+import {
+  renderCompanionPortraitFrame,
+  resolveCompanionMouthTargets,
+  type CompanionMouthTargets,
+} from '../utils/companionPortraitProcessor';
 import {
   getCachedCompanionPortrait,
   loadCompanionPortrait,
@@ -177,6 +181,14 @@ export function BrailleShapeCanvas({
     let rafId = 0;
     let hiddenTimerId = 0;
     let lastReducedKey = '';
+    const smoothMouth: CompanionMouthTargets = resolveCompanionMouthTargets(
+      stateRef.current.viseme,
+      stateRef.current.energy,
+      stateRef.current.isSpeaking,
+      stateRef.current.mood
+    );
+    let mouthOpenVel = 0;
+    let jawDropVel = 0;
 
     const maxDots = cols * rows * 8;
     const b0XY = new Float32Array(maxDots * 2);
@@ -284,6 +296,36 @@ export function BrailleShapeCanvas({
         canvas.dataset.blink = '0.00';
       }
 
+      const targetMouth = resolveCompanionMouthTargets(
+        s.viseme,
+        smoothEnergy,
+        s.isSpeaking,
+        s.mood
+      );
+      const stepDt = Math.min(0.05, Math.max(0.008, dt));
+      if (isReduced) {
+        Object.assign(smoothMouth, targetMouth);
+        mouthOpenVel = 0;
+        jawDropVel = 0;
+      } else {
+        const openStiff = targetMouth.open > smoothMouth.open ? 175 : 145;
+        mouthOpenVel += ((targetMouth.open - smoothMouth.open) * openStiff - mouthOpenVel * 23.5) * stepDt;
+        smoothMouth.open = Math.max(0, Math.min(1, smoothMouth.open + mouthOpenVel * stepDt));
+        jawDropVel += ((targetMouth.jawDrop - smoothMouth.jawDrop) * 160 - jawDropVel * 22.8) * stepDt;
+        smoothMouth.jawDrop = Math.max(0, Math.min(1, smoothMouth.jawDrop + jawDropVel * stepDt));
+        const fastBlend = 1 - Math.exp(-20 * stepDt);
+        smoothMouth.width += (targetMouth.width - smoothMouth.width) * fastBlend;
+        smoothMouth.round += (targetMouth.round - smoothMouth.round) * fastBlend;
+        smoothMouth.teethTop += (targetMouth.teethTop - smoothMouth.teethTop) * fastBlend;
+        smoothMouth.teethBottom += (targetMouth.teethBottom - smoothMouth.teethBottom) * fastBlend;
+        smoothMouth.tongueShow += (targetMouth.tongueShow - smoothMouth.tongueShow) * fastBlend;
+        smoothMouth.tongueLift += (targetMouth.tongueLift - smoothMouth.tongueLift) * fastBlend;
+        smoothMouth.lipPress += (targetMouth.lipPress - smoothMouth.lipPress) * fastBlend;
+        smoothMouth.lipBite += (targetMouth.lipBite - smoothMouth.lipBite) * fastBlend;
+        smoothMouth.puckerRing += (targetMouth.puckerRing - smoothMouth.puckerRing) * fastBlend;
+        smoothMouth.smile += (targetMouth.smile - smoothMouth.smile) * (1 - Math.exp(-12 * stepDt));
+      }
+
       const activeSource = s.portraitField ?? getCachedCompanionPortrait(s.shape);
       const frame = activeSource
         ? renderCompanionPortraitFrame({
@@ -295,6 +337,10 @@ export function BrailleShapeCanvas({
             energy: smoothEnergy,
             isSpeaking: s.isSpeaking,
             isThinking: s.isThinking,
+            mood: s.mood,
+            eyeStyle: s.eyeStyle,
+            viseme: s.viseme,
+            mouthTargets: smoothMouth,
             gazeX: motion ? motion.gazeX : 0,
             gazeY: motion ? motion.gazeY : 0,
             motion,
@@ -388,6 +434,7 @@ export function BrailleShapeCanvas({
         evaluateNaturalBlinkCurve(elapsedPhase + 0.08, s.blinkPhaseOffset, 3) > 0.01;
       const fastMotion =
         s.isSpeaking ||
+        smoothMouth.open > 0.02 ||
         s.isDragging ||
         now < settleUntilMs ||
         activeBlinkBusy ||

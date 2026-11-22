@@ -448,6 +448,7 @@ export function VoiceWorkspacePane({
 
   useEffect(() => {
     if (!activeIsSpeaking) return;
+    setTick(0);
     const id = window.setInterval(() => {
       setTick((t) => (t + 1) % 10000);
     }, 42);

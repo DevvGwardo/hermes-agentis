@@ -34,14 +34,23 @@ const MOUTH_PATTERNS: Record<MouthViseme, string> = {
 };
 
 const TEXT_VISEME_MAP: Array<[RegExp, MouthViseme]> = [
+  [/^(ph)/i, 'fv'],
+  [/^(wh|oo|ou|oh|ow|oa)/i, 'round'],
+  [/^(ch|sh|ee|ea|ie|ey)/i, 'ee'],
+  [/^(th)/i, 'lth'],
+  [/^(ah|ha|aa|ar|au|aw)/i, 'wide'],
+  [/^(ai|ay)/i, 'mid'],
   [/^[mbp]/i, 'mbp'],
   [/^[fv]/i, 'fv'],
-  [/^(th|l|d|t|n)/i, 'lth'],
-  [/^(ee|ea|ie|i|y|ch|sh|j)/i, 'ee'],
-  [/^(oo|ou|oh|ow|o|w|q)/i, 'round'],
-  [/^(ah|ha|aa|ar|a)/i, 'wide'],
-  [/^(uh|eh|er|e|u|r|s|z|k|g|c)/i, 'small'],
+  [/^[ldtn]/i, 'lth'],
+  [/^[iyj]/i, 'ee'],
+  [/^[owq]/i, 'round'],
+  [/^[a]/i, 'wide'],
+  [/^(uh|eh|er|e|u|r|s|z|k|g|c|h|x)/i, 'small'],
 ];
+
+let lastTimelineText = '';
+let lastTimelineResult: MouthViseme[] = ['small', 'mid', 'wide', 'round'];
 
 /**
  * Extracts a compact phoneme-viseme sequence from spoken text so talking lip-sync
@@ -50,6 +59,7 @@ const TEXT_VISEME_MAP: Array<[RegExp, MouthViseme]> = [
 export function textToVisemeTimeline(text: string): MouthViseme[] {
   const cleaned = text.trim();
   if (!cleaned) return ['small', 'mid', 'wide', 'round'];
+  if (cleaned === lastTimelineText) return lastTimelineResult;
 
   const out: MouthViseme[] = [];
   let i = 0;
@@ -81,7 +91,10 @@ export function textToVisemeTimeline(text: string): MouthViseme[] {
     }
   }
 
-  return out.length > 0 ? out : ['small', 'mid', 'wide', 'round'];
+  const res: MouthViseme[] = out.length > 0 ? out : ['small', 'mid', 'wide', 'round'];
+  lastTimelineText = cleaned;
+  lastTimelineResult = res;
+  return res;
 }
 
 /**

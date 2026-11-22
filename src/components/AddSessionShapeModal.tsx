@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, Plus, SlidersHorizontal, X } from 'lucide-react';
-import type { ExpressionMood, HermesProfileSummary } from '../types/hermes';
+import type { ExpressionMood, HermesProfileSummary, MouthViseme } from '../types/hermes';
+import { amplitudeToViseme } from '../utils/asciiCharacter';
 import type { BrailleDotProfile } from '../utils/brailleCanvasRaster';
 import {
   BRAILLE_SHAPE_CATALOG,
@@ -78,6 +79,7 @@ export function AddSessionShapeModal({
   const [personaEdited, setPersonaEdited] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState('');
+  const [auditionTick, setAuditionTick] = useState(0);
 
   useEffect(() => {
     if (open) {
@@ -85,6 +87,17 @@ export function AddSessionShapeModal({
       setShowAdvanced(false);
     }
   }, [open, defaultProfile]);
+
+  useEffect(() => {
+    if (!open || auditionState !== 'speak') {
+      setAuditionTick(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setAuditionTick((t) => (t + 1) % 10000);
+    }, 52);
+    return () => window.clearInterval(id);
+  }, [open, auditionState]);
 
   if (!open) return null;
 
@@ -161,6 +174,33 @@ export function AddSessionShapeModal({
   };
 
   const currentAudition = AUDITION_MOODS.find((a) => a.id === auditionState) ?? AUDITION_MOODS[0];
+  const auditionEnergy =
+    auditionState === 'speak'
+      ? Math.max(
+          0.18,
+          Math.min(
+            0.94,
+            0.56 +
+              Math.sin(auditionTick * 0.52) * 0.24 +
+              Math.sin(auditionTick * 1.18 + 0.7) * 0.14
+          )
+        )
+      : auditionState === 'think'
+      ? 0.25
+      : 0.08;
+  const auditionViseme: MouthViseme =
+    auditionState === 'speak'
+      ? amplitudeToViseme(
+          auditionEnergy,
+          'speaking',
+          auditionTick,
+          true,
+          undefined,
+          `Hello! I am ${activeMeta.label}, synced and ready to help build, monitor, and ship your tasks.`
+        )
+      : auditionState === 'happy'
+      ? 'smile'
+      : 'closed';
 
   return (
     <ModalShell
@@ -218,8 +258,8 @@ export function AddSessionShapeModal({
                   eyeStyle={eyeStyle}
                   isSpeaking={auditionState === 'speak'}
                   isThinking={auditionState === 'think'}
-                  viseme={auditionState === 'speak' ? 'mid' : 'closed'}
-                  energy={auditionState === 'speak' ? 0.55 : auditionState === 'think' ? 0.25 : 0.08}
+                  viseme={auditionViseme}
+                  energy={auditionEnergy}
                   dotProfile={dotProfile}
                   bloom={bloom}
                 />
