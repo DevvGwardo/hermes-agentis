@@ -14,6 +14,7 @@ import {
 } from '../utils/brailleShapesEngine';
 import {
   createRasterSurface,
+  packSubpixelDotsToTonalBuckets,
   rasterizeTonalDotBucketsToSurface,
   resolveShapeTonePalette,
   type BrailleDotProfile,
@@ -41,17 +42,6 @@ interface BrailleShapeCanvasProps {
   gazeRef?: RefObject<{ clientX: number; clientY: number } | null>;
   className?: string;
 }
-
-const SUBPIXEL_BITS: ReadonlyArray<readonly [number, number, number]> = [
-  [0, 0, 0x01],
-  [1, 0, 0x08],
-  [0, 1, 0x02],
-  [1, 1, 0x10],
-  [0, 2, 0x04],
-  [1, 2, 0x20],
-  [0, 3, 0x40],
-  [1, 3, 0x80],
-];
 
 export function BrailleShapeCanvas({
   shape,
@@ -123,8 +113,8 @@ export function BrailleShapeCanvas({
     if (!ctx) return;
 
     const isPreview = variant === 'preview';
-    const cols = isPreview ? 26 : 46;
-    const rows = isPreview ? 15 : 26;
+    const cols = isPreview ? 32 : 52;
+    const rows = isPreview ? 18 : 30;
     const width = isPreview ? 76 : 142;
     const height = isPreview ? 84 : 154;
 
@@ -137,8 +127,8 @@ export function BrailleShapeCanvas({
     const cellH = height / rows;
     const dotW = cellW / 2;
     const dotH = cellH / 4;
-    const dotRadius = Math.min(dotW, dotH) * (isPreview ? 0.45 : 0.44);
-    const dotDiameter = Math.max(1.05, dotRadius * 1.98);
+    const dotRadius = Math.min(dotW, dotH) * (isPreview ? 0.43 : 0.42);
+    const dotDiameter = Math.max(0.98, dotRadius * 1.94);
 
     const systemReduced =
       typeof window !== 'undefined' &&
@@ -172,11 +162,11 @@ export function BrailleShapeCanvas({
       TonalDotBucketSpec,
       TonalDotBucketSpec,
     ] = [
-      { xy: b0XY, len: 0, hex: '#4D7C0F', alpha: 0.74, diameterScale: 0.76 },
-      { xy: b1XY, len: 0, hex: '#84CC16', alpha: 0.86, diameterScale: 0.87 },
-      { xy: b2XY, len: 0, hex: '#B9EA74', alpha: 0.93, diameterScale: 0.98 },
-      { xy: b3XY, len: 0, hex: '#DCF7B4', alpha: 0.96, diameterScale: 1.07 },
-      { xy: b4XY, len: 0, hex: '#ECFCCB', alpha: 0.99, diameterScale: 1.16 },
+      { xy: b0XY, len: 0, hex: '#4D7C0F', alpha: 0.74, diameterScale: 0.72 },
+      { xy: b1XY, len: 0, hex: '#84CC16', alpha: 0.86, diameterScale: 0.84 },
+      { xy: b2XY, len: 0, hex: '#B9EA74', alpha: 0.93, diameterScale: 0.95 },
+      { xy: b3XY, len: 0, hex: '#DCF7B4', alpha: 0.96, diameterScale: 1.04 },
+      { xy: b4XY, len: 0, hex: '#ECFCCB', alpha: 0.99, diameterScale: 1.12 },
     ];
 
     const drawFrame = (now: number) => {
@@ -283,68 +273,14 @@ export function BrailleShapeCanvas({
       });
 
       const palette = BRAILLE_TINT_PALETTE[s.tint];
-      let len0 = 0;
-      let len1 = 0;
-      let len2 = 0;
-      let len3 = 0;
-      let len4 = 0;
-
-      for (let r = 0; r < frame.rows; r++) {
-        const line = frame.lines[r];
-        const baseY = r * cellH;
-        const rowOff = r * frame.cols;
-        for (let c = 0; c < frame.cols; c++) {
-          const ch = line[c];
-          if (ch === ' ') continue;
-          const bits = ch.charCodeAt(0) - 0x2800;
-          if (bits <= 0 || bits > 0xff) continue;
-
-          const bright = frame.cells[rowOff + c] / 255;
-          const baseX = c * cellW;
-
-          if (bright > 0.80) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b4XY[len4++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b4XY[len4++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.62) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b3XY[len3++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b3XY[len3++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.44) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b2XY[len2++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b2XY[len2++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else if (bright > 0.25) {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b1XY[len1++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b1XY[len1++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          } else {
-            for (let k = 0; k < 8; k++) {
-              const [px, py, mask] = SUBPIXEL_BITS[k];
-              if (bits & mask) {
-                b0XY[len0++] = baseX + (px + 0.5) * dotW - dotRadius;
-                b0XY[len0++] = baseY + (py + 0.5) * dotH - dotRadius;
-              }
-            }
-          }
-        }
-      }
+      packSubpixelDotsToTonalBuckets(
+        frame,
+        buckets,
+        [64, 112, 160, 206],
+        cellW,
+        cellH,
+        dotRadius
+      );
 
       const tone = resolveShapeTonePalette({
         low: palette.low,
@@ -355,9 +291,7 @@ export function BrailleShapeCanvas({
         energy: smoothEnergy,
       });
 
-      const lens = [len0, len1, len2, len3, len4];
       for (let i = 0; i < 5; i++) {
-        buckets[i].len = lens[i];
         buckets[i].hex = tone.hexes[i];
         buckets[i].alpha = tone.alphas[i];
       }

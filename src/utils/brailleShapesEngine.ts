@@ -1,5 +1,6 @@
 import type { ExpressionMood, EyeState, MouthViseme } from '../types/hermes';
 import { evaluateNaturalBlinkCurve } from './asciiPortraitEngine';
+import { BLUE_NOISE_8X8_RANKS } from './brailleCanvasRaster';
 import {
   NEUTRAL_IDLE_POSE,
   evaluateIdleActionStep,
@@ -258,20 +259,14 @@ export interface BrailleShapeFrame {
   rows: number;
   lines: string[];
   cells: Uint8Array;
+  /** Per-subpixel (2*cols x 4*rows) luminance 0..255 for exact per-dot tonal shading */
+  subLum?: Uint8Array;
 }
 
-const BAYER_8X8 = [
-  0 / 64, 32 / 64, 8 / 64, 40 / 64, 2 / 64, 34 / 64, 10 / 64, 42 / 64,
-  48 / 64, 16 / 64, 56 / 64, 24 / 64, 50 / 64, 18 / 64, 58 / 64, 26 / 64,
-  12 / 64, 44 / 64, 4 / 64, 36 / 64, 14 / 64, 46 / 64, 6 / 64, 38 / 64,
-  60 / 64, 28 / 64, 52 / 64, 20 / 64, 62 / 64, 30 / 64, 54 / 64, 22 / 64,
-  3 / 64, 35 / 64, 11 / 64, 43 / 64, 1 / 64, 33 / 64, 9 / 64, 41 / 64,
-  51 / 64, 19 / 64, 59 / 64, 27 / 64, 49 / 64, 17 / 64, 57 / 64, 25 / 64,
-  15 / 64, 47 / 64, 7 / 64, 39 / 64, 13 / 64, 45 / 64, 5 / 64, 37 / 64,
-  63 / 64, 31 / 64, 55 / 64, 23 / 64, 61 / 64, 29 / 64, 53 / 64, 21 / 64,
-];
-
-const BAYER_THRESH = BAYER_8X8.map((v) => 0.14 + v * 0.68);
+const BAYER_THRESH = Float32Array.from(
+  BLUE_NOISE_8X8_RANKS,
+  (rank) => 0.13 + ((rank + 0.5) / 64) * 0.69
+);
 
 function clamp(v: number, min: number, max: number): number {
   return v < min ? min : v > max ? max : v;
@@ -2418,6 +2413,7 @@ export function renderBrailleShape(params: BrailleShapeRenderParams): BrailleSha
     }
   }
 
+  const subLumOut = new Uint8Array(subW * rows * 4);
   packBrailleSubpixelsToFrame(
     subLum,
     subW,
@@ -2429,9 +2425,10 @@ export function renderBrailleShape(params: BrailleShapeRenderParams): BrailleSha
     activeMaxY,
     rowChars,
     lines,
-    cells
+    cells,
+    subLumOut
   );
-  return { cols, rows, lines, cells };
+  return { cols, rows, lines, cells, subLum: subLumOut };
 }
 
 function packBrailleSubpixelsToFrame(
@@ -2445,7 +2442,8 @@ function packBrailleSubpixelsToFrame(
   activeMaxY: number,
   rowChars: string[],
   lines: string[],
-  cells: Uint8Array
+  cells: Uint8Array,
+  subLumOut: Uint8Array
 ): void {
   const hasContent = activeMaxY >= activeMinY && activeMaxX >= activeMinX;
   const minActiveRow = hasContent ? activeMinY >> 2 : rows;
@@ -2502,14 +2500,38 @@ function packBrailleSubpixelsToFrame(
       const bx0 = c2 & 7;
       const bx1 = (c2 + 1) & 7;
       let bits = 0;
-      if (l00 > BAYER_THRESH[bRow0 + bx0]) bits |= 0x01;
-      if (l01 > BAYER_THRESH[bRow0 + bx1]) bits |= 0x08;
-      if (l10 > BAYER_THRESH[bRow1 + bx0]) bits |= 0x02;
-      if (l11 > BAYER_THRESH[bRow1 + bx1]) bits |= 0x10;
-      if (l20 > BAYER_THRESH[bRow2 + bx0]) bits |= 0x04;
-      if (l21 > BAYER_THRESH[bRow2 + bx1]) bits |= 0x20;
-      if (l30 > BAYER_THRESH[bRow3 + bx0]) bits |= 0x40;
-      if (l31 > BAYER_THRESH[bRow3 + bx1]) bits |= 0x80;
+      if (l00 > BAYER_THRESH[bRow0 + bx0]) {
+        bits |= 0x01;
+        subLumOut[r0 + c2] = (l00 * 255 + 0.5) | 0;
+      }
+      if (l01 > BAYER_THRESH[bRow0 + bx1]) {
+        bits |= 0x08;
+        subLumOut[r0 + c2 + 1] = (l01 * 255 + 0.5) | 0;
+      }
+      if (l10 > BAYER_THRESH[bRow1 + bx0]) {
+        bits |= 0x02;
+        subLumOut[r1 + c2] = (l10 * 255 + 0.5) | 0;
+      }
+      if (l11 > BAYER_THRESH[bRow1 + bx1]) {
+        bits |= 0x10;
+        subLumOut[r1 + c2 + 1] = (l11 * 255 + 0.5) | 0;
+      }
+      if (l20 > BAYER_THRESH[bRow2 + bx0]) {
+        bits |= 0x04;
+        subLumOut[r2 + c2] = (l20 * 255 + 0.5) | 0;
+      }
+      if (l21 > BAYER_THRESH[bRow2 + bx1]) {
+        bits |= 0x20;
+        subLumOut[r2 + c2 + 1] = (l21 * 255 + 0.5) | 0;
+      }
+      if (l30 > BAYER_THRESH[bRow3 + bx0]) {
+        bits |= 0x40;
+        subLumOut[r3 + c2] = (l30 * 255 + 0.5) | 0;
+      }
+      if (l31 > BAYER_THRESH[bRow3 + bx1]) {
+        bits |= 0x80;
+        subLumOut[r3 + c2 + 1] = (l31 * 255 + 0.5) | 0;
+      }
 
       cells[cellRowOff + c] = (lumSum * 31.875 + 0.5) | 0;
       rowChars[c] = BRAILLE_CHAR_TABLE[bits];
