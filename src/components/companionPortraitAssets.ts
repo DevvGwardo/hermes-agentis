@@ -2,15 +2,15 @@ import type { PortraitSourceField } from '../utils/asciiPortraitEngine';
 import type { BrailleShapeKind } from '../utils/brailleShapesEngine';
 import { buildCompanionPortraitSourceFromRgba } from '../utils/companionPortraitProcessor';
 
-import cyberBobImg from '../assets/images/char_cyber_bob_1795309995550.jpg';
-import twintailsImg from '../assets/images/char_twintails_1795309991142.jpg';
-import nekoImg from '../assets/images/char_neko_1795309987928.jpg';
-import kitsuneImg from '../assets/images/char_kitsune_1795309990760.jpg';
-import usagiImg from '../assets/images/char_usagi_1795309993007.jpg';
-import mechaImg from '../assets/images/char_mecha_1795309989704.jpg';
-import yumeImg from '../assets/images/char_yume_1795309992770.jpg';
-import seraphImg from '../assets/images/char_seraph_1795309991362.jpg';
-import wolfcutImg from '../assets/images/char_wolfcut_1795309990718.jpg';
+import cyberBobImg from '../assets/images/char_v2_cyber_bob_1795316021855.jpg';
+import twintailsImg from '../assets/images/char_v2_twintails_1795316023562.jpg';
+import nekoImg from '../assets/images/char_v2_neko_1795316024406.jpg';
+import kitsuneImg from '../assets/images/char_v2_kitsune_1795316022069.jpg';
+import usagiImg from '../assets/images/char_v2_usagi_1795316024186.jpg';
+import mechaImg from '../assets/images/char_v2_mecha_1795316022949.jpg';
+import yumeImg from '../assets/images/char_v2_yume_1795316022834.jpg';
+import seraphImg from '../assets/images/char_v2_seraph_1795316124290.jpg';
+import wolfcutImg from '../assets/images/char_v2_wolfcut_1795316023424.jpg';
 
 const COMPANION_PORTRAIT_URLS: Record<BrailleShapeKind, string> = {
   clover: cyberBobImg,

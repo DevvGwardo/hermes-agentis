@@ -28,10 +28,91 @@ const BRAILLE_CHAR_TABLE: string[] = Array.from({ length: 256 }, (_, i) =>
   i === 0 ? ' ' : String.fromCharCode(0x2800 + i)
 );
 
+type PortraitFacing = 'left' | 'center' | 'right';
+
+interface CompanionPortraitProfile {
+  facing: PortraitFacing;
+  hollowSeeds?: ReadonlyArray<{ ux: number; uy: number }>;
+  boostGarmentTrim?: boolean;
+  bobRate: number;
+  bobAmp: number;
+  tiltRate: number;
+  tiltAmp: number;
+}
+
+export const COMPANION_PORTRAIT_PROFILES: Record<BrailleShapeKind, CompanionPortraitProfile> = {
+  clover: {
+    facing: 'left',
+    bobRate: 2.0,
+    bobAmp: 0.012,
+    tiltRate: 1.05,
+    tiltAmp: 0.020,
+  },
+  star: {
+    facing: 'right',
+    bobRate: 2.8,
+    bobAmp: 0.019,
+    tiltRate: 1.45,
+    tiltAmp: 0.032,
+  },
+  ghost: {
+    facing: 'center',
+    bobRate: 2.4,
+    bobAmp: 0.015,
+    tiltRate: 1.35,
+    tiltAmp: 0.034,
+  },
+  heart: {
+    facing: 'right',
+    bobRate: 1.9,
+    bobAmp: 0.013,
+    tiltRate: 0.95,
+    tiltAmp: 0.024,
+  },
+  cloud: {
+    facing: 'left',
+    bobRate: 2.5,
+    bobAmp: 0.017,
+    tiltRate: 1.25,
+    tiltAmp: 0.026,
+  },
+  triangle: {
+    facing: 'right',
+    bobRate: 1.8,
+    bobAmp: 0.010,
+    tiltRate: 0.90,
+    tiltAmp: 0.016,
+  },
+  pebble: {
+    facing: 'left',
+    boostGarmentTrim: true,
+    bobRate: 1.35,
+    bobAmp: 0.012,
+    tiltRate: 0.72,
+    tiltAmp: 0.022,
+  },
+  trapezoid: {
+    facing: 'center',
+    hollowSeeds: [{ ux: 0.50, uy: 0.066 }],
+    boostGarmentTrim: true,
+    bobRate: 1.45,
+    bobAmp: 0.022,
+    tiltRate: 0.78,
+    tiltAmp: 0.018,
+  },
+  blob: {
+    facing: 'right',
+    bobRate: 2.35,
+    bobAmp: 0.016,
+    tiltRate: 1.30,
+    tiltAmp: 0.030,
+  },
+};
+
 /**
  * Converts a black-ink-on-white (or transparent) manga portrait RGBA buffer into a
- * sculpted chiaroscuro luminance field matching the main Hermes character's dark-mode
- * halftone aesthetic, with leak-proof neck/collar floor protection and optional hollow
+ * sculpted facing-aware chiaroscuro luminance field matching the main Hermes character's
+ * dark-mode halftone aesthetic, with leak-proof neck/collar floor protection and hollow
  * halo cutout for Seraph.
  */
 export function buildCompanionPortraitSourceFromRgba(
@@ -45,6 +126,8 @@ export function buildCompanionPortraitSourceFromRgba(
   const queue = new Int32Array(total);
   let qHead = 0;
   let qTail = 0;
+
+  const profile = COMPANION_PORTRAIT_PROFILES[kind] ?? COMPANION_PORTRAIT_PROFILES.clover;
 
   const isBgPixel = (idx: number): boolean => {
     const off = idx * 4;
@@ -77,13 +160,14 @@ export function buildCompanionPortraitSourceFromRgba(
     pushOutside(width - 1, y);
   }
 
-  // Seraph has a floating double-ring halo at the top; seed the hollow sky pocket inside
-  // the ring so the halo renders as a crisp glowing ring rather than a solid white oval.
-  if (kind === 'trapezoid') {
-    const haloSeedX = Math.round(width * 0.48);
-    const haloSeedY = Math.round(height * 0.056);
-    if (haloSeedX >= 0 && haloSeedX < width && haloSeedY >= 0 && haloSeedY < height) {
-      pushOutside(haloSeedX, haloSeedY);
+  // Seed hollow interior sky pockets (e.g. Seraph's floating double-ring halo)
+  if (profile.hollowSeeds) {
+    for (const seed of profile.hollowSeeds) {
+      const sx = Math.round(width * seed.ux);
+      const sy = Math.round(height * seed.uy);
+      if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+        pushOutside(sx, sy);
+      }
     }
   }
 
@@ -108,11 +192,12 @@ export function buildCompanionPortraitSourceFromRgba(
 
   const baseLum = new Float32Array(total);
   const inkMask = new Float32Array(total);
-  const isHooded = kind === 'pebble';
+  const facing = profile.facing;
+  const boostTrim = Boolean(profile.boostGarmentTrim);
 
   for (let y = 0; y < height; y++) {
     const uy = y / Math.max(1, height - 1);
-    const bottomFade = 1 - smoothstep(0.84, 0.99, uy);
+    const bottomFade = 1 - smoothstep(0.88, 0.995, uy);
 
     for (let x = 0; x < width; x++) {
       const ux = x / Math.max(1, width - 1);
@@ -142,39 +227,63 @@ export function buildCompanionPortraitSourceFromRgba(
         (x + 2 < width && outside[idx + 2]) ||
         (y > 1 && outside[idx - width * 2]);
 
-      if (ink > 0.34) {
-        // Dark ink hair, lashes, outlines: sculpted dark sheen + crisp luminous outer rim
-        const crownSheen = Math.exp(-(((uy - 0.16) * 4.8) ** 2)) * 0.15;
+      if (ink > 0.31) {
+        // Dark ink hair, glasses rims, lashes, hoodie, outlines: sculpted dark sheen + luminous rim
+        const crownSheen = Math.exp(-(((uy - 0.18) * 4.6) ** 2)) * 0.15;
+        const waveAxis = facing === 'right' ? 1 - ux : ux;
         const strandWave =
-          ux > 0.42 && ux < 0.88 && uy > 0.22 && uy < 0.90
-            ? Math.max(0, Math.sin((ux - uy * 0.20) * 34)) * 0.13 * (1 - smoothstep(0.76, 0.94, uy))
+          ux > 0.14 && ux < 0.86 && uy > 0.18 && uy < 0.90
+            ? Math.max(0, Math.sin((waveAxis - uy * 0.20) * 32)) *
+              0.12 *
+              (1 - smoothstep(0.78, 0.95, uy))
             : 0;
         const curlSheen =
-          uy > 0.52
-            ? Math.exp(-(((ux - 0.72) * 4.0) ** 2)) * 0.11 +
-              Math.exp(-(((ux - 0.18) * 4.8) ** 2)) * 0.10
+          uy > 0.50
+            ? Math.exp(-(((ux - 0.74) * 4.2) ** 2)) * 0.10 +
+              Math.exp(-(((ux - 0.24) * 4.2) ** 2)) * 0.10
             : 0;
-        const rimGlow = nearOut ? 0.58 : 0;
+        const rimGlow = nearOut ? 0.62 : 0;
         baseLum[idx] = clamp01((0.052 + crownSheen + strandWave + curlSheen + rimGlow) * bottomFade);
       } else {
-        // Bright anime skin, hair sheen highlights, headwear, ears, wings, and halo
-        const isTopAccessory = uy < 0.30;
-        const isSideWingOrFin = (ux > 0.62 || ux < 0.17) && uy < 0.56;
-        if (isTopAccessory || isSideWingOrFin) {
-          // Crisp luminous highlights on headbands, ears, halos, hair-sheen, and mecha fins
-          const sheen = isHooded && ux > 0.58 ? 0.62 : 0.84 + Math.exp(-(((ux - 0.50) * 3.8) ** 2)) * 0.12;
-          baseLum[idx] = clamp01(sheen * (1 - ink * 0.90) * bottomFade);
+        // Bright anime skin, hair sheen highlights, headwear, ears, wings, mask, peace hand, and trim
+        const isTopAccessory = uy < 0.29;
+        const isSideWingOrFin = (ux > 0.68 || ux < 0.20) && uy < 0.58;
+        const isGarmentTrim = boostTrim && uy > 0.67;
+
+        if (isTopAccessory || isSideWingOrFin || isGarmentTrim) {
+          // Crisp luminous highlights on halos, ears, goggles, fox mask, wings, mecha fins & hoodie seams
+          const sheen = 0.85 + Math.exp(-(((ux - 0.50) * 3.4) ** 2)) * 0.11;
+          baseLum[idx] = clamp01(sheen * (1 - ink * 0.94) * bottomFade);
+        } else if (facing === 'center') {
+          // Symmetrical studio front-key lighting for front-facing characters (Neko, Seraph)
+          const isEyeZone = ux > 0.26 && ux < 0.74 && uy > 0.34 && uy < 0.54;
+          const cheekSpec =
+            (Math.exp(-(((ux - 0.38) * 7.2) ** 2 + ((uy - 0.54) * 7.0) ** 2)) +
+              Math.exp(-(((ux - 0.62) * 7.2) ** 2 + ((uy - 0.54) * 7.0) ** 2))) *
+            0.10;
+          const noseBridgeSpec =
+            Math.exp(-(((ux - 0.50) * 11.5) ** 2 + ((uy - 0.48) * 7.5) ** 2)) * 0.12;
+          const templeWrapShadow = smoothstep(0.18, 0.34, Math.abs(ux - 0.50)) * 0.20;
+          const bangShadow = (1 - smoothstep(0.30, 0.36, uy)) * 0.10;
+          const chinNeckShadow = smoothstep(0.68, 0.92, uy) * 0.18;
+          const eyeBoost = isEyeZone ? 0.13 : 0;
+          const faceLum =
+            0.66 + cheekSpec + noseBridgeSpec + eyeBoost - templeWrapShadow - bangShadow - chinNeckShadow;
+          baseLum[idx] = clamp01(Math.min(0.90, faceLum) * (1 - ink * 0.96) * bottomFade);
         } else {
-          // Sculpted anime face chiaroscuro (bright left cheek & nose bridge, soft right shading)
-          const isEyeZone = ux > 0.16 && ux < 0.50 && uy > 0.36 && uy < 0.50;
-          const cheekSpec = Math.exp(-(((ux - 0.27) * 6.5) ** 2 + ((uy - 0.54) * 7.0) ** 2)) * 0.13;
-          const noseBridgeSpec = Math.exp(-(((ux - 0.23) * 13.0) ** 2 + ((uy - 0.49) * 8.0) ** 2)) * 0.13;
-          const cheekShadow = smoothstep(0.32, 0.56, ux) * (isHooded ? 0.22 : 0.30);
-          const bangShadow = (1 - smoothstep(0.32, 0.37, uy)) * 0.12;
-          const chinNeckShadow = smoothstep(0.66, 0.90, uy) * 0.22;
+          // Facing-aware 3/4 anime chiaroscuro (mirrored cleanly for right-facing vs left-facing)
+          const litX = facing === 'right' ? 1 - ux : ux;
+          const isEyeZone = litX > 0.18 && litX < 0.58 && uy > 0.34 && uy < 0.54;
+          const cheekSpec = Math.exp(-(((litX - 0.29) * 6.5) ** 2 + ((uy - 0.54) * 7.0) ** 2)) * 0.13;
+          const noseBridgeSpec =
+            Math.exp(-(((litX - 0.26) * 12.5) ** 2 + ((uy - 0.49) * 8.0) ** 2)) * 0.13;
+          const cheekShadow = smoothstep(0.36, 0.62, litX) * 0.25;
+          const bangShadow = (1 - smoothstep(0.31, 0.37, uy)) * 0.11;
+          const chinNeckShadow = smoothstep(0.69, 0.92, uy) * 0.19;
           const eyeBoost = isEyeZone ? 0.14 : 0;
-          const faceLum = 0.66 + cheekSpec + noseBridgeSpec + eyeBoost - cheekShadow - bangShadow - chinNeckShadow;
-          baseLum[idx] = clamp01(Math.min(0.88, faceLum) * (1 - ink * 0.94) * bottomFade);
+          const faceLum =
+            0.66 + cheekSpec + noseBridgeSpec + eyeBoost - cheekShadow - bangShadow - chinNeckShadow;
+          baseLum[idx] = clamp01(Math.min(0.90, faceLum) * (1 - ink * 0.96) * bottomFade);
         }
       }
     }
@@ -185,6 +294,7 @@ export function buildCompanionPortraitSourceFromRgba(
 
 export interface CompanionPortraitRenderParams {
   sourceField: PortraitSourceField;
+  kind?: BrailleShapeKind;
   cols: number;
   rows: number;
   time: number;
@@ -220,7 +330,8 @@ function ensureCompanionBuffers(len: number, cols: number): void {
 export function renderCompanionPortraitFrame(
   params: CompanionPortraitRenderParams
 ): BrailleShapeFrame {
-  const { sourceField, cols, rows, time, energy, isSpeaking, isThinking, motion } = params;
+  const { sourceField, kind, cols, rows, time, energy, isSpeaking, isThinking, motion } = params;
+  const profile = kind ? COMPANION_PORTRAIT_PROFILES[kind] : COMPANION_PORTRAIT_PROFILES.clover;
   const subW = cols * 2;
   const subH = rows * 4;
   const totalSub = subW * subH;
@@ -231,13 +342,15 @@ export function renderCompanionPortraitFrame(
   const rowChars = companionRowChars;
 
   const idlePose = motion?.idle?.pose;
+  const ambientBob = Math.sin(time * profile.bobRate) * profile.bobAmp;
+  const ambientTilt = Math.sin(time * profile.tiltRate) * profile.tiltAmp;
   const rawBob = motion
-    ? motion.bounceY * 0.45 + (idlePose ? idlePose.headY * 0.35 : 0)
-    : Math.sin(time * 2.1) * 0.014;
+    ? motion.bounceY * 0.45 + (idlePose ? idlePose.headY * 0.35 : 0) + ambientBob * 0.35
+    : ambientBob;
   const bobY = Number.isFinite(rawBob) ? clamp(rawBob, -0.06, 0.06) : 0;
   const rawTilt = motion
-    ? motion.dragTilt * 0.85 + (idlePose ? idlePose.tilt * 0.55 : 0)
-    : Math.sin(time * 1.15) * 0.025;
+    ? motion.dragTilt * 0.85 + (idlePose ? idlePose.tilt * 0.55 : 0) + ambientTilt * 0.25
+    : ambientTilt;
   const tilt = Number.isFinite(rawTilt) ? clamp(rawTilt, -0.26, 0.26) : 0;
   const hoverLift = motion ? clamp(motion.hoverBoost, 0, 1) * 0.024 : 0;
   const idleShiftX = idlePose ? clamp(idlePose.headX, -0.15, 0.15) * 0.35 : 0;

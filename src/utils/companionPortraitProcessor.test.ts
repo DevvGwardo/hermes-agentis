@@ -90,13 +90,13 @@ test('buildCompanionPortraitSourceFromRgba clears hollow halo interior for Serap
   const w = 64;
   const h = 64;
   const rgba = makeSyntheticMangaPortrait(w, h, false);
-  // Draw a thin black halo ellipse at top around (0.48, 0.06)
+  // Draw a thin black halo ellipse centered at top around (0.50, 0.066)
   for (let y = 1; y <= 8; y++) {
-    for (let x = 16; x <= 46; x++) {
-      const nx = (x - 31) / 14;
-      const ny = (y - 4) / 3;
+    for (let x = 18; x <= 46; x++) {
+      const nx = (x - 32) / 13;
+      const ny = (y - 4.2) / 2.6;
       const d = Math.hypot(nx, ny);
-      if (d >= 0.78 && d <= 1.05) {
+      if (d >= 0.72 && d <= 1.08) {
         const off = (y * w + x) * 4;
         rgba[off] = 0;
         rgba[off + 1] = 0;
@@ -107,8 +107,38 @@ test('buildCompanionPortraitSourceFromRgba clears hollow halo interior for Serap
   }
 
   const field = buildCompanionPortraitSourceFromRgba(rgba, w, h, 'trapezoid');
-  const haloHoleIdx = Math.round(h * 0.056) * w + Math.round(w * 0.48);
+  const haloHoleIdx = Math.round(h * 0.066) * w + Math.round(w * 0.50);
   assert.equal(field.baseLum[haloHoleIdx], 0, 'Expected hollow center inside Seraph halo to remain dark');
+});
+
+test('buildCompanionPortraitSourceFromRgba adapts chiaroscuro key light to character facing direction', () => {
+  const w = 64;
+  const h = 64;
+  const rgba = makeSyntheticMangaPortrait(w, h, false);
+
+  const leftFacing = buildCompanionPortraitSourceFromRgba(rgba, w, h, 'clover');
+  const rightFacing = buildCompanionPortraitSourceFromRgba(rgba, w, h, 'star');
+  const centerFacing = buildCompanionPortraitSourceFromRgba(rgba, w, h, 'ghost');
+
+  const yCheek = Math.floor(h * 0.54);
+  const xLeftCheek = Math.floor(w * 0.34);
+  const xRightCheek = Math.floor(w * 0.66);
+
+  // Left-facing character is brighter on left cheek than right cheek
+  assert.ok(
+    leftFacing.baseLum[yCheek * w + xLeftCheek] > leftFacing.baseLum[yCheek * w + xRightCheek],
+    'Expected left-facing character to have brighter left cheek specular'
+  );
+  // Right-facing character is brighter on right cheek than left cheek
+  assert.ok(
+    rightFacing.baseLum[yCheek * w + xRightCheek] > rightFacing.baseLum[yCheek * w + xLeftCheek],
+    'Expected right-facing character to have brighter right cheek specular'
+  );
+  // Center-facing character has near-symmetrical cheek illumination
+  const symDiff = Math.abs(
+    centerFacing.baseLum[yCheek * w + xLeftCheek] - centerFacing.baseLum[yCheek * w + xRightCheek]
+  );
+  assert.ok(symDiff < 0.05, `Expected symmetrical cheek lighting for center-facing character, diff=${symDiff}`);
 });
 
 test('renderCompanionPortraitFrame outputs exact dimensions, subpixel luminance, and responds to thinking/speaking', () => {
@@ -119,6 +149,7 @@ test('renderCompanionPortraitFrame outputs exact dimensions, subpixel luminance,
 
   const idle = renderCompanionPortraitFrame({
     sourceField,
+    kind: 'clover',
     cols: 36,
     rows: 20,
     time: 1.0,
@@ -136,6 +167,7 @@ test('renderCompanionPortraitFrame outputs exact dimensions, subpixel luminance,
 
   const speaking = renderCompanionPortraitFrame({
     sourceField,
+    kind: 'clover',
     cols: 36,
     rows: 20,
     time: 1.0,
@@ -175,6 +207,7 @@ test('renderCompanionPortraitFrame renders cleanly with live createBrailleShapeA
 
   const frame = renderCompanionPortraitFrame({
     sourceField,
+    kind: 'ghost',
     cols: 66,
     rows: 36,
     time: 1.4,
