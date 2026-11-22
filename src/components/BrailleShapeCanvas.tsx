@@ -288,6 +288,7 @@ export function BrailleShapeCanvas({
       const frame = activeSource
         ? renderCompanionPortraitFrame({
             sourceField: activeSource,
+            kind: s.shape,
             cols,
             rows,
             time: elapsed + s.blinkPhaseOffset * 0.7,
