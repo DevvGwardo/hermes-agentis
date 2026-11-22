@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BLUE_NOISE_8X8_RANKS,
+  BLUE_NOISE_16X16_RANKS,
+  BLUE_NOISE_16X16_THRESH,
   mixHexColors,
   packSubpixelDotsToTonalBuckets,
   parseHexRgb,
   rasterizeDotBucketsToSurface,
   rasterizeTonalDotBucketsToSurface,
+  resolveEdgeAwareThreshold,
   resolvePortraitTonePalette,
   resolveShapeTonePalette,
   type BrailleRasterSurface,
@@ -174,6 +177,24 @@ test('BLUE_NOISE_8X8_RANKS is a complete 64-element permutation of 0..63', () =>
   for (let i = 0; i < 64; i++) {
     assert.equal(sorted[i], i, `Missing or duplicate rank at index ${i}`);
   }
+});
+
+test('BLUE_NOISE_16X16_RANKS is a complete 256-element permutation and edge-aware threshold locks contours toward 0.5', () => {
+  assert.equal(BLUE_NOISE_16X16_RANKS.length, 256);
+  const sorted = [...BLUE_NOISE_16X16_RANKS].sort((a, b) => a - b);
+  for (let i = 0; i < 256; i++) {
+    assert.equal(sorted[i], i, `Missing or duplicate 16x16 rank at index ${i}`);
+  }
+  assert.equal(BLUE_NOISE_16X16_THRESH.length, 256);
+  for (let i = 0; i < 256; i++) {
+    assert.ok(BLUE_NOISE_16X16_THRESH[i] >= 0.05 && BLUE_NOISE_16X16_THRESH[i] <= 0.95);
+  }
+  // Smooth skin (edgeLock=0) keeps pure blue-noise threshold; high-contrast edge pulls toward 0.5
+  assert.equal(resolveEdgeAwareThreshold(0.12, 0), 0.12);
+  const lockedLow = resolveEdgeAwareThreshold(0.12, 0.6);
+  const lockedHigh = resolveEdgeAwareThreshold(0.88, 0.6);
+  assert.ok(lockedLow > 0.30 && lockedLow < 0.50);
+  assert.ok(lockedHigh > 0.50 && lockedHigh < 0.70);
 });
 
 test('packSubpixelDotsToTonalBuckets separates per-dot luminance tiers within a single Braille cell', () => {

@@ -1,5 +1,5 @@
 import type { ExpressionMood, EyeState, MouthViseme } from '../types/hermes';
-import { BLUE_NOISE_8X8_RANKS } from './brailleCanvasRaster';
+import { BLUE_NOISE_16X16_THRESH } from './brailleCanvasRaster';
 
 export type DitherStyle = 'braille';
 
@@ -76,13 +76,9 @@ export interface PortraitFrame {
   subLum?: Uint8Array;
 }
 
-// Deterministic 8x8 blue-noise halftone thresholds in [0.06, 0.935].
-// Eliminates Bayer's geometric checkerboard/crosshatch patterns while preserving
-// zero frame-to-frame dot-boiling and clean deep-ink blacks (<0.06).
-const BAYER_THRESH_8X8 = Float32Array.from(
-  BLUE_NOISE_8X8_RANKS,
-  (rank) => 0.06 + ((rank + 0.5) / 64) * 0.875
-);
+// Deterministic 16x16 toroidal void-and-cluster blue-noise halftone thresholds in [0.055, 0.940].
+// 4x larger tiling period than 8x8 with 256 tonal steps for silky skin gradients and zero dot-boiling.
+const BLUE_THRESH_16X16 = BLUE_NOISE_16X16_THRESH;
 
 // Standard 2x4 Unicode Braille lookup table (U+2800..U+28FF)
 const BRAILLE_CHAR_TABLE: string[] = Array.from({ length: 256 }, (_, i) =>
@@ -614,25 +610,25 @@ export function createPortraitAnimator() {
       browVel += ((target.browLift - state.browLift) * 125 - browVel * 20) * clampedDt;
       state.browLift = clamp(state.browLift + browVel * clampedDt, -0.48, 1.0);
 
-      // Critically-damped 2nd-order filter for lip-sync mouth & jaw (zero 1-frame teleport pops)
-      const mouthStiffness = target.mouthOpen > state.mouthOpen ? 98 : 80;
-      mouthVel += ((target.mouthOpen - state.mouthOpen) * mouthStiffness - mouthVel * 22.8) * clampedDt;
+      // Snappy critically-damped 2nd-order filter for lip-sync mouth & jaw (crisp syllable hits, zero teleport pops)
+      const mouthStiffness = target.mouthOpen > state.mouthOpen ? 162 : 138;
+      mouthVel += ((target.mouthOpen - state.mouthOpen) * mouthStiffness - mouthVel * 23.2) * clampedDt;
       state.mouthOpen = clamp01(state.mouthOpen + mouthVel * clampedDt);
 
-      jawVel += ((target.jawDrop - state.jawDrop) * 102 - jawVel * 22.5) * clampedDt;
+      jawVel += ((target.jawDrop - state.jawDrop) * 156 - jawVel * 22.8) * clampedDt;
       state.jawDrop = clamp01(state.jawDrop + jawVel * clampedDt);
 
-      state.mouthWidth = expApproach(state.mouthWidth, target.mouthWidth, 13.0, clampedDt);
-      state.mouthRound = expApproach(state.mouthRound, target.mouthRound, 13.0, clampedDt);
-      state.smile = expApproach(state.smile, target.smile, 11, clampedDt);
-      state.teethTop = expApproach(state.teethTop, target.teethTop, 14.0, clampedDt);
-      state.teethBottom = expApproach(state.teethBottom, target.teethBottom, 13.5, clampedDt);
-      state.tongueShow = expApproach(state.tongueShow, target.tongueShow, 13.5, clampedDt);
-      state.tongueLift = expApproach(state.tongueLift, target.tongueLift, 13.5, clampedDt);
-      state.lipPress = expApproach(state.lipPress, target.lipPress, 14.0, clampedDt);
-      state.lipBite = expApproach(state.lipBite, target.lipBite, 14.0, clampedDt);
-      state.puckerRing = expApproach(state.puckerRing, target.puckerRing, 13.5, clampedDt);
-      state.restPart = expApproach(state.restPart, target.restPart, 13.5, clampedDt);
+      state.mouthWidth = expApproach(state.mouthWidth, target.mouthWidth, 19.5, clampedDt);
+      state.mouthRound = expApproach(state.mouthRound, target.mouthRound, 20.0, clampedDt);
+      state.smile = expApproach(state.smile, target.smile, 13.5, clampedDt);
+      state.teethTop = expApproach(state.teethTop, target.teethTop, 21.0, clampedDt);
+      state.teethBottom = expApproach(state.teethBottom, target.teethBottom, 20.0, clampedDt);
+      state.tongueShow = expApproach(state.tongueShow, target.tongueShow, 19.5, clampedDt);
+      state.tongueLift = expApproach(state.tongueLift, target.tongueLift, 19.5, clampedDt);
+      state.lipPress = expApproach(state.lipPress, target.lipPress, 22.0, clampedDt);
+      state.lipBite = expApproach(state.lipBite, target.lipBite, 21.0, clampedDt);
+      state.puckerRing = expApproach(state.puckerRing, target.puckerRing, 20.0, clampedDt);
+      state.restPart = expApproach(state.restPart, target.restPart, 18.0, clampedDt);
 
       // Crisp eye saccades between fixation points
       state.gazeX = expApproach(state.gazeX, target.gazeX, 18, clampedDt);
@@ -858,15 +854,15 @@ export function resolveReferencePoseBlend(
     mouthIndexB = 11;
     mouthBlend = smoothstep(0.15, 0.85, smileAmt);
   } else if (viseme === 'round' || roundAmt > 0.45) {
-    // O / Oo sequence: slight part (02) -> tight O pucker (08) <-> rounded mid vowel (07)
+    // O / Oo sequence: slight part (02) -> tight O pucker (08, idx 7) <-> rounded mid vowel (07, idx 6)
     if (open < 0.48) {
       mouthIndexA = 9; // narrow round onset (10)
       mouthIndexB = 7; // tight O pucker (08)
       mouthBlend = smoothstep(0.12, 0.48, open);
     } else {
-      mouthIndexA = 7; // tight O pucker (08)
-      mouthIndexB = 6; // rounded open (07)
-      mouthBlend = smoothstep(0.48, 0.88, open);
+      mouthIndexA = 6; // rounded open (07)
+      mouthIndexB = 7; // tight O pucker (08)
+      mouthBlend = 1 - smoothstep(0.48, 0.88, open);
     }
   } else if (viseme === 'fv' || motion.lipBite > 0.42) {
     mouthIndexA = 1; // gentle part (02)
@@ -1620,44 +1616,60 @@ function applyReferenceMouthExpression(
 
   if (lipPress > 0.22 && openAmt < 0.20) {
     const pressBlend = smoothstep(0.22, 0.75, lipPress) * (1 - smoothstep(0.08, 0.20, openAmt));
-    const cornerX = (ax - 0.274) * 30;
-    const cornerCurve = cornerX * cornerX * 0.0014;
-    const dSeal = sdCapsule2(ax, ay - cornerCurve, 0.241, 0.615, 0.308, 0.613, 0.0034);
-    if (dSeal < 0.005 && ax >= 0.228) {
-      const sMask = (1 - smoothstep(-0.002, 0.0036, dSeal)) * pressBlend;
-      lum = lerp(lum, 0.015, sMask * 0.96);
+    const cornerX = (ax - 0.274) * 28;
+    const cornerCurve = cornerX * cornerX * 0.0018;
+    // Crisp inward-tucked bilabial seal (wider and firmer than relaxed closed line)
+    const dSeal = sdCapsule2(ax, ay - cornerCurve, 0.236, 0.616, 0.312, 0.613, 0.0040);
+    if (dSeal < 0.0055 && ax >= 0.226) {
+      const sMask = (1 - smoothstep(-0.002, 0.0038, dSeal)) * pressBlend;
+      lum = lerp(lum, 0.010, sMask * 0.98);
     }
-    const dTickL = sdCapsule2(ax, ay, 0.241, 0.612, 0.242, 0.618, 0.0018);
-    const dTickR = sdCapsule2(ax, ay, 0.307, 0.610, 0.308, 0.616, 0.0018);
+    const dTickL = sdCapsule2(ax, ay, 0.236, 0.611, 0.238, 0.620, 0.0022);
+    const dTickR = sdCapsule2(ax, ay, 0.311, 0.609, 0.312, 0.618, 0.0022);
     const dTicks = dTickL < dTickR ? dTickL : dTickR;
-    if (dTicks < 0.004 && ax >= 0.228) {
-      const tMask = (1 - smoothstep(-0.002, 0.003, dTicks)) * pressBlend;
-      lum = lerp(lum, 0.02, tMask * 0.88);
+    if (dTicks < 0.0045 && ax >= 0.226) {
+      const tMask = (1 - smoothstep(-0.002, 0.0032, dTicks)) * pressBlend;
+      lum = lerp(lum, 0.015, tMask * 0.92);
     }
-    const dPressGlow = sdEllipse(ax, ay, 0.274, 0.624, 0.019, 0.0042);
-    if (dPressGlow < 0.005 && ax >= 0.228) {
-      const gMask = (1 - smoothstep(-0.002, 0.0035, dPressGlow)) * pressBlend;
-      lum = Math.max(lum, gMask * 0.84);
+    const dUpperPillow = sdEllipse(ax, ay, 0.274, 0.607, 0.022, 0.0038);
+    const dPressGlow = sdEllipse(ax, ay, 0.274, 0.626, 0.022, 0.0046);
+    const dCushion = dUpperPillow < dPressGlow ? dUpperPillow : dPressGlow;
+    if (dCushion < 0.005 && ax >= 0.226) {
+      const gMask = (1 - smoothstep(-0.002, 0.0035, dCushion)) * pressBlend;
+      lum = Math.max(lum, gMask * 0.88);
     }
     if (pressBlend > 0.88) return lum;
   }
 
+  const liftWPre = notRound * (1 - fvW) * smoothstep(0.25, 0.65, motion.tongueLift);
   const openHigh = smoothstep(0.35, 0.55, openAmt);
-  const baseRx = lerp(lerp(0.028, 0.031, clamp01(openAmt / 0.45)), lerp(0.031, 0.036, clamp01((openAmt - 0.45) / 0.55)), openHigh);
+  const baseRx =
+    lerp(
+      lerp(0.028, 0.032, clamp01(openAmt / 0.45)),
+      lerp(0.032, 0.037, clamp01((openAmt - 0.45) / 0.55)),
+      openHigh
+    ) +
+    liftWPre * 0.010;
   const rx = lerp(
     lerp(lerp(lerp(baseRx, 0.022, restW), 0.030, fvW), lerp(0.034, 0.038, Math.max(openAmt, wideStretch)), eeW),
     lerp(0.014, 0.022, openAmt),
     roundW
   );
 
-  const baseRy = lerp(lerp(0.011, 0.014, clamp01(openAmt / 0.45)), lerp(0.018, 0.035, clamp01((openAmt - 0.45) / 0.55)), openHigh);
+  const baseRy =
+    lerp(
+      lerp(0.012, 0.019, clamp01(openAmt / 0.45)),
+      lerp(0.021, 0.036, clamp01((openAmt - 0.45) / 0.55)),
+      openHigh
+    ) +
+    liftWPre * 0.004;
   const ry = lerp(
     lerp(lerp(lerp(baseRy, 0.0062, restW), 0.0125, fvW), lerp(0.0165, 0.020, openAmt), eeW),
     lerp(0.016, 0.026, openAmt),
     roundW
   );
 
-  const cy = my + lerp(0.000, 0.012, motion.jawDrop);
+  const cy = my + lerp(0.000, 0.013, motion.jawDrop);
   const slantScale = lerp(lerp(0, -0.018, fvW), -0.032, eeW);
   const slantY = (ax - mx) * slantScale;
   const mouthLocalY = ay - slantY;
@@ -1671,7 +1683,7 @@ function applyReferenceMouthExpression(
   const dOuterLip = sdEllipse(ax, mouthLocalY + topFlatten * 0.5, mx, cy, rx + lipBorder, ry + lipBorder);
   const dCavity = sdEllipse(ax, mouthLocalY + topFlatten, mx, cy, rx, ry);
 
-  if (dOuterLip < 0.0055 && ax >= 0.230) {
+  if (dOuterLip < 0.0055 && ax >= 0.222) {
     const lipRim = (1 - smoothstep(-0.002, 0.0034, dOuterLip)) * activeBlend;
     const rimDarken = lerp(0.80, 0.58, restW);
     const eeTarget = lerp(lum, 0.02, lipRim * 0.90);
@@ -1679,12 +1691,13 @@ function applyReferenceMouthExpression(
     lum = lerp(stdTarget, eeTarget, eeW);
   }
 
-  if (dCavity < 0.005 && ax >= 0.230) {
+  if (dCavity < 0.005 && ax >= 0.222) {
     const cMask = (1 - smoothstep(-0.002, 0.0030, dCavity)) * activeBlend;
-    lum = lerp(lum, 0.012, cMask * 0.98);
+    lum = lerp(lum, 0.010, cMask * 0.99);
 
     if (motion.teethTop > 0.12 && roundW < 0.92) {
-      const openCutoff = lerp(cy - ry * 0.10, cy - ry * 0.40, openHigh);
+      // Keep a crisp dark oral slit beneath upper teeth on Ah/Uh (small) as well as wide vowels
+      const openCutoff = lerp(cy - ry * 0.26, cy - ry * 0.42, openHigh);
       const teethCutoff = lerp(
         lerp(lerp(openCutoff, cy + ry * 0.06, restW), cy - 0.0020, eeW),
         cy + 0.0008,
@@ -1692,7 +1705,7 @@ function applyReferenceMouthExpression(
       );
       const teethSpan = lerp(lerp(0.85, 0.88, eeW), 0.86, fvW);
       if (mouthLocalY < teethCutoff && Math.abs(normX) < teethSpan) {
-        const tEdge = 1 - smoothstep(teethCutoff - 0.0020, teethCutoff + 0.0004, mouthLocalY);
+        const tEdge = 1 - smoothstep(teethCutoff - 0.0018, teethCutoff + 0.0002, mouthLocalY);
         const tBright = lerp(lerp(0.88, 0.98, motion.teethTop), 0.72, restW);
         lum = Math.max(lum, tBright * tEdge * cMask * (1 - roundW));
       }
@@ -1710,10 +1723,11 @@ function applyReferenceMouthExpression(
     if (motion.tongueShow > 0.18 && nonRoundFv > 0.05) {
       const liftW = smoothstep(0.18, 0.58, motion.tongueLift);
       if (liftW > 0.02) {
-        const dTongueTip = sdEllipse(ax, mouthLocalY, mx, cy + ry * 0.26, rx * 0.38, ry * 0.48);
-        if (dTongueTip < 0.005) {
-          const tgMask = (1 - smoothstep(-0.002, 0.0028, dTongueTip)) * motion.tongueShow * cMask * nonRoundFv * liftW;
-          lum = Math.max(lum, 0.84 * tgMask);
+        // Centered raised tongue tip aligned between crisp left & right dark oral pockets
+        const dTongueTip = sdEllipse(ax, mouthLocalY, mx + 0.008, cy + ry * 0.18, rx * 0.24, ry * 0.42);
+        if (dTongueTip < 0.004) {
+          const tgMask = (1 - smoothstep(-0.002, 0.0020, dTongueTip)) * motion.tongueShow * cMask * nonRoundFv * liftW;
+          lum = Math.max(lum, 0.88 * tgMask);
         }
       }
       if (liftW < 0.98) {
@@ -1784,12 +1798,12 @@ function sampleReferenceWithExpression(
   const ax = pivotX + dx * ct - dy * st;
   let ay = pivotY + dx * st + dy * ct;
 
-  // 3. Restrained jaw articulation only when actively speaking with wide mouth aperture
-  const jawAmt = clamp01(motion.jawDrop + motion.mouthOpen * 0.10);
-  if (jawAmt > 0.08 && ay > 0.630 && ay < 0.785 && ax > 0.190 && ax < 0.455) {
-    const latW = smoothstep(0.190, 0.228, ax) * (1 - smoothstep(0.320, 0.455, ax));
-    const vertW = smoothstep(0.630, 0.675, ay) * (1 - smoothstep(0.738, 0.785, ay));
-    ay -= jawAmt * 0.018 * latW * vertW;
+  // 3. Natural physical chin & jaw-drop articulation during open vowels
+  const jawAmt = clamp01(motion.jawDrop + motion.mouthOpen * 0.12);
+  if (jawAmt > 0.06 && ay > 0.620 && ay < 0.885 && ax > 0.170 && ax < 0.490) {
+    const latW = smoothstep(0.170, 0.220, ax) * (1 - smoothstep(0.365, 0.490, ax));
+    const vertW = smoothstep(0.620, 0.665, ay) * (1 - smoothstep(0.815, 0.885, ay));
+    ay -= jawAmt * 0.036 * latW * vertW;
   }
 
   if (ax < 0 || ax > 1 || ay < 0 || ay > 1) {
@@ -1913,7 +1927,15 @@ function sampleSpriteBankWithExpression(
   const dy = framedY - pivotY - fc.rigidShiftY;
 
   const ax = pivotX + dx * ct - dy * st;
-  const ay = pivotY + dx * st + dy * ct;
+  let ay = pivotY + dx * st + dy * ct;
+
+  // Subtle physical chin/jaw-drop hinge during wide vowel speech in sprite-bank mode too
+  const jawAmt = clamp01(motion.jawDrop * 0.75 + motion.mouthOpen * 0.08);
+  if (jawAmt > 0.08 && ay > 0.625 && ay < 0.840 && ax > 0.195 && ax < 0.480) {
+    const latW = smoothstep(0.195, 0.240, ax) * (1 - smoothstep(0.365, 0.480, ax));
+    const vertW = smoothstep(0.625, 0.675, ay) * (1 - smoothstep(0.775, 0.840, ay));
+    ay -= jawAmt * 0.016 * latW * vertW;
+  }
 
   if (ax < 0 || ax > 1 || ay < 0 || ay > 1) {
     return 0;
@@ -1957,7 +1979,7 @@ function sampleSpriteBankWithExpression(
   let lum = lerp(lumA, lumB, blendT);
   const ink = lerp(inkA, inkB, blendT);
 
-  // Preserve crisp mouth cavity & lip line contrast during crossfades
+  // Preserve crisp dark oral cavity & lip line contrast during speaking crossfades
   if (
     pose.mouthIndexA !== pose.mouthIndexB &&
     blendT > 0.04 &&
@@ -1965,10 +1987,10 @@ function sampleSpriteBankWithExpression(
     ax >= 0.22 &&
     ax <= 0.44 &&
     ay >= 0.56 &&
-    ay <= 0.71
+    ay <= 0.72
   ) {
-    if (inkA > 0.55 || inkB > 0.55) {
-      lum = lerp(lum, Math.min(lumA, lumB), 0.35);
+    if (inkA > 0.50 || inkB > 0.50) {
+      lum = lerp(lum, Math.min(lumA, lumB), 0.52);
     }
   }
 
@@ -2193,6 +2215,7 @@ export function samplePortraitLuminance(nx: number, ny: number, params: Portrait
 let cachedSubLen = 0;
 let rawSubBuf = new Float32Array(0);
 let workSubBuf = new Float32Array(0);
+let edgeSubBuf = new Float32Array(0);
 let portraitRowChars: string[] = [];
 
 function ensureSubBuffers(len: number, cols: number) {
@@ -2200,6 +2223,7 @@ function ensureSubBuffers(len: number, cols: number) {
     cachedSubLen = len;
     rawSubBuf = new Float32Array(len);
     workSubBuf = new Float32Array(len);
+    edgeSubBuf = new Float32Array(len);
   }
   if (portraitRowChars.length !== cols) {
     portraitRowChars = new Array<string>(cols);
@@ -2208,7 +2232,7 @@ function ensureSubBuffers(len: number, cols: number) {
 
 /**
  * Renders a monochrome Unicode Braille (U+2800..U+28FF) halftone ASCII portrait frame
- * using 2x4 subpixel Serpentine Bill Atkinson Error Diffusion + Unsharp Contour Boost.
+ * using 2x4 subpixel 16x16 Void-and-Cluster Blue-Noise + Edge-Aware Contour-Lock Thresholding.
  */
 export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
   const { cols, rows, sourceField, spriteBank, viseme, mood, isSpeaking } = params;
@@ -2225,6 +2249,7 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
   ensureSubBuffers(subW * subH, cols);
   const raw = rawSubBuf;
   const work = workSubBuf;
+  const edge = edgeSubBuf;
   const rowChars = portraitRowChars;
   const invSubW = 1 / subW;
   const invSubH = 1 / subH;
@@ -2314,6 +2339,7 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
   }
 
   work.fill(0, 0, subW * subH);
+  edge.fill(0, 0, subW * subH);
 
   if (activeMaxX >= activeMinX && activeMaxY >= activeMinY) {
     const syLo = activeMinY > 1 ? activeMinY - 1 : 0;
@@ -2321,7 +2347,7 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
     const sxLo = activeMinX > 1 ? activeMinX - 1 : 0;
     const sxHi = activeMaxX + 1 < subW ? activeMaxX + 1 : subW - 1;
 
-    // 2. Contour-preserving unsharp contrast boost within active bounding rect
+    // 2. Contour-preserving unsharp contrast boost + edge-lock weights for crisp eyes/mouth/teeth
     for (let sy = syLo; sy <= syHi; sy++) {
       const rowOff = sy * subW;
       const upOff = (sy > 0 ? sy - 1 : 0) * subW;
@@ -2341,7 +2367,10 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
             continue;
           }
           const avg = (raw[idx - 1] + raw[idx + 1] + raw[upOff + sx] + raw[dnOff + sx]) * 0.25;
-          const sharpened = c + (c - avg) * 0.48;
+          const diff = c - avg;
+          const absDiff = diff < 0 ? -diff : diff;
+          edge[idx] = absDiff > 0.045 ? Math.min(0.64, (absDiff - 0.045) * 3.2) : 0;
+          const sharpened = c + diff * 0.50;
           let t = (sharpened - 0.03) * 1.0752688;
           if (t <= 0) t = 0;
           else if (t >= 1) t = 1;
@@ -2365,7 +2394,10 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
           const u = raw[upOff + sx];
           const d = raw[dnOff + sx];
           const avg = (l + r + u + d) * 0.25;
-          const sharpened = c + (c - avg) * 0.48;
+          const diff = c - avg;
+          const absDiff = diff < 0 ? -diff : diff;
+          edge[idx] = absDiff > 0.045 ? Math.min(0.64, (absDiff - 0.045) * 3.2) : 0;
+          const sharpened = c + diff * 0.50;
           let t = (sharpened - 0.03) * 1.0752688;
           if (t <= 0) t = 0;
           else if (t >= 1) t = 1;
@@ -2376,8 +2408,7 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
     }
   }
 
-  // 3. Deterministic Ordered 8x8 Blue-Noise Halftone Packing into Unicode Braille (U+2800..U+28FF)
-  // Plus per-subpixel luminance output so every dot renders at its exact tonal tier.
+  // 3. Deterministic Ordered 16x16 Blue-Noise + Edge-Aware Contour-Lock Halftone Packing
   const subLum = new Uint8Array(subW * subH);
   const rLo = activeMaxY >= activeMinY ? Math.max(0, activeMinY >> 2) : rows;
   const rHi = activeMaxY >= activeMinY ? Math.min(rows - 1, (activeMaxY + 1) >> 2) : -1;
@@ -2407,10 +2438,10 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
     const r1 = r0 + subW;
     const r2 = r1 + subW;
     const r3 = r2 + subW;
-    const bRow0 = (syBase & 7) << 3;
-    const bRow1 = ((syBase + 1) & 7) << 3;
-    const bRow2 = ((syBase + 2) & 7) << 3;
-    const bRow3 = ((syBase + 3) & 7) << 3;
+    const bRow0 = (syBase & 15) << 4;
+    const bRow1 = ((syBase + 1) & 15) << 4;
+    const bRow2 = ((syBase + 2) & 15) << 4;
+    const bRow3 = ((syBase + 3) & 15) << 4;
 
     for (let c = cLo; c <= cHi; c++) {
       const c2 = c * 2;
@@ -2430,49 +2461,66 @@ export function renderHalftonePortrait(params: PortraitParams): PortraitFrame {
         continue;
       }
 
-      const w00 = work[r0 + c2];
-      const w01 = work[r0 + c2 + 1];
-      const w10 = work[r1 + c2];
-      const w11 = work[r1 + c2 + 1];
-      const w20 = work[r2 + c2];
-      const w21 = work[r2 + c2 + 1];
-      const w30 = work[r3 + c2];
-      const w31 = work[r3 + c2 + 1];
+      const i00 = r0 + c2;
+      const i01 = i00 + 1;
+      const i10 = r1 + c2;
+      const i11 = i10 + 1;
+      const i20 = r2 + c2;
+      const i21 = i20 + 1;
+      const i30 = r3 + c2;
+      const i31 = i30 + 1;
 
-      const bx0 = c2 & 7;
-      const bx1 = (c2 + 1) & 7;
+      const w00 = work[i00];
+      const w01 = work[i01];
+      const w10 = work[i10];
+      const w11 = work[i11];
+      const w20 = work[i20];
+      const w21 = work[i21];
+      const w30 = work[i30];
+      const w31 = work[i31];
+
+      const bx0 = c2 & 15;
+      const bx1 = (c2 + 1) & 15;
       let bits = 0;
-      if (w00 >= BAYER_THRESH_8X8[bRow0 + bx0]) {
+      const t00 = BLUE_THRESH_16X16[bRow0 + bx0];
+      if (w00 >= t00 + (0.5 - t00) * edge[i00]) {
         bits |= 0x01;
-        subLum[r0 + c2] = (w00 * 255 + 0.5) | 0;
+        subLum[i00] = (w00 * 255 + 0.5) | 0;
       }
-      if (w01 >= BAYER_THRESH_8X8[bRow0 + bx1]) {
+      const t01 = BLUE_THRESH_16X16[bRow0 + bx1];
+      if (w01 >= t01 + (0.5 - t01) * edge[i01]) {
         bits |= 0x08;
-        subLum[r0 + c2 + 1] = (w01 * 255 + 0.5) | 0;
+        subLum[i01] = (w01 * 255 + 0.5) | 0;
       }
-      if (w10 >= BAYER_THRESH_8X8[bRow1 + bx0]) {
+      const t10 = BLUE_THRESH_16X16[bRow1 + bx0];
+      if (w10 >= t10 + (0.5 - t10) * edge[i10]) {
         bits |= 0x02;
-        subLum[r1 + c2] = (w10 * 255 + 0.5) | 0;
+        subLum[i10] = (w10 * 255 + 0.5) | 0;
       }
-      if (w11 >= BAYER_THRESH_8X8[bRow1 + bx1]) {
+      const t11 = BLUE_THRESH_16X16[bRow1 + bx1];
+      if (w11 >= t11 + (0.5 - t11) * edge[i11]) {
         bits |= 0x10;
-        subLum[r1 + c2 + 1] = (w11 * 255 + 0.5) | 0;
+        subLum[i11] = (w11 * 255 + 0.5) | 0;
       }
-      if (w20 >= BAYER_THRESH_8X8[bRow2 + bx0]) {
+      const t20 = BLUE_THRESH_16X16[bRow2 + bx0];
+      if (w20 >= t20 + (0.5 - t20) * edge[i20]) {
         bits |= 0x04;
-        subLum[r2 + c2] = (w20 * 255 + 0.5) | 0;
+        subLum[i20] = (w20 * 255 + 0.5) | 0;
       }
-      if (w21 >= BAYER_THRESH_8X8[bRow2 + bx1]) {
+      const t21 = BLUE_THRESH_16X16[bRow2 + bx1];
+      if (w21 >= t21 + (0.5 - t21) * edge[i21]) {
         bits |= 0x20;
-        subLum[r2 + c2 + 1] = (w21 * 255 + 0.5) | 0;
+        subLum[i21] = (w21 * 255 + 0.5) | 0;
       }
-      if (w30 >= BAYER_THRESH_8X8[bRow3 + bx0]) {
+      const t30 = BLUE_THRESH_16X16[bRow3 + bx0];
+      if (w30 >= t30 + (0.5 - t30) * edge[i30]) {
         bits |= 0x40;
-        subLum[r3 + c2] = (w30 * 255 + 0.5) | 0;
+        subLum[i30] = (w30 * 255 + 0.5) | 0;
       }
-      if (w31 >= BAYER_THRESH_8X8[bRow3 + bx1]) {
+      const t31 = BLUE_THRESH_16X16[bRow3 + bx1];
+      if (w31 >= t31 + (0.5 - t31) * edge[i31]) {
         bits |= 0x80;
-        subLum[r3 + c2 + 1] = (w31 * 255 + 0.5) | 0;
+        subLum[i31] = (w31 * 255 + 0.5) | 0;
       }
 
       cells[cellRowOff + c] = (lumSum * 31.875 + 0.5) | 0;

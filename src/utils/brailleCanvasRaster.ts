@@ -279,6 +279,51 @@ export const BLUE_NOISE_8X8_RANKS: readonly number[] = [
   20, 33, 47, 53, 11, 26,  0, 41,
 ];
 
+/**
+ * Precomputed 16x16 toroidal void-and-cluster blue-noise rank matrix (complete permutation of 0..255).
+ * Provides 4x larger tiling period (8 Braille cols x 4 Braille rows) and 256 tonal steps for
+ * silky organic skin gradients with zero checkerboard/tiling artifacts and 100% temporal determinism.
+ */
+export const BLUE_NOISE_16X16_RANKS: readonly number[] = [
+  110, 231,   1, 203, 159,  63,  92,  30, 155,   4,  54, 198,  98, 148,   8, 220,
+  132,  56, 150,  83, 239, 177, 119, 207,  74, 250, 216,  21, 233, 123, 253,  75,
+   28, 185, 218, 109,  39,  18, 226,  48, 186, 112, 141,  68, 180,  89,  43, 172,
+  100, 236,  12, 137, 199,  99, 145, 166,  13,  91,  38, 164, 210,  15, 152, 202,
+  128,  78,  49, 169,  70, 254,  55, 127, 243, 195, 228, 120,  53, 108, 227,  61,
+  249, 160, 211, 118, 190,   3, 215,  84,  29,  64, 147,   5, 244, 138, 189,  19,
+   40, 107,  17, 235,  36, 149, 179, 111, 163, 217,  96, 182,  77,  33,  90, 171,
+  143, 196,  88,  60, 130,  95,  44, 238,  11, 133,  41, 225, 153, 200, 115, 224,
+   71, 229, 154, 181, 245, 208,  66, 193,  79, 204, 117,  67,  20, 255,  57,   0,
+  122,  45,  27, 103,   7, 161,  24, 140, 170,  32, 230, 174, 104, 134, 168, 213,
+  187, 248, 136, 205,  76, 121, 221, 106, 252,  59, 146,  14, 194,  81,  37,  97,
+   10,  85, 173,  58, 240, 183,  46,  87,   2, 126,  93, 242,  51, 206, 232, 158,
+   65, 223, 113,  16, 144,  31, 234, 151, 201, 178, 219, 157,  72, 139,  25, 125,
+  197,  34, 156, 209, 101,  80, 165, 114,  69,  23,  42, 116,   6, 176, 105, 241,
+  142,  94, 251,  50, 188, 222,   9,  52, 212, 237,  82, 191, 247, 214,  86,  47,
+   22, 175,  73, 124,  26, 135, 246, 184, 129, 102, 167, 131,  35,  62, 162, 192,
+];
+
+/**
+ * Normalized 16x16 blue-noise thresholds in [0.055, 0.940] for crisp deep blacks (<0.055)
+ * and solid peak highlights (>0.940) across Unicode Braille halftone renderers.
+ */
+export const BLUE_NOISE_16X16_THRESH = Float32Array.from(
+  BLUE_NOISE_16X16_RANKS,
+  (rank) => 0.055 + ((rank + 0.5) / 256) * 0.885
+);
+
+/**
+ * Pulls a blue-noise threshold gently toward 0.50 on sharp high-contrast contours (eyes, lashes,
+ * teeth bars, mouth cavities, glasses rims) while keeping smooth skin gradients pure blue-noise.
+ */
+export function resolveEdgeAwareThreshold(
+  baseThreshold: number,
+  edgeLockWeight: number
+): number {
+  const lock = edgeLockWeight <= 0 ? 0 : edgeLockWeight >= 0.72 ? 0.72 : edgeLockWeight;
+  return baseThreshold + (0.5 - baseThreshold) * lock;
+}
+
 export interface BrailleFrameLike {
   cols: number;
   rows: number;
@@ -522,10 +567,10 @@ export function rasterizeTonalDotBucketsToSurface(
       const len = bucket.len;
       if (len <= 0) continue;
 
-      const tierGain = bIdx === buckets.length - 1 ? 1.0 : 0.36;
+      const tierGain = bIdx === buckets.length - 1 ? 1.0 : 0.32;
       const haloAlphaMax = Math.min(
-        72,
-        Math.round(bucket.alpha * bloom * tierGain * (bucket.bloomWeight ?? 1) * 40)
+        68,
+        Math.round(bucket.alpha * bloom * tierGain * (bucket.bloomWeight ?? 1) * 38)
       );
       if (haloAlphaMax <= 2) continue;
 
@@ -533,7 +578,7 @@ export function rasterizeTonalDotBucketsToSurface(
       const scale = bucket.diameterScale ?? 1;
       const dotPx = Math.max(0.65, baseDotPx * scale);
       const centerShift = (baseDotPx - dotPx) * 0.5;
-      const haloRadius = dotPx * (0.82 + bloom * 0.28);
+      const haloRadius = dotPx * (0.76 + bloom * 0.24);
       const invHaloR2 = 1 / (haloRadius * haloRadius);
       const packedRgb = (b << 16) | (g << 8) | r;
       const xy = bucket.xy;
@@ -562,7 +607,7 @@ export function rasterizeTonalDotBucketsToSurface(
             if (norm2 >= 1) continue;
 
             const falloff = 1 - norm2;
-            const covA = (haloAlphaMax * falloff * falloff + 0.5) | 0;
+            const covA = (haloAlphaMax * falloff * falloff * falloff + 0.5) | 0;
             if (covA <= 1) continue;
 
             const pIdx = rowPixel + px;
