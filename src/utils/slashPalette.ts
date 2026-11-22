@@ -31,6 +31,13 @@ export const SLASH_COMMAND_CATALOG: readonly SlashCommandSpec[] = [
     action: 'run',
   },
   {
+    command: '/context',
+    usage: '/context [on|off]',
+    category: 'hermes',
+    summary: 'Toggle live model info and accurate context window meter',
+    action: 'run',
+  },
+  {
     command: '/toolsets',
     usage: '/toolsets',
     category: 'hermes',

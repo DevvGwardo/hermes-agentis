@@ -80,6 +80,7 @@ export const AVAILABLE_COMMANDS = [
   '/tasks',
   '/skills',
   '/recall',
+  '/context',
   '/toolsets',
   '/memory',
   '/cron',
@@ -322,7 +323,7 @@ export function executeCliInput(rawInput: string, ctx: CliContext): CliExecution
     }
 
     case '/recall': {
-      const arg = rest.trim().toLowerCase();
+      const arg = argStr.toLowerCase();
       const nextShow = arg === 'off' || arg === 'hide' || arg === 'close' ? false : true;
       return {
         type: 'handled',
@@ -334,6 +335,23 @@ export function executeCliInput(rawInput: string, ctx: CliContext): CliExecution
           ? 'HERMES SKILL // uniichat-recall-jev\n  Jev recall accuracy monitor enabled (DevvGwardo/uniichat-recall · 93.3% hit@1 baseline · TypeSafe System One).'
           : 'HERMES SKILL // uniichat-recall-jev\n  Jev recall accuracy monitor hidden.',
         uiPatch: { showJevRecall: nextShow },
+      };
+    }
+
+    case '/context': {
+      const arg = argStr.toLowerCase();
+      const nextShow = arg === 'off' || arg === 'hide' || arg === 'close' ? false : true;
+      const model = ctx.activeModel || 'hermes-agent';
+      return {
+        type: 'handled',
+        mood: 'focused',
+        spokenText: nextShow
+          ? `Context window meter enabled for ${model}.`
+          : 'Context window meter hidden.',
+        output: nextShow
+          ? `HERMES AGENT // MODEL CONTEXT WINDOW\n  Active model: ${model}\n  Context meter enabled in workspace top bar.`
+          : 'HERMES AGENT // MODEL CONTEXT WINDOW\n  Context meter hidden from top bar.',
+        uiPatch: { showContextMeter: nextShow },
       };
     }
 

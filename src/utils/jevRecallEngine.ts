@@ -185,10 +185,14 @@ function tokenizeWords(text: string): string[] {
     .filter((w) => w.length >= 3);
 }
 
+export type RecallInputEntry = Pick<TerminalEntry, 'id' | 'role' | 'text'> & {
+  timestamp?: string;
+};
+
 /**
  * Extracts deterministic session context statistics from the active thread's entries.
  */
-export function analyzeSessionEntries(entries: TerminalEntry[]): SessionContextSnapshot {
+export function analyzeSessionEntries(entries: RecallInputEntry[]): SessionContextSnapshot {
   const conversational = entries.filter(
     (e) =>
       (e.role === 'user' || e.role === 'hermes' || e.role === 'command') &&
@@ -388,7 +392,7 @@ export function buildTypeSafeJevRequestPayload(params: {
 export function parseTypeSafeJevResponse(
   raw: unknown,
   latencyMs: number,
-  fallbackModel = JEV_CONTEXT_LIMITS.defaultModel
+  fallbackModel: string = JEV_CONTEXT_LIMITS.defaultModel
 ): JevLiveEvaluation | null {
   if (!raw || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;

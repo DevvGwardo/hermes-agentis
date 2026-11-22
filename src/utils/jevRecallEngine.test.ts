@@ -19,6 +19,7 @@ function makeEntries(turnPairs: number, charsPerMessage = 420): TerminalEntry[] 
     entries.push({
       id: `u-${i}`,
       role: 'user',
+      source: 'ui',
       text: `Please inspect ${topicWord} and verify the recall constraints. `.repeat(
         Math.max(1, Math.round(charsPerMessage / 65))
       ),
@@ -28,6 +29,7 @@ function makeEntries(turnPairs: number, charsPerMessage = 420): TerminalEntry[] 
     entries.push({
       id: `a-${i}`,
       role: 'hermes',
+      source: 'ui',
       text: `Checked ${topicWord}; coverage + BM25-lite matched evidence cleanly. `.repeat(
         Math.max(1, Math.round(charsPerMessage / 70))
       ),

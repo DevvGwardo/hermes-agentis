@@ -60,6 +60,7 @@ export interface UiCustomizationConfig {
   horizonStyle: BrailleHorizonStyle;
   statusReadoutVisible: boolean;
   showJevRecall: boolean;
+  showContextMeter: boolean;
   animationSpeed: number;
   reducedMotion: boolean;
 }
@@ -437,6 +438,7 @@ export const DEFAULT_UI_CONFIG: UiCustomizationConfig = {
   horizonStyle: 'silk',
   statusReadoutVisible: true,
   showJevRecall: false,
+  showContextMeter: true,
   animationSpeed: 1.0,
   reducedMotion: false,
 };
@@ -623,6 +625,7 @@ export function sanitizeUiPatch(raw: unknown): UiCustomizationPatch {
   if (typeof src.sidebarChannelsVisible === 'boolean') out.sidebarChannelsVisible = src.sidebarChannelsVisible;
   if (typeof src.showTopNav === 'boolean') out.showTopNav = src.showTopNav;
   if (typeof src.showJevRecall === 'boolean') out.showJevRecall = src.showJevRecall;
+  if (typeof src.showContextMeter === 'boolean') out.showContextMeter = src.showContextMeter;
   if (typeof src.composerStyle === 'string' && VALID_COMPOSER_STYLES.has(src.composerStyle as UiComposerStyle)) {
     out.composerStyle = src.composerStyle as UiComposerStyle;
   }

@@ -552,6 +552,13 @@ export function UiCustomizerStudio({
                   onToggle={(next) => onApplyPatch({ showJevRecall: next }, 'studio')}
                   testId="ui-toggle-jev-recall"
                 />
+                <ToggleRow
+                  label="Model context window meter"
+                  hint="Live model specs and token usage gauge in top bar"
+                  checked={config.showContextMeter}
+                  onToggle={(next) => onApplyPatch({ showContextMeter: next }, 'studio')}
+                  testId="ui-toggle-context-meter"
+                />
               </div>
 
               <div className="space-y-3 pt-2 border-t border-white/8">

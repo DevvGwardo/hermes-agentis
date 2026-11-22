@@ -293,14 +293,10 @@ export function JevRecallMonitor({
             Jev Recall Accuracy
           </h3>
           <span aria-hidden="true" className="hidden sm:inline text-zinc-600 shrink-0">·</span>
-          <span className="hidden sm:inline font-mono text-[11px] text-zinc-400 truncate tabular-nums">
-            uniichat-recall {(projection.benchmark.hitAt1 * 100).toFixed(1)}%
-            <span className="hidden md:inline">
-              {' '}·{' '}
-              {projection.evaluation.source === 'typesafe-jev-live'
-                ? `${projection.evaluation.model} live`
-                : 'calibrated'}
-            </span>
+          <span className="hidden sm:inline font-mono text-[11px] text-zinc-400 whitespace-nowrap tabular-nums">
+            {projection.evaluation.source === 'typesafe-jev-live'
+              ? `${projection.evaluation.model} live`
+              : `uniichat-recall ${(projection.benchmark.hitAt1 * 100).toFixed(1)}%`}
           </span>
         </div>
 

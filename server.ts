@@ -74,6 +74,15 @@ import {
   parseTypeSafeJevResponse,
   type UniichatRetrievalMode,
 } from "./src/utils/jevRecallEngine.ts";
+import {
+  VERIFIED_MODEL_SPECS,
+  extractProviderTokenUsage,
+  parseExternalModelCatalog,
+  resolveModelInfoSpec,
+  type ModelInfoResponse,
+  type ModelInfoSpec,
+  type ProviderTokenUsage,
+} from "./src/utils/modelContextEngine.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +94,106 @@ const preferencesStore = createPreferencesVaultStore(
 );
 let cachedUpstreamRelease: { info: UpstreamReleaseInfo; fetchedAt: number } | null = null;
 const UPSTREAM_CACHE_TTL_MS = 30_000;
+
+const lastUsageByChannel = new Map<string, ProviderTokenUsage>();
+let cachedLiveModelCatalog: { specs: ModelInfoSpec[]; fetchedAt: number } | null = null;
+const LIVE_MODEL_CATALOG_TTL_MS = 30 * 60 * 1000;
+
+async function fetchLiveModelCatalog(forceRefresh = false): Promise<{
+  specs: ModelInfoSpec[];
+  liveFetched: boolean;
+}> {
+  const now = Date.now();
+  if (
+    !forceRefresh &&
+    cachedLiveModelCatalog &&
+    now - cachedLiveModelCatalog.fetchedAt < LIVE_MODEL_CATALOG_TTL_MS
+  ) {
+    return { specs: cachedLiveModelCatalog.specs, liveFetched: true };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2600);
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/models", {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      const specs = parseExternalModelCatalog(json, "openrouter-live", now);
+      if (specs.length > 0) {
+        cachedLiveModelCatalog = { specs, fetchedAt: now };
+        return { specs, liveFetched: true };
+      }
+    }
+  } catch {
+    clearTimeout(timer);
+  }
+  if (cachedLiveModelCatalog) {
+    return { specs: cachedLiveModelCatalog.specs, liveFetched: true };
+  }
+  return { specs: [], liveFetched: false };
+}
+
+function readHermesLocalModelConfig(): {
+  modelId?: string;
+  contextWindow?: number;
+  compactionThresholdRatio: number;
+} {
+  const hermesHomeRoot = process.env.HERMES_HOME_ROOT || path.join(os.homedir(), ".hermes");
+  const configPath = path.join(hermesHomeRoot, "config.yaml");
+  let compactionThresholdRatio = 0.8;
+  let contextWindow: number | undefined;
+  let modelId: string | undefined;
+  try {
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, "utf8");
+      const ctxMatch = raw.match(/^\s*(?:context_length|context_window|max_context_tokens)\s*:\s*(\d+)/m);
+      if (ctxMatch) {
+        const parsed = Number(ctxMatch[1]);
+        if (Number.isFinite(parsed) && parsed >= 1024) contextWindow = parsed;
+      }
+      const threshMatch = raw.match(/^\s*(?:threshold|compression_threshold|compact_threshold)\s*:\s*([0-9.]+)/m);
+      if (threshMatch) {
+        const parsed = Number(threshMatch[1]);
+        if (Number.isFinite(parsed) && parsed >= 0.5 && parsed <= 0.95) {
+          compactionThresholdRatio = parsed;
+        }
+      }
+      const modelMatch = raw.match(/^\s*default\s*:\s*["']?([^\s"'#]+)["']?/m);
+      if (modelMatch && modelMatch[1]) {
+        modelId = modelMatch[1].trim();
+      }
+    }
+  } catch {
+    // ignore unreadable optional local config
+  }
+  return { modelId, contextWindow, compactionThresholdRatio };
+}
+
+function captureUsageFromSseChunk(channelId: string, chunk: string, model: string): void {
+  if (!chunk.includes("usage") && !chunk.includes("prompt_tokens") && !chunk.includes("input_tokens")) {
+    return;
+  }
+  const lines = chunk.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(payload);
+      const usage = extractProviderTokenUsage(parsed, model);
+      if (usage) {
+        lastUsageByChannel.set(channelId, usage);
+      }
+    } catch {
+      // ignore partial SSE JSON frames
+    }
+  }
+}
 
 function parseArgFlag(name: string): string | undefined {
   const args = process.argv.slice(2);
@@ -1504,7 +1613,10 @@ async function executeGatewayTurn(
       onContentDelta,
     };
 
-    await readStreamWithParser(gwRes.body, (chunk) => parser.push(chunk, callbacks));
+    await readStreamWithParser(gwRes.body, (chunk) => {
+      captureUsageFromSseChunk(channel.id, chunk, resolvedModel);
+      parser.push(chunk, callbacks);
+    });
     const parsed = parser.finish(callbacks);
 
     if (parsed.reasoning.trim()) {
@@ -1530,7 +1642,12 @@ async function executeGatewayTurn(
     };
   }
 
-  const nonStream = parseChatCompletionsJson(await gwRes.json().catch(() => null));
+  const rawNonStreamJson = await gwRes.json().catch(() => null);
+  const directUsage = extractProviderTokenUsage(rawNonStreamJson, resolvedModel);
+  if (directUsage) {
+    lastUsageByChannel.set(channel.id, directUsage);
+  }
+  const nonStream = parseChatCompletionsJson(rawNonStreamJson);
   if (!nonStream) {
     return {
       reply: "",
@@ -1683,6 +1800,106 @@ async function createServer() {
     res.json(ctx);
   });
 
+  app.get("/api/hermes/model-info", async (req, res) => {
+    const profileParam = typeof req.query.profile === "string" ? req.query.profile : undefined;
+    const requestedModel = typeof req.query.model === "string" ? req.query.model.trim() : "";
+    const channelIdParam = typeof req.query.channelId === "string" ? req.query.channelId.trim() : "";
+    const forceRefresh = req.query.refresh === "1" || req.query.refresh === "true";
+    const now = Date.now();
+
+    const localCfg = readHermesLocalModelConfig();
+    const [status, liveCatalog] = await Promise.all([
+      probeHermesGateway(profileParam),
+      fetchLiveModelCatalog(forceRefresh),
+    ]);
+
+    const gatewaySpecs: ModelInfoSpec[] = [];
+    if (status.connected) {
+      const [optRes, modelsRes] = await Promise.all([
+        fetchHermesGateway("/api/model/options", { method: "GET" }, 1800, undefined, status.profile).catch(
+          () => null
+        ),
+        fetchHermesGateway("/v1/models", { method: "GET" }, 1500, undefined, status.profile).catch(
+          () => null
+        ),
+      ]);
+      if (optRes?.ok) {
+        const parsed = parseExternalModelCatalog(await optRes.json().catch(() => null), "gateway", now);
+        gatewaySpecs.push(...parsed);
+      }
+      if (modelsRes?.ok) {
+        const parsed = parseExternalModelCatalog(await modelsRes.json().catch(() => null), "gateway", now);
+        gatewaySpecs.push(...parsed);
+      }
+    }
+
+    const effectiveModelId =
+      requestedModel ||
+      (status.activeModel && status.activeModel !== "hermes-agent" ? status.activeModel : "") ||
+      localCfg.modelId ||
+      status.activeModel ||
+      "hermes-agent";
+
+    const activeModel = resolveModelInfoSpec({
+      modelId: effectiveModelId,
+      providerHint: status.activeProvider,
+      gatewaySpecs,
+      liveCatalogSpecs: liveCatalog.specs,
+      configContextWindow: localCfg.contextWindow,
+      fetchedAtMs: now,
+    });
+
+    // Build a concise deduplicated list of available models (gateway models + curated popular specs resolved via live catalog)
+    const candidateIds: string[] = [
+      activeModel.id,
+      ...status.models.slice(0, 12),
+      "nousresearch/hermes-4-70b",
+      "anthropic/claude-sonnet-4",
+      "openai/gpt-4.1",
+      "openai/gpt-4o",
+      "google/gemini-2.5-pro",
+      "deepseek/deepseek-r1",
+    ];
+    const seen = new Set<string>();
+    const availableModels: ModelInfoSpec[] = [];
+    for (const cid of candidateIds) {
+      const key = cid.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      availableModels.push(
+        resolveModelInfoSpec({
+          modelId: cid,
+          gatewaySpecs,
+          liveCatalogSpecs: liveCatalog.specs,
+          fetchedAtMs: now,
+        })
+      );
+      if (availableModels.length >= 10) break;
+    }
+
+    const normalizedChannel = channelIdParam ? normalizeChannelKey(channelIdParam) : "";
+    const lastReportedUsage = normalizedChannel ? lastUsageByChannel.get(normalizedChannel) ?? null : null;
+
+    const payload: ModelInfoResponse = {
+      activeModel,
+      availableModels:
+        availableModels.length > 0
+          ? availableModels
+          : VERIFIED_MODEL_SPECS.slice(0, 6).map((s) => ({
+              ...s,
+              metadataSource: "catalog" as const,
+              fetchedAtMs: now,
+            })),
+      gatewayConnected: status.connected,
+      liveCatalogFetched: liveCatalog.liveFetched,
+      compactionThresholdRatio: localCfg.compactionThresholdRatio,
+      lastReportedUsage,
+      fetchedAtMs: now,
+    };
+
+    res.json(payload);
+  });
+
   app.get("/api/hermes/skills", async (req, res) => {
     const profileParam = typeof req.query.profile === "string" ? req.query.profile : undefined;
     try {
@@ -1795,7 +2012,7 @@ async function createServer() {
       const rawEntries = Array.isArray(body.entries) ? body.entries : [];
       const sanitizedEntries = rawEntries.slice(-80).map((item, idx) => {
         const rec = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-        const role =
+        const role: "user" | "hermes" | "command" | "activity" =
           rec.role === "user" || rec.role === "hermes" || rec.role === "command" || rec.role === "activity"
             ? rec.role
             : "user";
@@ -2926,6 +3143,7 @@ async function createServer() {
 
   app.post("/api/hermes/sessions/:channelId/reset", async (req, res) => {
     const slug = normalizeChannelKey(req.params.channelId) || "general";
+    lastUsageByChannel.delete(slug);
     const existing = channels.find((c) => c.id === slug);
     const targetProfile = existing?.profile || getGatewayConfig().profile;
     activeRunAborts.get(slug)?.abort();

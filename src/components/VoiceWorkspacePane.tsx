@@ -93,10 +93,13 @@ import type { CreateDotSessionPayload } from './AddSessionShapeModal';
 import { AsciiPortraitCanvas } from './AsciiPortraitCanvas';
 import { BrailleHorizonCanvas } from './BrailleHorizonCanvas';
 import { BrailleSessionsCanvas } from './BrailleSessionsCanvas';
+import { ContextWindowMonitor } from './ContextWindowMonitor';
 import { DecodedText } from './DecodedText';
 import { HermesOperationsPanel } from './HermesOperationsPanel';
 import { InlineHermesPopover } from './InlineHermesPopover';
 import { JevRecallMonitor } from './JevRecallMonitor';
+import { useModelContextInfo } from '../hooks/useModelContextInfo';
+import { formatCompactTokens } from '../utils/modelContextEngine';
 import { CommandTerminal } from './CommandTerminal';
 import { MobileWorkspaceBar } from './MobileWorkspaceBar';
 import { SlashCommandPalette } from './SlashCommandPalette';
@@ -293,6 +296,7 @@ export function VoiceWorkspacePane({
   const [slashPaletteForced, setSlashPaletteForced] = useState(false);
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
   const [hermesInspectorOpen, setHermesInspectorOpen] = useState(false);
+  const [contextMonitorOpen, setContextMonitorOpen] = useState(false);
   const [compactThreadHeader, setCompactThreadHeader] = useState(false);
   const [threadMoreMenuOpen, setThreadMoreMenuOpen] = useState(false);
   const [threadSearchOpen, setThreadSearchOpen] = useState(false);
@@ -474,6 +478,22 @@ export function VoiceWorkspacePane({
     () => entries.filter((e) => e.channelId === activeChannel),
     [entries, activeChannel]
   );
+
+  const modelContext = useModelContextInfo({
+    activeModelId: gatewayStatus?.activeModel,
+    activeProvider: gatewayStatus?.activeProvider,
+    activeProfile,
+    activeChannel,
+    entries: scopedEntries,
+    skillsCount: skills?.length ?? gatewayStatus?.skillsCount ?? 0,
+    toolsetsCount: toolsets?.length ?? gatewayStatus?.toolsets?.length ?? 0,
+  });
+
+  useEffect(() => {
+    if (uiConfig.showJevRecall) {
+      setContextMonitorOpen(false);
+    }
+  }, [uiConfig.showJevRecall]);
   const lastScopedTextLen = scopedEntries[scopedEntries.length - 1]?.text.length ?? 0;
 
   const snapThreadToBottom = (behavior: ScrollBehavior = 'auto') => {
@@ -1394,12 +1414,68 @@ export function VoiceWorkspacePane({
               )}
             </button>
 
+            {uiConfig.showContextMeter && (
+              <button
+                type="button"
+                data-testid="topbar-context-meter"
+                aria-pressed={contextMonitorOpen}
+                aria-label={`Context window ${modelContext.usage.usedPct.toFixed(1)}% used of ${formatCompactTokens(modelContext.usage.contextWindow)} on ${modelContext.usage.model.displayName}`}
+                title={`${modelContext.usage.model.displayName} · ${modelContext.usage.usedTokens.toLocaleString()} / ${modelContext.usage.contextWindow.toLocaleString()} tokens (${modelContext.usage.usedPct.toFixed(1)}%)`}
+                onClick={() => {
+                  const nextOpen = !contextMonitorOpen;
+                  setContextMonitorOpen(nextOpen);
+                  if (nextOpen) {
+                    setHermesInspectorOpen(false);
+                    if (uiConfig.showJevRecall && onToggleJevRecall) {
+                      onToggleJevRecall();
+                    }
+                  }
+                }}
+                className={`ui-tactile h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  contextMonitorOpen
+                    ? 'border-[rgba(var(--ui-accent-rgb),0.55)] bg-[rgba(var(--ui-accent-rgb),0.18)] text-white'
+                    : 'border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="w-6 h-1.5 rounded-full bg-white/12 overflow-hidden shrink-0"
+                >
+                  <span
+                    className={`block h-full rounded-full transition-all duration-300 ${
+                      modelContext.usage.status === 'critical'
+                        ? 'bg-rose-400'
+                        : modelContext.usage.status === 'warning'
+                        ? 'bg-amber-400'
+                        : modelContext.usage.status === 'elevated'
+                        ? 'bg-sky-400'
+                        : 'bg-[var(--ui-accent-bright)]'
+                    }`}
+                    style={{ width: `${Math.max(4, Math.min(100, modelContext.usage.usedPct))}%` }}
+                  />
+                </span>
+                <span className="font-mono text-[11px] tabular-nums text-zinc-200">
+                  {modelContext.usage.usedPct < 10
+                    ? `${modelContext.usage.usedPct.toFixed(1)}%`
+                    : `${Math.round(modelContext.usage.usedPct)}%`}
+                </span>
+                <span className="hidden xl:inline font-mono text-[10.5px] text-zinc-500 tabular-nums">
+                  {formatCompactTokens(modelContext.usage.contextWindow)}
+                </span>
+              </button>
+            )}
+
             {onToggleJevRecall && (
               <button
                 type="button"
                 data-testid="topbar-jev-recall-toggle"
                 aria-pressed={uiConfig.showJevRecall}
-                onClick={onToggleJevRecall}
+                onClick={() => {
+                  if (!uiConfig.showJevRecall) {
+                    setContextMonitorOpen(false);
+                  }
+                  onToggleJevRecall();
+                }}
                 title="Toggle Jev × uniichat-recall accuracy projection graph & Hermes SKILL.md"
                 className={`ui-tactile h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   uiConfig.showJevRecall
@@ -1468,6 +1544,49 @@ export function VoiceWorkspacePane({
             </button>
           </div>
         )
+      )}
+
+      {/* Toggleable Model Info & Context Window Usage Overlay */}
+      {contextMonitorOpen && !uiConfig.showJevRecall && (
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 z-30 w-[min(780px,calc(100%-1.5rem))] max-h-[calc(100%-8.5rem)] overflow-y-auto cyber-scroll ${
+            uiConfig.showTopNav ? 'top-14 lg:top-[58px]' : 'top-3'
+          }`}
+        >
+          <ContextWindowMonitor
+            usage={modelContext.usage}
+            availableModels={modelContext.availableModels}
+            selectedModelId={modelContext.selectedModelId}
+            activeModelId={modelContext.modelInfo?.activeModel.id ?? modelContext.inspectedModel.id}
+            liveCatalogFetched={Boolean(modelContext.modelInfo?.liveCatalogFetched)}
+            gatewayConnected={Boolean(gatewayStatus?.connected || modelContext.modelInfo?.gatewayConnected)}
+            refreshing={modelContext.refreshing}
+            onSelectModel={modelContext.setSelectedModelId}
+            onRefresh={() => void modelContext.refresh(true)}
+            onClose={() => setContextMonitorOpen(false)}
+            onStartNewSession={
+              onStartNewSession
+                ? () => {
+                    setContextMonitorOpen(false);
+                    onStartNewSession();
+                  }
+                : activeChannel
+                ? () => {
+                    setContextMonitorOpen(false);
+                    onResetSession(activeChannel);
+                  }
+                : undefined
+            }
+            onOpenRecallMonitor={
+              onToggleJevRecall
+                ? () => {
+                    setContextMonitorOpen(false);
+                    if (!uiConfig.showJevRecall) onToggleJevRecall();
+                  }
+                : undefined
+            }
+          />
+        </div>
       )}
 
       {/* Toggleable TypeSafe Jev × uniichat-recall Accuracy Projection & Hermes SKILL.md Overlay */}
@@ -2177,7 +2296,24 @@ export function VoiceWorkspacePane({
                             @{activeProfile}
                           </button>
                           <span aria-hidden="true" className="text-zinc-600">·</span>
-                          <span className="truncate">{gatewayStatus?.activeModel || 'hermes-agent'}</span>
+                          <button
+                            type="button"
+                            data-testid="thread-context-pill"
+                            onClick={() => {
+                              setContextMonitorOpen((v) => !v);
+                              if (uiConfig.showJevRecall && onToggleJevRecall) {
+                                onToggleJevRecall();
+                              }
+                            }}
+                            title={`Inspect ${modelContext.usage.model.displayName} context window (${modelContext.usage.usedTokens.toLocaleString()} / ${modelContext.usage.contextWindow.toLocaleString()} tokens)`}
+                            className="inline-flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors truncate cursor-pointer"
+                          >
+                            <span className="truncate">{modelContext.usage.model.displayName}</span>
+                            <span aria-hidden="true" className="text-zinc-600">·</span>
+                            <span className="tabular-nums text-zinc-300">
+                              {modelContext.usage.usedPct.toFixed(1)}% / {formatCompactTokens(modelContext.usage.contextWindow)}
+                            </span>
+                          </button>
                         </div>
                       </div>
                     </div>
