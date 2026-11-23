@@ -61,6 +61,7 @@ export interface UiCustomizationConfig {
   statusReadoutVisible: boolean;
   showJevRecall: boolean;
   showContextMeter: boolean;
+  activityTraceExpanded: boolean;
   animationSpeed: number;
   reducedMotion: boolean;
 }
@@ -439,6 +440,7 @@ export const DEFAULT_UI_CONFIG: UiCustomizationConfig = {
   statusReadoutVisible: true,
   showJevRecall: false,
   showContextMeter: true,
+  activityTraceExpanded: true,
   animationSpeed: 1.0,
   reducedMotion: false,
 };
@@ -626,6 +628,9 @@ export function sanitizeUiPatch(raw: unknown): UiCustomizationPatch {
   if (typeof src.showTopNav === 'boolean') out.showTopNav = src.showTopNav;
   if (typeof src.showJevRecall === 'boolean') out.showJevRecall = src.showJevRecall;
   if (typeof src.showContextMeter === 'boolean') out.showContextMeter = src.showContextMeter;
+  if (typeof src.activityTraceExpanded === 'boolean') {
+    out.activityTraceExpanded = src.activityTraceExpanded;
+  }
   if (typeof src.composerStyle === 'string' && VALID_COMPOSER_STYLES.has(src.composerStyle as UiComposerStyle)) {
     out.composerStyle = src.composerStyle as UiComposerStyle;
   }

@@ -3,6 +3,20 @@ import { dedupeActivityEntries } from './taskInsights';
 
 export type TraceStepIcon = 'reasoning' | 'commentary' | 'spawn' | 'tool' | 'link' | 'status';
 
+export type TraceStepStatus = 'running' | 'completed' | 'failed';
+
+export type TraceToolKind =
+  | 'terminal'
+  | 'file'
+  | 'search'
+  | 'skill'
+  | 'web'
+  | 'agent'
+  | 'reasoning'
+  | 'commentary'
+  | 'tool'
+  | 'status';
+
 export interface ClassifiedTraceStep {
   id: string;
   label: string;
@@ -10,6 +24,8 @@ export interface ClassifiedTraceStep {
   timestamp: string;
   icon: TraceStepIcon;
   isReasoning?: boolean;
+  status?: TraceStepStatus;
+  toolKind?: TraceToolKind;
 }
 
 export type ThreadTimelineBlock =
@@ -34,6 +50,8 @@ export function classifyTraceStep(entry: TerminalEntry): ClassifiedTraceStep {
       timestamp: entry.timestamp,
       icon: 'reasoning',
       isReasoning: true,
+      status: entry.activityStatus === 'running' ? 'running' : 'completed',
+      toolKind: 'reasoning',
     };
   }
 
@@ -45,6 +63,8 @@ export function classifyTraceStep(entry: TerminalEntry): ClassifiedTraceStep {
       detail,
       timestamp: entry.timestamp,
       icon: 'commentary',
+      status: 'completed',
+      toolKind: 'commentary',
     };
   }
 
@@ -99,6 +119,51 @@ export function classifyTraceStep(entry: TerminalEntry): ClassifiedTraceStep {
     }
   }
 
+  const rawStatus = (entry.activityStatus || '').toLowerCase();
+  const detailLower = detail.toLowerCase();
+  let status: TraceStepStatus = 'completed';
+  if (
+    rawStatus === 'running' ||
+    rawStatus === 'started' ||
+    rawStatus === 'in_progress' ||
+    /^(running|started|pending)$/.test(detailLower)
+  ) {
+    status = 'running';
+  } else if (
+    rawStatus === 'error' ||
+    rawStatus === 'failed' ||
+    entry.errorCode ||
+    entry.terminalOutcome === 'failed' ||
+    /^(failed|error|cancelled|interrupted)$/.test(detailLower)
+  ) {
+    status = 'failed';
+  }
+
+  const labelNorm = (label || raw).toLowerCase().replace(/[_-]+/g, ' ');
+  let toolKind: TraceToolKind = icon === 'tool' ? 'tool' : 'status';
+  if (icon === 'reasoning') {
+    toolKind = 'reasoning';
+  } else if (icon === 'spawn') {
+    toolKind = 'agent';
+  } else if (
+    /\b(terminal|bash|shell|sh|exec|command|cmd|process)\b/.test(labelNorm)
+  ) {
+    toolKind = 'terminal';
+  } else if (/\b(skill|skills|memory|recall)\b/.test(labelNorm)) {
+    toolKind = 'skill';
+  } else if (/\b(search|grep|find|glob|query|lookup)\b/.test(labelNorm)) {
+    toolKind = 'search';
+  } else if (
+    /\b(read|write|edit|patch|file|view|replace|delete|list|dir|fs)\b/.test(labelNorm)
+  ) {
+    toolKind = 'file';
+  } else if (
+    icon === 'link' ||
+    /\b(web|fetch|http|curl|browser|url|mcp|gateway)\b/.test(labelNorm)
+  ) {
+    toolKind = 'web';
+  }
+
   return {
     id: entry.id,
     label: label || 'Activity',
@@ -106,6 +171,8 @@ export function classifyTraceStep(entry: TerminalEntry): ClassifiedTraceStep {
     timestamp: entry.timestamp,
     icon,
     isReasoning: icon === 'reasoning',
+    status,
+    toolKind,
   };
 }
 

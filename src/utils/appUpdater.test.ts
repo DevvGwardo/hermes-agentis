@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,10 +11,12 @@ import {
   type UserPreferencesSnapshot,
 } from './settingsSnapshot';
 import {
+  applyGitPullUpdate,
   buildAppUpdateStatus,
   createPreferencesVaultStore,
   readLocalBuildMetadata,
   resolveVoxcellDataDir,
+  selectGitPullTarget,
 } from './appUpdater';
 
 function sampleSnapshot(accentPreset: 'violet' | 'amber' = 'violet'): UserPreferencesSnapshot {
@@ -227,5 +230,124 @@ test('readLocalBuildMetadata handles non-git directories gracefully', async () =
     assert.equal(meta.dirtyWorktree, false);
   } finally {
     fs.rmSync(tempApp, { recursive: true, force: true });
+  }
+});
+
+test('selectGitPullTarget resolves tracked, matching untracked, default-head, and detached targets', () => {
+  // 1. Tracked upstream wins directly
+  assert.deepEqual(
+    selectGitPullTarget({
+      currentBranch: 'rune-desktop',
+      upstreamRef: 'origin/rune-desktop',
+      remotes: ['origin'],
+      remoteBranches: { origin: ['main', 'rune-desktop'] },
+    }),
+    { mode: 'tracked', ref: 'origin/rune-desktop' }
+  );
+
+  // 2. Untracked local branch matching remote branch sets upstream
+  assert.deepEqual(
+    selectGitPullTarget({
+      currentBranch: 'rune-desktop',
+      upstreamRef: null,
+      remotes: ['origin'],
+      remoteBranches: { origin: ['main', 'rune-desktop'] },
+      remoteHeadBranch: { origin: 'main' },
+    }),
+    {
+      mode: 'explicit',
+      remote: 'origin',
+      branch: 'rune-desktop',
+      ref: 'origin/rune-desktop',
+      shouldSetUpstream: true,
+    }
+  );
+
+  // 3. Untracked local branch with only origin/main falls back to origin/main
+  assert.deepEqual(
+    selectGitPullTarget({
+      currentBranch: 'rune-desktop',
+      upstreamRef: null,
+      remotes: ['origin'],
+      remoteBranches: { origin: ['main'] },
+      remoteHeadBranch: { origin: 'main' },
+    }),
+    {
+      mode: 'explicit',
+      remote: 'origin',
+      branch: 'main',
+      ref: 'origin/main',
+      shouldSetUpstream: false,
+    }
+  );
+
+  // 4. No remotes returns null
+  assert.equal(
+    selectGitPullTarget({
+      currentBranch: 'rune-desktop',
+      upstreamRef: null,
+      remotes: [],
+      remoteBranches: {},
+    }),
+    null
+  );
+});
+
+test('applyGitPullUpdate fast-forwards an untracked branch (rune-desktop) without tracking errors', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'voxcell-git-ff-test-'));
+  const bareDir = path.join(root, 'remote.git');
+  const seedDir = path.join(root, 'seed');
+  const localDir = path.join(root, 'local');
+
+  const git = (cwd: string, args: string[]) =>
+    execFileSync('git', args, {
+      cwd,
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'Test',
+        GIT_AUTHOR_EMAIL: 'test@example.com',
+        GIT_COMMITTER_NAME: 'Test',
+        GIT_COMMITTER_EMAIL: 'test@example.com',
+      },
+    })
+      .toString('utf8')
+      .trim();
+
+  try {
+    fs.mkdirSync(bareDir, { recursive: true });
+    git(bareDir, ['init', '--bare', '-b', 'main']);
+
+    git(root, ['clone', bareDir, seedDir]);
+    fs.writeFileSync(
+      path.join(seedDir, 'package.json'),
+      JSON.stringify({ name: 'test-app', version: '0.1.0', scripts: { build: 'node -e "process.exit(0)"' } }),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(seedDir, 'notes.txt'), 'v1\n', 'utf8');
+    git(seedDir, ['add', '.']);
+    git(seedDir, ['commit', '-m', 'initial']);
+    git(seedDir, ['push', '-u', 'origin', 'main']);
+
+    // Clone locally and create an untracked branch `rune-desktop` (reproducing exact user error)
+    git(root, ['clone', bareDir, localDir]);
+    git(localDir, ['checkout', '-b', 'rune-desktop']);
+    // Confirm there is NO upstream tracking branch initially
+    assert.throws(() => git(localDir, ['rev-parse', '--abbrev-ref', '@{u}']));
+
+    // Advance origin/main with a new commit
+    fs.writeFileSync(path.join(seedDir, 'notes.txt'), 'v2\n', 'utf8');
+    git(seedDir, ['add', 'notes.txt']);
+    git(seedDir, ['commit', '-m', 'upstream update']);
+    git(seedDir, ['push', 'origin', 'main']);
+    const upstreamSha = git(seedDir, ['rev-parse', '--short', 'HEAD']);
+
+    // applyGitPullUpdate should resolve origin/main and fast-forward cleanly!
+    const result = await applyGitPullUpdate(localDir);
+    assert.equal(result.ok, true, `Expected update to succeed, got error: ${result.error}`);
+    assert.equal(result.newCommit, upstreamSha);
+    assert.equal(fs.readFileSync(path.join(localDir, 'notes.txt'), 'utf8'), 'v2\n');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });

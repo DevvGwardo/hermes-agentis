@@ -38,6 +38,13 @@ export const SLASH_COMMAND_CATALOG: readonly SlashCommandSpec[] = [
     action: 'run',
   },
   {
+    command: '/activity',
+    usage: '/activity [on|off|expand|collapse]',
+    category: 'hermes',
+    summary: 'Toggle inline activity & tool call cards in chat',
+    action: 'run',
+  },
+  {
     command: '/toolsets',
     usage: '/toolsets',
     category: 'hermes',

@@ -238,3 +238,35 @@ test('coalesceConsecutiveSteps merges adjacent identical steps with repeat count
   assert.equal(coalesced[2].repeatCount, 1);
 });
 
+test('classifyTraceStep derives semantic toolKind and status for terminal, skill, file, search, and error steps', () => {
+  const term = classifyTraceStep({
+    ...makeEntry('t1', 'activity', 'terminal: git status + 2 commands'),
+    activityKind: 'tool',
+    activityStatus: 'running',
+  });
+  assert.equal(term.toolKind, 'terminal');
+  assert.equal(term.status, 'running');
+
+  const skill = classifyTraceStep({
+    ...makeEntry('t2', 'activity', 'skill_view completed'),
+    activityKind: 'tool',
+  });
+  assert.equal(skill.toolKind, 'skill');
+  assert.equal(skill.status, 'completed');
+
+  const fileStep = classifyTraceStep({
+    ...makeEntry('t3', 'activity', 'read_file: src/utils/appUpdater.ts'),
+    activityKind: 'tool',
+  });
+  assert.equal(fileStep.toolKind, 'file');
+  assert.equal(fileStep.status, 'completed');
+
+  const failedStep = classifyTraceStep({
+    ...makeEntry('t4', 'activity', 'grep_search failed'),
+    activityKind: 'tool',
+    activityStatus: 'error',
+  });
+  assert.equal(failedStep.toolKind, 'search');
+  assert.equal(failedStep.status, 'failed');
+});
+

@@ -2953,6 +2953,7 @@ export function VoiceWorkspacePane({
                               items={block.items}
                               isLive={block.isLive}
                               hideLiveFooter={hasVisibleTaskBlock}
+                              defaultExpanded={uiConfig.activityTraceExpanded}
                             />
                           </div>
                         );

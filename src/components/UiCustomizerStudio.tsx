@@ -559,6 +559,24 @@ export function UiCustomizerStudio({
                   onToggle={(next) => onApplyPatch({ showContextMeter: next }, 'studio')}
                   testId="ui-toggle-context-meter"
                 />
+                <ToggleRow
+                  label="Activity & tool calls in chat"
+                  hint="Show agent tool calls, commands & reasoning inline"
+                  checked={showThinking}
+                  onToggle={(next) => onApplyPatch({ showThinking: next }, 'studio')}
+                  testId="ui-toggle-activity-trace"
+                />
+                {showThinking && (
+                  <div className="pl-3 ml-2 border-l border-white/10">
+                    <ToggleRow
+                      label="Expand tool calls by default"
+                      hint="Start activity cards expanded so steps are visible immediately"
+                      checked={config.activityTraceExpanded}
+                      onToggle={(next) => onApplyPatch({ activityTraceExpanded: next }, 'studio')}
+                      testId="ui-toggle-activity-expanded"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 pt-2 border-t border-white/8">
@@ -774,12 +792,6 @@ export function UiCustomizerStudio({
                   label="Calm / reduced motion"
                   checked={config.reducedMotion}
                   onToggle={(next) => onApplyPatch({ reducedMotion: next }, 'studio')}
-                />
-                <ToggleRow
-                  label="Inline activity trace in chat"
-                  hint="Tasks sidebar already tracks runs; enable to also list steps inline"
-                  checked={showThinking}
-                  onToggle={(next) => onApplyPatch({ showThinking: next }, 'studio')}
                 />
                 <ToggleRow
                   label="Mute Hermes voice synthesis"

@@ -477,6 +477,121 @@ export function buildAppUpdateStatus(opts: {
   };
 }
 
+export type GitPullTarget =
+  | { mode: 'tracked'; ref: string }
+  | {
+      mode: 'explicit';
+      remote: string;
+      branch: string;
+      ref: string;
+      shouldSetUpstream: boolean;
+    }
+  | {
+      mode: 'detached';
+      remote: string;
+      branch: string;
+      ref: string;
+    };
+
+/**
+ * Resolves the safest fast-forward pull target when the current branch may not
+ * have an upstream tracking branch configured (e.g., local branches like
+ * `rune-desktop` checked out without `-u`).
+ */
+export function selectGitPullTarget(params: {
+  currentBranch: string | null;
+  upstreamRef: string | null;
+  remotes: readonly string[];
+  remoteBranches: Readonly<Record<string, readonly string[]>>;
+  remoteHeadBranch?: Readonly<Record<string, string | null | undefined>>;
+}): GitPullTarget | null {
+  const upstream = params.upstreamRef?.trim() || null;
+  if (upstream) {
+    return { mode: 'tracked', ref: upstream };
+  }
+
+  const remotes = params.remotes.map((r) => r.trim()).filter(Boolean);
+  if (remotes.length === 0) return null;
+
+  const remote = remotes.includes('origin') ? 'origin' : remotes[0];
+  const branches = (params.remoteBranches[remote] ?? [])
+    .map((b) => b.trim())
+    .filter((b) => Boolean(b) && b !== 'HEAD');
+
+  const current = params.currentBranch?.trim() || null;
+  const isDetached = !current || current === 'HEAD';
+  const defaultHead = params.remoteHeadBranch?.[remote]?.trim() || null;
+
+  const pickBranch = (): { branch: string; matchesCurrent: boolean } | null => {
+    if (!isDetached && current && branches.includes(current)) {
+      return { branch: current, matchesCurrent: true };
+    }
+    if (defaultHead && branches.includes(defaultHead)) {
+      return { branch: defaultHead, matchesCurrent: false };
+    }
+    if (branches.includes('main')) {
+      return { branch: 'main', matchesCurrent: false };
+    }
+    if (branches.includes('master')) {
+      return { branch: 'master', matchesCurrent: false };
+    }
+    if (branches.length > 0) {
+      return { branch: branches[0], matchesCurrent: false };
+    }
+    return null;
+  };
+
+  const picked = pickBranch();
+  if (!picked) return null;
+
+  if (isDetached) {
+    return {
+      mode: 'detached',
+      remote,
+      branch: picked.branch,
+      ref: `${remote}/${picked.branch}`,
+    };
+  }
+
+  return {
+    mode: 'explicit',
+    remote,
+    branch: picked.branch,
+    ref: `${remote}/${picked.branch}`,
+    shouldSetUpstream: picked.matchesCurrent,
+  };
+}
+
+async function listRemoteBranches(
+  appRoot: string,
+  remote: string
+): Promise<{ branches: string[]; headBranch: string | null }> {
+  const prefix = `${remote}/`;
+  const refsRaw = await runGit(appRoot, [
+    'for-each-ref',
+    '--format=%(refname:short)',
+    `refs/remotes/${remote}`,
+  ]).catch(() => '');
+
+  const branches = refsRaw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => line.slice(prefix.length))
+    .filter((b) => Boolean(b) && b !== 'HEAD');
+
+  const headRaw = await runGit(appRoot, [
+    'symbolic-ref',
+    '--short',
+    `refs/remotes/${remote}/HEAD`,
+  ]).catch(() => '');
+
+  const headBranch =
+    headRaw && headRaw.startsWith(prefix) ? headRaw.slice(prefix.length).trim() || null : null;
+
+  return { branches, headBranch };
+}
+
 export async function applyGitPullUpdate(appRoot: string): Promise<{
   ok: boolean;
   steps: UpdateStepResult[];
@@ -486,9 +601,26 @@ export async function applyGitPullUpdate(appRoot: string): Promise<{
 }> {
   const steps: UpdateStepResult[] = [];
   const beforeCommit = await runGit(appRoot, ['rev-parse', '--short', 'HEAD']).catch(() => '');
+  const currentBranch = await runGit(appRoot, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '');
+  const upstreamRef = await runGit(appRoot, [
+    'rev-parse',
+    '--abbrev-ref',
+    '--symbolic-full-name',
+    '@{u}',
+  ]).catch(() => '');
+
+  const remotesRaw = await runGit(appRoot, ['remote']).catch(() => '');
+  const remotes = remotesRaw
+    .split('\n')
+    .map((r) => r.trim())
+    .filter(Boolean);
+  const preferredRemote = remotes.includes('origin') ? 'origin' : remotes[0] || '';
 
   try {
-    await runGit(appRoot, ['fetch', '--tags', '--prune'], 30_000);
+    const fetchArgs = preferredRemote
+      ? ['fetch', '--tags', '--prune', preferredRemote]
+      : ['fetch', '--tags', '--prune'];
+    await runGit(appRoot, fetchArgs, 30_000);
     steps.push({ id: 'git-fetch', label: 'Fetched upstream repository', status: 'ok' });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -502,13 +634,67 @@ export async function applyGitPullUpdate(appRoot: string): Promise<{
     };
   }
 
+  const remoteBranches: Record<string, string[]> = {};
+  const remoteHeadBranch: Record<string, string | null> = {};
+  if (!upstreamRef && preferredRemote) {
+    const inspected = await listRemoteBranches(appRoot, preferredRemote);
+    remoteBranches[preferredRemote] = inspected.branches;
+    remoteHeadBranch[preferredRemote] = inspected.headBranch;
+  }
+
+  const target = selectGitPullTarget({
+    currentBranch: currentBranch || null,
+    upstreamRef: upstreamRef || null,
+    remotes,
+    remoteBranches,
+    remoteHeadBranch,
+  });
+
+  if (!target) {
+    const detail =
+      remotes.length === 0
+        ? 'No git remote configured in this repository.'
+        : `No remote branches found on "${preferredRemote}" for branch "${currentBranch || 'HEAD'}".`;
+    steps.push({
+      id: 'git-pull',
+      label: 'Resolve upstream tracking branch',
+      status: 'failed',
+      detail,
+    });
+    return {
+      ok: false,
+      steps,
+      newVersion: readPackageVersion(appRoot),
+      newCommit: beforeCommit || null,
+      error: `Repository fast-forward blocked: ${detail}`,
+    };
+  }
+
   try {
-    const pullOut = await runGit(appRoot, ['pull', '--ff-only'], 45_000);
+    let pullOut = '';
+    if (target.mode === 'tracked') {
+      pullOut = await runGit(appRoot, ['pull', '--ff-only'], 45_000);
+    } else if (target.mode === 'detached') {
+      pullOut = await runGit(appRoot, ['merge', '--ff-only', target.ref], 45_000);
+    } else {
+      if (target.shouldSetUpstream && currentBranch && currentBranch !== 'HEAD') {
+        await runGit(appRoot, [
+          'branch',
+          `--set-upstream-to=${target.ref}`,
+          currentBranch,
+        ]).catch(() => {
+          // Non-fatal if branch config is read-only; explicit pull still succeeds
+        });
+      }
+      pullOut = await runGit(appRoot, ['pull', '--ff-only', target.remote, target.branch], 45_000);
+    }
+
+    const firstLine = pullOut.split('\n')[0]?.trim() || 'Up to date';
     steps.push({
       id: 'git-pull',
       label: 'Updated source code (fast-forward)',
       status: 'ok',
-      detail: pullOut.split('\n')[0] || 'Up to date',
+      detail: target.mode === 'tracked' ? firstLine : `${firstLine} (${target.ref})`,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

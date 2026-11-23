@@ -81,6 +81,7 @@ export const AVAILABLE_COMMANDS = [
   '/skills',
   '/recall',
   '/context',
+  '/activity',
   '/toolsets',
   '/memory',
   '/cron',
@@ -352,6 +353,40 @@ export function executeCliInput(rawInput: string, ctx: CliContext): CliExecution
           ? `HERMES AGENT // MODEL CONTEXT WINDOW\n  Active model: ${model}\n  Context meter enabled in workspace top bar.`
           : 'HERMES AGENT // MODEL CONTEXT WINDOW\n  Context meter hidden from top bar.',
         uiPatch: { showContextMeter: nextShow },
+      };
+    }
+
+    case '/activity': {
+      const arg = argStr.toLowerCase();
+      if (arg === 'collapse' || arg === 'compact') {
+        return {
+          type: 'handled',
+          mood: 'focused',
+          spokenText: 'Activity and tool calls will start collapsed.',
+          output: 'HERMES AGENT // ACTIVITY & TOOL CALLS\n  Inline activity enabled (collapsed by default).',
+          uiPatch: { showThinking: true, activityTraceExpanded: false },
+        };
+      }
+      if (arg === 'expand' || arg === 'open') {
+        return {
+          type: 'handled',
+          mood: 'focused',
+          spokenText: 'Activity and tool calls will start expanded.',
+          output: 'HERMES AGENT // ACTIVITY & TOOL CALLS\n  Inline activity enabled (expanded by default).',
+          uiPatch: { showThinking: true, activityTraceExpanded: true },
+        };
+      }
+      const nextShow = arg === 'off' || arg === 'hide' || arg === 'close' ? false : true;
+      return {
+        type: 'handled',
+        mood: 'focused',
+        spokenText: nextShow
+          ? 'Activity and tool calls enabled in chat.'
+          : 'Activity and tool calls hidden in chat.',
+        output: nextShow
+          ? 'HERMES AGENT // ACTIVITY & TOOL CALLS\n  Inline activity and tool calls shown in chat.'
+          : 'HERMES AGENT // ACTIVITY & TOOL CALLS\n  Inline activity and tool calls hidden.',
+        uiPatch: { showThinking: nextShow },
       };
     }
 
